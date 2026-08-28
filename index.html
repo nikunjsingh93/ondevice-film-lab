@@ -4,6 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film date stamps, and exporting locally." />
+<meta name="theme-color" content="#191c19" />
+<meta name="application-name" content="OnDevice Film Lab" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Film Lab" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
 <style>
   :root{
     --bg:#111311; --panel:#191c19; --panel2:#202420; --line:#313731;
@@ -1067,6 +1076,15 @@
 
   updateButtons();
 })();
+</script>
+<script>
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(error => {
+        console.warn("Offline support could not be enabled", error);
+      });
+    });
+  }
 </script>
 </body>
 </html>
