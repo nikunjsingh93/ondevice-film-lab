@@ -54,17 +54,16 @@
   .sidebarIntro{padding:2px 2px 1px}
   .brandTitle{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .brandLogo{width:42px;height:42px;border-radius:10px;flex:0 0 auto;display:block}
-  .drop{
-    border:1.5px dashed #46566e;
+  .photoPicker{
+    border:1px solid #46566e;
     border-radius:15px;
     padding:18px;
     text-align:center;
     background:#121823;
     transition:.15s
   }
-  .drop.drag{border-color:var(--accent);background:#19263a}
-  .drop strong{display:block;font-size:16px;margin-bottom:5px}
-  .drop small{color:var(--muted)}
+  .photoPicker strong{display:block;font-size:16px;margin-bottom:5px}
+  .photoPicker small{color:var(--muted)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   button,.button{
     border:1px solid var(--line);
@@ -288,20 +287,28 @@
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
   .tip{font-size:12px;color:var(--muted)}
-  .main:fullscreen,
-  .main:-webkit-full-screen{
+  .app:fullscreen,
+  .app:-webkit-full-screen{
     width:100vw;
     height:100vh;
     max-width:none;
     margin:0;
-    border-radius:0
+    padding:14px 22px;
+    overflow:auto;
+    background:linear-gradient(180deg,#0d1118,#151c28 55%,#0f141d)
   }
-  .main:fullscreen .viewer,
-  .main:-webkit-full-screen .viewer{
+  .app:fullscreen .layout,
+  .app:-webkit-full-screen .layout{height:100%}
+  .app:fullscreen .sidebar,
+  .app:-webkit-full-screen .sidebar,
+  .app:fullscreen .main,
+  .app:-webkit-full-screen .main{top:0;height:100%;max-height:100%}
+  .app:fullscreen .viewer,
+  .app:-webkit-full-screen .viewer{
     min-height:0
   }
-  .main:fullscreen .compareStage,
-  .main:-webkit-full-screen .compareStage{
+  .app:fullscreen .compareStage,
+  .app:-webkit-full-screen .compareStage{
     height:100%;
     min-height:0
   }
@@ -338,7 +345,7 @@
 </style>
 </head>
 <body>
-<div class="app">
+<div id="appRoot" class="app">
   <div class="layout">
     <aside class="card sidebar">
       <div class="sidebarIntro">
@@ -346,11 +353,11 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and halos, add film fade, bloom and grain, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
+        <div class="sub">Soften hard digital sharpening and halos, and add film fade, bloom and grain. Your photos never leave your device.</div>
       </div>
 
-      <div id="drop" class="drop">
-        <strong>Drop photos or a DCIM folder</strong>
+      <div class="photoPicker">
+        <strong>Choose photos or a DCIM folder</strong>
         <small>JPEG, PNG and WebP. EXIF orientation is honored by the browser and baked into exports.</small>
         <div class="btnrow">
           <label class="button" for="fileInput">Choose photos</label>
@@ -451,7 +458,7 @@
       </div>
     </aside>
 
-    <main id="mainPanel" class="card main">
+    <main class="card main">
       <div class="toolbar">
         <div id="filename" class="filename">No photo selected</div>
         <div class="spacer"></div>
@@ -497,7 +504,7 @@
 
   const $ = s => document.querySelector(s);
   const els = {
-    drop: $("#drop"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
+    appRoot: $("#appRoot"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
     fade: $("#fade"), bloom: $("#bloom"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
@@ -515,7 +522,7 @@
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
-    progress: $("#progress"), progressBar: $("#progress > div"), mainPanel: $("#mainPanel")
+    progress: $("#progress"), progressBar: $("#progress > div")
   };
 
   const items = [];
@@ -1182,10 +1189,21 @@
     makePreview(i);
   }
 
-  function refreshThumb(i){
+  async function refreshThumb(i){
     const node=els.thumbs.children[i];
-    if(!node) return;
-    node.querySelector(".rot").textContent = items[i].rotation ? `${items[i].rotation}°` : "";
+    const item=items[i];
+    if(!node||!item) return;
+    const rotation=item.rotation;
+    node.querySelector(".rot").textContent=rotation ? `${rotation}°` : "";
+    try{
+      const image=await decode(item.file);
+      const canvas=drawRotated(image,rotation,420);
+      image.close?.();
+      if(item.rotation!==rotation||!node.isConnected) return;
+      node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);
+    }catch(e){
+      console.error(e);
+    }
   }
 
   async function addFiles(list){
@@ -1219,31 +1237,6 @@
   els.fileInput.addEventListener("change",e=>addFiles(e.target.files));
   els.folderInput.addEventListener("change",e=>addFiles(e.target.files));
 
-  async function traverseEntry(entry,path=""){
-    if(entry.isFile) return new Promise(res=>entry.file(f=>res([f]),()=>res([])));
-    if(entry.isDirectory){
-      const reader=entry.createReader(), out=[];
-      while(true){
-        const batch=await new Promise(res=>reader.readEntries(res,()=>res([])));
-        if(!batch.length) break;
-        for(const e of batch) out.push(...await traverseEntry(e,path+entry.name+"/"));
-      }
-      return out;
-    }
-    return [];
-  }
-  els.drop.addEventListener("dragover",e=>{e.preventDefault();els.drop.classList.add("drag")});
-  els.drop.addEventListener("dragleave",()=>els.drop.classList.remove("drag"));
-  els.drop.addEventListener("drop",async e=>{
-    e.preventDefault(); els.drop.classList.remove("drag");
-    const dt=e.dataTransfer;
-    const entries=[...dt.items].map(i=>i.webkitGetAsEntry?.()).filter(Boolean);
-    if(entries.length){
-      const fs=[]; for(const en of entries) fs.push(...await traverseEntry(en));
-      addFiles(fs);
-    } else addFiles(dt.files);
-  });
-
   function rotate(delta){
     if(current<0)return;
     items[current].rotation=(items[current].rotation+delta+360)%360;
@@ -1255,10 +1248,21 @@
   els.zoomResetBtn.onclick=()=>setPreviewZoom(1);
   els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
 
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
+    const target=e.target;
+    if(target instanceof HTMLElement&&(target.isContentEditable||/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(target.tagName))) return;
+    if(busy||current<0||!items.length) return;
+    e.preventDefault();
+    const next=e.key==="ArrowLeft" ? Math.max(0,current-1) : Math.min(items.length-1,current+1);
+    if(next===current) return;
+    select(next);
+  });
+
   async function toggleFullScreen(){
     try{
       if(!document.fullscreenElement){
-        await els.mainPanel.requestFullscreen?.();
+        await els.appRoot.requestFullscreen?.();
         els.fullBtn.textContent = "⤢";
         els.fullBtn.title = "Exit full screen";
         els.fullBtn.setAttribute("aria-label","Exit full screen");
