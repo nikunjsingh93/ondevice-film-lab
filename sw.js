@@ -1,8 +1,9 @@
-const CACHE_NAME = "ondevice-film-lab-v2";
+const CACHE_NAME = "ondevice-film-lab-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
+  "./branding/ondevice-film-lab-logo-v4.png",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png"

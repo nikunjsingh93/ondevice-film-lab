@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
 <meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film date stamps, and exporting locally." />
-<meta name="theme-color" content="#191c19" />
+<meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -15,24 +15,24 @@
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
 <style>
   :root{
-    --bg:#111311; --panel:#191c19; --panel2:#202420; --line:#313731;
-    --text:#f3f5ef; --muted:#aab2a8; --accent:#d8ff72; --danger:#ff8f8f;
+    --bg:#10141c; --panel:#1a202c; --panel2:#222b3a; --line:#344156;
+    --text:#f4f6fb; --muted:#aab6c8; --accent:#78a9dd; --danger:#ff8f8f;
     --radius:18px;
   }
   *{box-sizing:border-box}
   body{
     margin:0;
-    background:linear-gradient(180deg,#0f110f,#151815 55%,#0f110f);
+    background:linear-gradient(180deg,#0d1118,#151c28 55%,#0f141d);
     color:var(--text);
     font:14px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   }
   button,input,select{font:inherit}
   .app{max-width:1440px;margin:auto;padding:14px 22px 22px}
-  h1{font-size:26px;line-height:1.1;margin:0 0 8px;letter-spacing:-.035em}
+  h1{font-size:26px;line-height:1.1;margin:0;letter-spacing:-.035em}
   .sub{color:var(--muted);font-size:12.5px;line-height:1.5}
   .layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px}
   .card{
-    background:rgba(25,28,25,.96);
+    background:rgba(26,32,44,.96);
     border:1px solid var(--line);
     border-radius:var(--radius);
     box-shadow:0 18px 55px #0005;
@@ -52,29 +52,31 @@
     scrollbar-gutter:stable
   }
   .sidebarIntro{padding:2px 2px 1px}
+  .brandTitle{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .brandLogo{width:42px;height:42px;border-radius:10px;flex:0 0 auto;display:block}
   .drop{
-    border:1.5px dashed #495149;
+    border:1.5px dashed #46566e;
     border-radius:15px;
     padding:18px;
     text-align:center;
-    background:#141714;
+    background:#121823;
     transition:.15s
   }
-  .drop.drag{border-color:var(--accent);background:#1b2118}
+  .drop.drag{border-color:var(--accent);background:#19263a}
   .drop strong{display:block;font-size:16px;margin-bottom:5px}
   .drop small{color:var(--muted)}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   button,.button{
     border:1px solid var(--line);
-    background:#242924;
+    background:#242e3d;
     color:var(--text);
     border-radius:11px;
     padding:10px 12px;
     cursor:pointer;
     transition:.15s
   }
-  button:hover,.button:hover{background:#2c322c;border-color:#454e45}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#12150d;font-weight:750}
+  button:hover,.button:hover{background:#2d394b;border-color:#4a5d77}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:750}
   button.primary:hover{filter:brightness(.95)}
   button:disabled{opacity:.45;cursor:not-allowed}
   input[type=file]{display:none}
@@ -85,7 +87,7 @@
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
   .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
   input[type=range]{width:100%;accent-color:var(--accent);touch-action:pan-y}
-  select{width:100%;background:#222722;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
+  select{width:100%;background:#222c3b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
   .check{display:flex;align-items:center;gap:8px;color:var(--muted)}
   .check input{accent-color:var(--accent)}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
@@ -107,7 +109,7 @@
   .viewer{
     position:relative;
     min-height:600px;
-    background:#111411;
+    background:#10151e;
     overflow:hidden
   }
   .compareStage{
@@ -120,10 +122,10 @@
     padding:14px;
     overflow:auto;
     background:
-      linear-gradient(45deg,#171a17 25%,transparent 25%) 0 0/20px 20px,
-      linear-gradient(45deg,transparent 75%,#171a17 75%) 0 0/20px 20px,
-      linear-gradient(45deg,transparent 75%,#171a17 75%) 10px -10px/20px 20px,
-      linear-gradient(45deg,#171a17 25%,#121512 25%) 10px -10px/20px 20px
+      linear-gradient(45deg,#171e29 25%,transparent 25%) 0 0/20px 20px,
+      linear-gradient(45deg,transparent 75%,#171e29 75%) 0 0/20px 20px,
+      linear-gradient(45deg,transparent 75%,#171e29 75%) 10px -10px/20px 20px,
+      linear-gradient(45deg,#171e29 25%,#121822 25%) 10px -10px/20px 20px
   }
   .compareBox{
     position:relative;
@@ -173,8 +175,8 @@
     transform:translate(-50%,-50%);
     width:42px;height:42px;
     border-radius:50%;
-    background:#f5f7f2;
-    color:#151815;
+    background:#f5f7fb;
+    color:#151c28;
     display:grid;
     place-items:center;
     font:700 20px/1 system-ui,sans-serif;
@@ -186,8 +188,8 @@
     z-index:5;
     padding:6px 9px;
     border-radius:999px;
-    background:#101310cc;
-    color:#f2f4ef;
+    background:#101621cc;
+    color:#f4f6fb;
     font-size:11px;
     line-height:1;
     backdrop-filter:blur(7px);
@@ -198,12 +200,12 @@
   canvas{display:block;max-width:100%;max-height:70vh;box-shadow:0 8px 35px #0007}
   .empty{
     grid-column:1/-1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;
-    color:var(--muted);background:#121512;min-height:600px;text-align:center;padding:30px
+    color:var(--muted);background:#121822;min-height:600px;text-align:center;padding:30px
   }
   .empty b{font-size:20px;color:var(--text)}
   .filmstripWrap{
     border-top:1px solid var(--line);
-    background:#171a17;
+    background:#171e29;
     padding:10px 12px 12px
   }
   .filmstripHead{
@@ -233,16 +235,16 @@
     border-radius:12px;
     cursor:pointer;
     border:1px solid transparent;
-    background:#1a1f1a
+    background:#1b2330
   }
-  .thumb:hover{background:#202620}
-  .thumb.active{background:#252b22;border-color:#4c5741}
+  .thumb:hover{background:#222d3c}
+  .thumb.active{background:#27344a;border-color:#617fa7}
   .thumb img{
     width:100%;
     height:84px;
     object-fit:cover;
     border-radius:8px;
-    background:#0d0f0d;
+    background:#0d1118;
     display:block
   }
   .thumb .name{
@@ -259,7 +261,7 @@
     padding:11px 14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap
   }
   .status{margin-left:auto}
-  .progress{height:5px;background:#0e100e;border-radius:99px;overflow:hidden;display:none}
+  .progress{height:5px;background:#0e131b;border-radius:99px;overflow:hidden;display:none}
   .progress>div{height:100%;width:0;background:var(--accent)}
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
@@ -303,7 +305,10 @@
   <div class="layout">
     <aside class="card sidebar">
       <div class="sidebarIntro">
-        <h1>OnDevice Film Lab</h1>
+        <div class="brandTitle">
+          <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
+          <h1>OnDevice Film Lab</h1>
+        </div>
         <div class="sub">Soften hard digital sharpening and halos, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
       </div>
 
@@ -360,7 +365,7 @@
 
             <div class="control">
               <label><span>Stamp color</span><span id="stampColorText" class="value">#F28C28</span></label>
-              <input id="stampColor" type="color" value="#F28C28" style="width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:#222722;padding:3px">
+              <input id="stampColor" type="color" value="#F28C28" style="width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:#222c3b;padding:3px">
             </div>
 
             <div class="control">

@@ -6,8 +6,8 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#111311",
-  "theme_color": "#191c19",
+  "background_color": "#10141c",
+  "theme_color": "#1b2230",
   "orientation": "any",
   "categories": ["photo", "utilities"],
   "icons": [
