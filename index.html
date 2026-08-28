@@ -120,6 +120,7 @@
   .compareStage{
     position:relative;
     width:100%;
+    height:600px;
     min-height:600px;
     overflow:auto;
     background:
@@ -128,6 +129,8 @@
       linear-gradient(45deg,transparent 75%,#171e29 75%) 10px -10px/20px 20px,
       linear-gradient(45deg,#171e29 25%,#121822 25%) 10px -10px/20px 20px
   }
+  .compareStage.isZoomed{cursor:grab;touch-action:none}
+  .compareStage.isPanning{cursor:grabbing}
   .zoomSurface{
     width:max-content;
     min-width:100%;
@@ -294,12 +297,13 @@
   }
   .main:fullscreen .compareStage,
   .main:-webkit-full-screen .compareStage{
+    height:calc(100vh - 260px);
     min-height:calc(100vh - 260px)
   }
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}
     .sidebar{position:static;max-height:none}
-    .compareStage{min-height:350px}
+    .compareStage{height:350px;min-height:350px}
     .viewer{min-height:350px}
     .thumb{width:122px;min-width:122px}
     .thumb img{height:72px}
@@ -356,20 +360,20 @@
         <div class="editBlock">
           <div class="subsectionTitle">Film look</div>
           <div class="control">
-            <label><span>Fade</span><span id="fadeVal" class="value">0%</span></label>
-            <input id="fade" type="range" min="0" max="100" value="0">
+            <label><span>Fade</span><span id="fadeVal" class="value">30%</span></label>
+            <input id="fade" type="range" min="0" max="100" value="30">
           </div>
           <div class="control">
-            <label><span>Bloom</span><span id="bloomVal" class="value">0%</span></label>
-            <input id="bloom" type="range" min="0" max="100" value="0">
+            <label><span>Bloom</span><span id="bloomVal" class="value">30%</span></label>
+            <input id="bloom" type="range" min="0" max="100" value="30">
           </div>
         </div>
 
         <div class="editBlock">
           <div class="subsectionTitle">Film grain</div>
-          <label class="check"><input id="grainEnabled" type="checkbox"> Add film grain</label>
+          <label class="check"><input id="grainEnabled" type="checkbox" checked> Add film grain</label>
 
-          <div id="grainOptions" style="margin-top:10px;opacity:.5;pointer-events:none">
+          <div id="grainOptions" style="margin-top:10px">
             <div class="control">
               <label><span>Grain strength</span><span id="grainStrengthVal" class="value">20%</span></label>
               <input id="grainStrength" type="range" min="0" max="100" value="20">
@@ -961,6 +965,7 @@
 
     box.style.width=`${+box.dataset.fitWidth*previewZoom}px`;
     box.style.height=`${+box.dataset.fitHeight*previewZoom}px`;
+    stage.classList.toggle("isZoomed",previewZoom>1);
     els.zoomResetBtn.textContent=`Reset ${Math.round(previewZoom*100)}%`;
     updateButtons();
   }
@@ -1002,10 +1007,45 @@
     divider.addEventListener("pointerdown",down);
   }
 
+  function wirePan(stage){
+    const down=(e)=>{
+      if(previewZoom<=1||e.target.closest(".divider")||(e.pointerType==="mouse"&&e.button!==0)) return;
+      if(stage.scrollWidth<=stage.clientWidth&&stage.scrollHeight<=stage.clientHeight) return;
+      e.preventDefault();
+      const startX=e.clientX;
+      const startY=e.clientY;
+      const startLeft=stage.scrollLeft;
+      const startTop=stage.scrollTop;
+      stage.classList.add("isPanning");
+      stage.setPointerCapture?.(e.pointerId);
+
+      const move=(ev)=>{
+        stage.scrollLeft=startLeft-(ev.clientX-startX);
+        stage.scrollTop=startTop-(ev.clientY-startY);
+      };
+      const up=(ev)=>{
+        stage.releasePointerCapture?.(ev.pointerId);
+        stage.classList.remove("isPanning");
+        stage.removeEventListener("pointermove",move);
+        stage.removeEventListener("pointerup",up);
+        stage.removeEventListener("pointercancel",up);
+      };
+      stage.addEventListener("pointermove",move);
+      stage.addEventListener("pointerup",up);
+      stage.addEventListener("pointercancel",up);
+    };
+    stage.addEventListener("pointerdown",down);
+  }
+
   async function makePreview(index){
     if(index<0||!items[index]) return;
     const token=++previewToken;
     const it=items[index];
+    const previousStage=els.viewer.querySelector(".compareStage");
+    const previousCenter=previousStage ? {
+      x:(previousStage.scrollLeft+previousStage.clientWidth/2)/Math.max(1,previousStage.scrollWidth),
+      y:(previousStage.scrollTop+previousStage.clientHeight/2)/Math.max(1,previousStage.scrollHeight)
+    } : null;
     setStatus("Rendering preview…");
     try{
       const img=await decode(it.file);
@@ -1054,14 +1094,22 @@
       els.viewer.appendChild(stage);
 
       wireCompare(box,divider);
+      wirePan(stage);
       applyPreviewZoom(true);
+      if(previousCenter&&previewZoom>1){
+        stage.scrollLeft=previousCenter.x*stage.scrollWidth-stage.clientWidth/2;
+        stage.scrollTop=previousCenter.y*stage.scrollHeight-stage.clientHeight/2;
+      }
 
       const captureDate=await getCaptureDate(it.file);
       els.dims.textContent=`Preview ${original.width} × ${original.height}px • ${captureDate.toLocaleString()}`;
       setStatus("Preview ready");
 
-      const activeThumb = els.thumbs.children[index];
-      activeThumb?.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"});
+      const activeThumb=els.thumbs.children[index];
+      if(activeThumb){
+        const targetLeft=activeThumb.offsetLeft-(els.thumbs.clientWidth-activeThumb.offsetWidth)/2;
+        els.thumbs.scrollTo({left:Math.max(0,targetLeft),behavior:"smooth"});
+      }
     }catch(e){
       console.error(e);
       setStatus("Could not decode this image");

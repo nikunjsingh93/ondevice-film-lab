@@ -40,11 +40,11 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Imports individual photos or an entire DCIM folder
 - Supports JPEG, PNG, and WebP input
 - Adjustable de-sharpen strength, halo radius, and edge threshold
-- Old-film fade with adjustable strength
-- Diffusion-style highlight bloom inspired by black-mist filters
-- Optional film grain with adjustable strength, size, and roughness
+- Old-film fade with adjustable strength, set to 30% by default
+- Diffusion-style highlight bloom inspired by black-mist filters, set to 30% by default
+- Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
-- Preview zoom from 50% to 400%, with reset and scrollable close inspection
+- Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
 - Manual rotation with orientation baked into exports
 - Optional retro segmented date stamp with a soft orange film-like glow
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
