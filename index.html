@@ -110,9 +110,10 @@
     overflow:hidden;
     text-overflow:ellipsis
   }
-  .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1}
+  .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
   .viewer{
     position:relative;
+    flex:1 1 auto;
     min-height:600px;
     background:#10151e;
     overflow:hidden
@@ -221,6 +222,7 @@
   }
   .empty b{font-size:20px;color:var(--text)}
   .filmstripWrap{
+    flex:0 0 auto;
     border-top:1px solid var(--line);
     background:#171e29;
     padding:10px 12px 12px
@@ -293,12 +295,24 @@
   }
   .main:fullscreen .viewer,
   .main:-webkit-full-screen .viewer{
-    min-height:calc(100vh - 205px)
+    min-height:0
   }
   .main:fullscreen .compareStage,
   .main:-webkit-full-screen .compareStage{
-    height:calc(100vh - 260px);
-    min-height:calc(100vh - 260px)
+    height:100%;
+    min-height:0
+  }
+  @media(min-width:901px){
+    .main{
+      position:sticky;
+      top:14px;
+      align-self:start;
+      height:calc(100vh - 28px);
+      min-height:0
+    }
+    .viewer{min-height:0}
+    .compareStage{height:100%;min-height:0}
+    .empty{height:100%;min-height:0}
   }
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}
@@ -957,7 +971,7 @@
 
     if(recalculateFit||!box.dataset.fitWidth){
       const availableWidth=Math.max(1,stage.clientWidth-28);
-      const availableHeight=Math.max(1,window.innerHeight*.70);
+      const availableHeight=Math.max(1,stage.clientHeight-28);
       const fitScale=Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
       box.dataset.fitWidth=String(Math.max(1,canvas.width*fitScale));
       box.dataset.fitHeight=String(Math.max(1,canvas.height*fitScale));
