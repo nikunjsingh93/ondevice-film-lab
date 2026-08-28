@@ -95,16 +95,21 @@
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
   .main{min-height:760px;display:flex;flex-direction:column}
   .toolbar{
-    padding:12px 14px;
+    padding:7px 9px;
     border-bottom:1px solid var(--line);
-    display:flex;gap:8px;align-items:center;flex-wrap:wrap
+    display:flex;gap:6px;align-items:center;flex-wrap:nowrap
   }
-  .toolbar .spacer{flex:1}
+  .toolbar button{padding:7px 9px;white-space:nowrap}
+  .toolbar .spacer{display:none}
+  .toolbar .iconButton{width:34px;min-width:34px;padding:7px}
   .zoomControls{display:flex;align-items:center;gap:5px}
-  .zoomControls button{min-width:40px;padding:10px}
-  .zoomControls .zoomReset{min-width:92px;font-variant-numeric:tabular-nums}
+  .zoomControls button{min-width:34px;padding:7px}
+  .zoomControls .zoomReset{width:56px;min-width:56px;font-variant-numeric:tabular-nums}
   .filename{
+    flex:1 1 auto;
+    min-width:0;
     font-weight:650;
+    font-size:12px;
     max-width:420px;
     white-space:nowrap;
     overflow:hidden;
@@ -225,16 +230,16 @@
     flex:0 0 auto;
     border-top:1px solid var(--line);
     background:#171e29;
-    padding:10px 12px 12px
+    padding:6px 8px 7px
   }
   .filmstripHead{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
-    margin-bottom:8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em
+    margin-bottom:4px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em
   }
   .thumbs{
     display:flex;
     align-items:flex-start;
-    gap:8px;
+    gap:6px;
     overflow-x:auto;
     overflow-y:hidden;
     overscroll-behavior-x:contain;
@@ -247,11 +252,11 @@
     display:grid;
     grid-template-rows:auto auto auto;
     align-content:start;
-    gap:4px;
-    width:140px;
-    min-width:140px;
-    padding:7px;
-    border-radius:12px;
+    gap:2px;
+    width:168px;
+    min-width:168px;
+    padding:5px;
+    border-radius:10px;
     cursor:pointer;
     border:1px solid transparent;
     background:#1b2330
@@ -260,7 +265,7 @@
   .thumb.active{background:#27344a;border-color:#617fa7}
   .thumb img{
     width:100%;
-    height:84px;
+    height:70px;
     object-fit:cover;
     border-radius:8px;
     background:#0d1118;
@@ -270,16 +275,14 @@
     white-space:nowrap;
     overflow:hidden;
     text-overflow:ellipsis;
-    font-size:13px;
+    font-size:11px;
+    line-height:1.2;
     font-weight:600
   }
-  .thumb .meta{font-size:11px;line-height:1.35;color:var(--muted)}
-  .rot{font-size:11px;line-height:1.25;color:var(--accent)}
+  .thumb .meta{font-size:9px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rot{font-size:9px;line-height:1.15;color:var(--accent)}
   .rot:empty{display:none}
-  .footerbar{
-    padding:11px 14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap
-  }
-  .status{margin-left:auto}
+  .visuallyHidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
   .progress{height:5px;background:#0e131b;border-radius:99px;overflow:hidden;display:none}
   .progress>div{height:100%;width:0;background:var(--accent)}
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
@@ -317,10 +320,12 @@
   @media(max-width:900px){
     .layout{grid-template-columns:1fr}
     .sidebar{position:static;max-height:none}
+    .toolbar{flex-wrap:wrap}
+    .filename{flex-basis:100%}
     .compareStage{height:350px;min-height:350px}
     .viewer{min-height:350px}
-    .thumb{width:122px;min-width:122px}
-    .thumb img{height:72px}
+    .thumb{width:150px;min-width:150px}
+    .thumb img{height:64px}
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar{
@@ -450,17 +455,16 @@
       <div class="toolbar">
         <div id="filename" class="filename">No photo selected</div>
         <div class="spacer"></div>
-        <button id="leftBtn" disabled>↶ Rotate left</button>
-        <button id="rightBtn" disabled>↷ Rotate right</button>
-        <button id="resetRotBtn" disabled>Reset rotation</button>
+        <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>↶</button>
+        <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>↷</button>
         <div class="zoomControls" aria-label="Preview zoom controls">
           <button id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out" disabled>−</button>
-          <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>Reset 100%</button>
+          <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>100%</button>
           <button id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in" disabled>+</button>
         </div>
-        <button id="fullBtn" disabled>⛶ Full screen</button>
-        <button id="saveOneBtn" disabled>Save this photo</button>
-        <button id="zipBtn" class="primary" disabled>Download ZIP</button>
+        <button id="fullBtn" class="iconButton" title="Full screen" aria-label="Full screen" disabled>⛶</button>
+        <button id="saveOneBtn" disabled>Save photo</button>
+        <button id="zipBtn" class="primary" disabled>Download all .zip</button>
       </div>
 
       <div class="viewerShell">
@@ -481,12 +485,8 @@
       </div>
 
       <div id="progress" class="progress"><div></div></div>
-      <div class="footerbar">
-        <span id="dims">—</span>
-        <span>•</span>
-        <span>Rotation is physically baked into exported pixels.</span>
-        <span id="status" class="status">Ready</span>
-      </div>
+      <span id="dims" class="visuallyHidden">—</span>
+      <span id="status" class="visuallyHidden" aria-live="polite">Ready</span>
     </main>
   </div>
 </div>
@@ -509,7 +509,7 @@
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
-    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), resetRotBtn: $("#resetRotBtn"),
+    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
@@ -536,7 +536,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.resetRotBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -546,7 +546,6 @@
     const selected = current >= 0;
     els.leftBtn.disabled = !selected;
     els.rightBtn.disabled = !selected;
-    els.resetRotBtn.disabled = !selected;
     els.zoomOutBtn.disabled = !selected || previewZoom<=.5;
     els.zoomResetBtn.disabled = !selected || previewZoom===1;
     els.zoomInBtn.disabled = !selected || previewZoom>=4;
@@ -980,7 +979,7 @@
     box.style.width=`${+box.dataset.fitWidth*previewZoom}px`;
     box.style.height=`${+box.dataset.fitHeight*previewZoom}px`;
     stage.classList.toggle("isZoomed",previewZoom>1);
-    els.zoomResetBtn.textContent=`Reset ${Math.round(previewZoom*100)}%`;
+    els.zoomResetBtn.textContent=`${Math.round(previewZoom*100)}%`;
     updateButtons();
   }
 
@@ -1252,7 +1251,6 @@
   }
   els.leftBtn.onclick=()=>rotate(-90);
   els.rightBtn.onclick=()=>rotate(90);
-  els.resetRotBtn.onclick=()=>{ if(current>=0){items[current].rotation=0;refreshThumb(current);makePreview(current)} };
   els.zoomOutBtn.onclick=()=>setPreviewZoom(previewZoom-.25);
   els.zoomResetBtn.onclick=()=>setPreviewZoom(1);
   els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
@@ -1261,10 +1259,14 @@
     try{
       if(!document.fullscreenElement){
         await els.mainPanel.requestFullscreen?.();
-        els.fullBtn.textContent = "⤢ Exit full screen";
+        els.fullBtn.textContent = "⤢";
+        els.fullBtn.title = "Exit full screen";
+        els.fullBtn.setAttribute("aria-label","Exit full screen");
       }else{
         await document.exitFullscreen?.();
-        els.fullBtn.textContent = "⛶ Full screen";
+        els.fullBtn.textContent = "⛶";
+        els.fullBtn.title = "Full screen";
+        els.fullBtn.setAttribute("aria-label","Full screen");
       }
     }catch(e){
       console.error(e);
@@ -1273,7 +1275,10 @@
   }
   els.fullBtn.onclick=toggleFullScreen;
   document.addEventListener("fullscreenchange",()=>{
-    els.fullBtn.textContent = document.fullscreenElement ? "⤢ Exit full screen" : "⛶ Full screen";
+    const active=!!document.fullscreenElement;
+    els.fullBtn.textContent=active ? "⤢" : "⛶";
+    els.fullBtn.title=active ? "Exit full screen" : "Full screen";
+    els.fullBtn.setAttribute("aria-label",els.fullBtn.title);
     requestAnimationFrame(()=>applyPreviewZoom(true));
   });
   window.addEventListener("resize",debounce(()=>applyPreviewZoom(true),120));
