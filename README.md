@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="branding/ondevice-film-lab-logo-v4.png" alt="OnDevice Film Lab logo" width="180">
-</p>
-
-# OnDevice Film Lab
+<h1><img src="branding/ondevice-film-lab-logo-v4.png" alt="OnDevice Film Lab logo" width="48" height="48" align="absmiddle"> OnDevice Film Lab</h1>
 
 ## [Open OnDevice Film Lab](https://nikunjsingh93.github.io/ondevice-film-lab/)
 
