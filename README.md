@@ -51,6 +51,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
 - Individual JPEG downloads or **Download all .zip** batch export
 - Responsive layout for phones, tablets, and desktop browsers
+- Lightroom-style mobile tool bar, settings sheets, and hamburger import menu
 - Fixed desktop editing workspace that keeps the preview and filmstrip visible
 - Whole-app fullscreen mode
 - Installable PWA with offline access after the first successful load

@@ -290,6 +290,7 @@
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
   .tip{font-size:12px;color:var(--muted)}
+  .mobileOnly,.mobilePanelHeader,.mobileTools,.mobileBackdrop{display:none}
   .app:fullscreen,
   .app:-webkit-full-screen{
     width:100vw;
@@ -328,22 +329,92 @@
     .empty{height:100%;min-height:0}
   }
   @media(max-width:900px){
-    .layout{grid-template-columns:1fr}
-    .sidebar{position:static;max-height:none}
-    .toolbar{flex-wrap:wrap}
-    .filename{flex-basis:100%}
-    .compareStage{height:350px;min-height:350px}
-    .viewer{min-height:350px}
+    html,body{height:100%;overflow:hidden}
+    body.mobilePanelOpen{overflow:hidden}
+    .app{height:100dvh;padding:0;background:#0d1118}
+    .layout{height:100%;grid-template-columns:1fr}
+    .main{height:100%;min-height:0;border-radius:0;border-left:0;border-right:0}
+    .sidebar{display:none}
+    .sidebar.mobileOpen{
+      display:flex;
+      position:fixed;
+      z-index:1002;
+      left:10px;
+      right:10px;
+      bottom:10px;
+      top:auto;
+      width:auto;
+      max-height:min(74vh,680px);
+      padding:14px 16px 18px;
+      border-radius:18px;
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      box-shadow:0 22px 70px #000c
+    }
+    .mobilePanelHeader{
+      display:flex;
+      position:sticky;
+      top:-14px;
+      z-index:2;
+      align-items:center;
+      justify-content:space-between;
+      margin:-14px -16px 4px;
+      padding:10px 14px;
+      background:#1a202cf2;
+      border-bottom:1px solid var(--line);
+      backdrop-filter:blur(12px)
+    }
+    .mobilePanelHeader strong{font-size:15px}
+    .sidebar.mobileOpen>.section{display:contents}
+    .sidebar.mobileOpen>.section>h3,
+    .sidebar.mobileOpen .settingsGroup>.subsectionTitle,
+    .sidebar.mobileOpen .settingsGroup>h3{display:none}
+    .sidebar.mobileOpen .sidebarIntro,
+    .sidebar.mobileOpen .photoPicker,
+    .sidebar.mobileOpen .settingsGroup,
+    .sidebar.mobileOpen .tip{display:none}
+    .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
+    .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
+    .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
+    .sidebar.mobileOpen[data-mobile-panel="grain"] #grainGroup,
+    .sidebar.mobileOpen[data-mobile-panel="stamp"] #stampGroup,
+    .sidebar.mobileOpen[data-mobile-panel="output"] #outputGroup{display:block}
+    .sidebar.mobileOpen .settingsGroup{border-top:0;margin-top:0;padding-top:2px}
+    .mobileBackdrop{
+      position:fixed;
+      z-index:1001;
+      inset:0;
+      background:#05070bb3;
+      backdrop-filter:blur(3px)
+    }
+    .mobileBackdrop.open{display:block}
+    .mobileOnly{display:inline-flex}
+    .toolbar{flex:0 0 auto;flex-wrap:wrap}
+    .filename{flex-basis:calc(100% - 42px)}
+    .viewerShell{flex:1 1 auto;min-height:0}
+    .compareStage{height:100%;min-height:0}
+    .viewer{flex:1 1 auto;min-height:0}
+    .empty{height:100%;min-height:0}
+    .mobileTools{
+      display:flex;
+      flex:0 0 auto;
+      gap:7px;
+      padding:7px 8px;
+      overflow-x:auto;
+      border-top:1px solid var(--line);
+      background:#171e29;
+      scrollbar-width:none
+    }
+    .mobileTools::-webkit-scrollbar{display:none}
+    .mobileTools button{flex:1 0 auto;min-width:68px;padding:8px 11px;border-radius:10px;font-size:12px}
+    .mobileTools button.active{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:750}
     .thumb{width:150px;min-width:150px}
     .thumb img{height:64px}
   }
   @media(max-width:900px) and (orientation:portrait){
-    .sidebar{
-      overflow:visible;
-      overscroll-behavior:auto;
-      scrollbar-gutter:auto;
-      touch-action:auto
-    }
+    .sidebar.mobileOpen{touch-action:auto}
   }
 </style>
 </head>
@@ -351,6 +422,10 @@
 <div id="appRoot" class="app">
   <div class="layout">
     <aside class="card sidebar">
+      <div class="mobilePanelHeader">
+        <strong id="mobilePanelTitle">Menu</strong>
+        <button id="mobilePanelClose" class="iconButton" type="button" aria-label="Close panel">×</button>
+      </div>
       <div class="sidebarIntro">
         <div class="brandTitle">
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
@@ -370,23 +445,25 @@
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
       </div>
 
-      <div class="section">
+      <div id="editSection" class="section">
         <h3>Edits</h3>
-        <div class="subsectionTitle">Softening</div>
-        <div class="control">
-          <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
-          <input id="amount" type="range" min="0" max="100" value="50">
-        </div>
-        <div class="control">
-          <label><span>Halo radius</span><span id="radiusVal" class="value">2.2 px</span></label>
-          <input id="radius" type="range" min="4" max="50" value="22">
-        </div>
-        <div class="control">
-          <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
-          <input id="threshold" type="range" min="0" max="30" value="5">
+        <div id="softeningGroup" class="settingsGroup">
+          <div class="subsectionTitle">Softening</div>
+          <div class="control">
+            <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
+            <input id="amount" type="range" min="0" max="100" value="50">
+          </div>
+          <div class="control">
+            <label><span>Halo radius</span><span id="radiusVal" class="value">2.2 px</span></label>
+            <input id="radius" type="range" min="4" max="50" value="22">
+          </div>
+          <div class="control">
+            <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
+            <input id="threshold" type="range" min="0" max="30" value="5">
+          </div>
         </div>
 
-        <div class="editBlock">
+        <div id="filmGroup" class="editBlock settingsGroup">
           <div class="subsectionTitle">Film look</div>
           <div class="control">
             <label><span>Fade</span><span id="fadeVal" class="value">30%</span></label>
@@ -398,7 +475,7 @@
           </div>
         </div>
 
-        <div class="editBlock">
+        <div id="grainGroup" class="editBlock settingsGroup">
           <div class="subsectionTitle">Film grain</div>
           <label class="check"><input id="grainEnabled" type="checkbox" checked> Add film grain</label>
 
@@ -419,18 +496,20 @@
         </div>
       </div>
 
-      <div class="section">
+      <div id="exportSection" class="section">
         <h3>Export</h3>
-        <div class="control">
-          <label><span>JPEG quality</span><span id="qualityVal" class="value">95%</span></label>
-          <input id="quality" type="range" min="75" max="100" value="95">
+        <div id="outputGroup" class="settingsGroup">
+          <div class="control">
+            <label><span>JPEG quality</span><span id="qualityVal" class="value">95%</span></label>
+            <input id="quality" type="range" min="75" max="100" value="95">
+          </div>
+          <div class="control" style="margin-top:16px">
+            <label class="check renameCheck"><input id="dateRename" type="checkbox" checked> Rename using capture date</label>
+          </div>
+          <div class="notice">Example: <b>20260809_124041_FilmLab.jpg</b>. Instead of DSCFXXXX.jpg.</div>
         </div>
-        <div class="control" style="margin-top:16px">
-          <label class="check renameCheck"><input id="dateRename" type="checkbox" checked> Rename using capture date</label>
-        </div>
-        <div class="notice">Example: <b>20260809_124041_FilmLab.jpg</b>. Instead of DSCFXXXX.jpg.</div>
 
-        <div class="section" style="margin-top:14px">
+        <div id="stampGroup" class="section settingsGroup" style="margin-top:14px">
           <h3>Film date stamp</h3>
           <label class="check"><input id="dateStamp" type="checkbox" checked> Add date stamp to photo</label>
 
@@ -475,8 +554,11 @@
       </div>
     </aside>
 
+    <div id="mobileBackdrop" class="mobileBackdrop"></div>
+
     <main class="card main">
       <div class="toolbar">
+        <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">☰</button>
         <div id="filename" class="filename">No photo selected</div>
         <div class="spacer"></div>
         <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>↶</button>
@@ -497,6 +579,14 @@
             <b>Add some photos</b>
             <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, grain, date-stamp, and filename changes are previewed before export.</span>
           </div>
+        </div>
+
+        <div class="mobileTools" aria-label="Editing tools">
+          <button type="button" data-panel="softening" data-title="Edit">Edit</button>
+          <button type="button" data-panel="film" data-title="Film look">Film</button>
+          <button type="button" data-panel="grain" data-title="Film grain">Grain</button>
+          <button type="button" data-panel="stamp" data-title="Date stamp">Stamp</button>
+          <button type="button" data-panel="output" data-title="Quality">Quality</button>
         </div>
 
         <div class="filmstripWrap">
@@ -522,6 +612,9 @@
   const $ = s => document.querySelector(s);
   const els = {
     appRoot: $("#appRoot"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
+    sidebar: $(".sidebar"), mobileMenuBtn: $("#mobileMenuBtn"),
+    mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
+    mobileBackdrop: $("#mobileBackdrop"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
     fade: $("#fade"), bloom: $("#bloom"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
@@ -1000,6 +1093,8 @@
 
     if(recalculateFit||!box.dataset.fitWidth){
       const availableWidth=Math.max(1,stage.clientWidth-28);
+      stage.style.height="";
+      stage.style.minHeight="";
       const availableHeight=Math.max(1,stage.clientHeight-28);
       const fitScale=Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
       box.dataset.fitWidth=String(Math.max(1,canvas.width*fitScale));
@@ -1134,6 +1229,7 @@
       box.append(before,after);
       surface.appendChild(box);
       stage.appendChild(surface);
+      els.viewer.classList.add("hasPreview");
       els.viewer.appendChild(stage);
 
       wireCompare(box,divider);
@@ -1203,6 +1299,28 @@
   updateGrainUI();
   updateStampUI();
 
+  const mobileToolButtons=[...document.querySelectorAll(".mobileTools [data-panel]")];
+  function openMobilePanel(panel,title){
+    els.sidebar.dataset.mobilePanel=panel;
+    els.mobilePanelTitle.textContent=title;
+    els.sidebar.classList.add("mobileOpen");
+    els.mobileBackdrop.classList.add("open");
+    document.body.classList.add("mobilePanelOpen");
+    els.mobileMenuBtn.setAttribute("aria-expanded","true");
+    mobileToolButtons.forEach(button=>button.classList.toggle("active",button.dataset.panel===panel));
+  }
+  function closeMobilePanel(){
+    els.sidebar.classList.remove("mobileOpen");
+    els.mobileBackdrop.classList.remove("open");
+    document.body.classList.remove("mobilePanelOpen");
+    els.mobileMenuBtn.setAttribute("aria-expanded","false");
+    mobileToolButtons.forEach(button=>button.classList.remove("active"));
+  }
+  els.mobileMenuBtn.addEventListener("click",()=>openMobilePanel("menu","OnDevice Film Lab"));
+  els.mobilePanelClose.addEventListener("click",closeMobilePanel);
+  els.mobileBackdrop.addEventListener("click",closeMobilePanel);
+  mobileToolButtons.forEach(button=>button.addEventListener("click",()=>openMobilePanel(button.dataset.panel,button.dataset.title)));
+
   function select(i){
     if(i!==current) previewZoom=1;
     current=i;
@@ -1258,8 +1376,8 @@
     setStatus(`Added ${added.length} photo${added.length===1?"":"s"}`);
   }
 
-  els.fileInput.addEventListener("change",e=>addFiles(e.target.files));
-  els.folderInput.addEventListener("change",e=>addFiles(e.target.files));
+  els.fileInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
+  els.folderInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
 
   function rotate(delta){
     if(current<0)return;
@@ -1273,6 +1391,11 @@
   els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
 
   document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"&&els.sidebar.classList.contains("mobileOpen")){
+      e.preventDefault();
+      closeMobilePanel();
+      return;
+    }
     if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
     const target=e.target;
     if(target instanceof HTMLInputElement&&target.type==="range") return;
@@ -1309,7 +1432,10 @@
     els.fullBtn.setAttribute("aria-label",els.fullBtn.title);
     requestAnimationFrame(()=>applyPreviewZoom(true));
   });
-  window.addEventListener("resize",debounce(()=>applyPreviewZoom(true),120));
+  window.addEventListener("resize",debounce(()=>{
+    if(window.innerWidth>900) closeMobilePanel();
+    applyPreviewZoom(true);
+  },120));
 
   async function outputName(file, usedNames=null){
     const dot=file.name.lastIndexOf(".");
