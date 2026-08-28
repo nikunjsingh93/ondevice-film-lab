@@ -47,7 +47,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
 - Manual rotation with orientation baked into exports
 - Left and Right Arrow navigation between photos
-- Optional retro segmented date stamp with a soft orange film-like glow
+- Retro segmented date stamp enabled by default, with selectable date formats and a soft orange film-like glow
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
 - Individual JPEG downloads or **Download all .zip** batch export
 - Responsive layout for phones, tablets, and desktop browsers

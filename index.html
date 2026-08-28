@@ -87,10 +87,13 @@
   .control{margin:11px 0}
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
   .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
+  .stampColorRow{align-items:center}
+  .stampColorValue{display:flex;align-items:center;gap:8px}
+  .stampColorPicker{width:32px;height:32px;border:1px solid var(--line);border-radius:7px;background:#222c3b;padding:2px;cursor:pointer}
   input[type=range]{width:100%;accent-color:var(--accent);touch-action:pan-y}
   select{width:100%;background:#222c3b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
-  .check{display:flex;align-items:center;gap:8px;color:var(--muted)}
-  .check input{accent-color:var(--accent)}
+  .check{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--muted);cursor:pointer}
+  .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
   .main{min-height:760px;display:flex;flex-direction:column}
   .toolbar{
@@ -429,9 +432,9 @@
 
         <div class="section" style="margin-top:14px">
           <h3>Film date stamp</h3>
-          <label class="check"><input id="dateStamp" type="checkbox"> Add date stamp to photo</label>
+          <label class="check"><input id="dateStamp" type="checkbox" checked> Add date stamp to photo</label>
 
-          <div id="stampOptions" style="margin-top:10px;opacity:.5;pointer-events:none">
+          <div id="stampOptions" style="margin-top:10px">
             <div class="control">
               <label><span>Position</span></label>
               <select id="stampPosition">
@@ -441,8 +444,23 @@
             </div>
 
             <div class="control">
-              <label><span>Stamp color</span><span id="stampColorText" class="value">#F28C28</span></label>
-              <input id="stampColor" type="color" value="#F28C28" style="width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:#222c3b;padding:3px">
+              <label><span>Date format</span></label>
+              <select id="stampFormat">
+                <option value="dmy4">DD MM YYYY</option>
+                <option value="mdy4">MM DD YYYY</option>
+                <option value="dmy2">DD MM 'YY</option>
+                <option value="mdy2" selected>MM DD 'YY</option>
+              </select>
+            </div>
+
+            <div class="control">
+              <label class="stampColorRow">
+                <span>Stamp color</span>
+                <span class="stampColorValue">
+                  <span id="stampColorText" class="value">#F28C28</span>
+                  <input id="stampColor" class="stampColorPicker" type="color" value="#F28C28" aria-label="Choose stamp color">
+                </span>
+              </label>
             </div>
 
             <div class="control">
@@ -450,7 +468,6 @@
               <input id="stampSize" type="range" min="12" max="40" value="18">
             </div>
 
-            <div class="notice">Format: <b>10 11 '26</b>. The retro electronic style uses true segmented numerals with a soft film-like bloom. Uses EXIF capture date when available; otherwise falls back to the file date.</div>
           </div>
         </div>
 
@@ -520,7 +537,7 @@
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
-    stampPosition: $("#stampPosition"), stampColor: $("#stampColor"),
+    stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
     progress: $("#progress"), progressBar: $("#progress > div")
   };
@@ -641,7 +658,13 @@
 
   function pad2(n){ return String(n).padStart(2,"0"); }
   function stampDateText(d){
-    return `${pad2(d.getMonth()+1)} ${pad2(d.getDate())} '${String(d.getFullYear()).slice(-2)}`;
+    const day=pad2(d.getDate());
+    const month=pad2(d.getMonth()+1);
+    const year=String(d.getFullYear());
+    if(els.stampFormat.value==="dmy4") return `${day} ${month} ${year}`;
+    if(els.stampFormat.value==="dmy2") return `${day} ${month} '${year.slice(-2)}`;
+    if(els.stampFormat.value==="mdy2") return `${month} ${day} '${year.slice(-2)}`;
+    return `${month} ${day} ${year}`;
   }
   function smartphoneBaseName(d){
     return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}_FilmLab`;
@@ -1173,6 +1196,7 @@
   els.grainEnabled.addEventListener("change",()=>{updateGrainUI();rerender()});
   els.dateStamp.addEventListener("change",()=>{updateStampUI();rerender()});
   els.stampPosition.addEventListener("change",rerender);
+  els.stampFormat.addEventListener("change",rerender);
   els.stampColor.addEventListener("input",()=>{updateStampUI();rerender()});
   els.stampSize.addEventListener("input",()=>{updateStampUI();rerender()});
   updateSliderLabels();
@@ -1251,7 +1275,7 @@
   document.addEventListener("keydown",e=>{
     if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight") return;
     const target=e.target;
-    if(target instanceof HTMLElement&&(target.isContentEditable||/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(target.tagName))) return;
+    if(target instanceof HTMLInputElement&&target.type==="range") return;
     if(busy||current<0||!items.length) return;
     e.preventDefault();
     const next=e.key==="ArrowLeft" ? Math.max(0,current-1) : Math.min(items.length-1,current+1);
