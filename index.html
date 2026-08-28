@@ -100,6 +100,9 @@
     display:flex;gap:8px;align-items:center;flex-wrap:wrap
   }
   .toolbar .spacer{flex:1}
+  .zoomControls{display:flex;align-items:center;gap:5px}
+  .zoomControls button{min-width:40px;padding:10px}
+  .zoomControls .zoomReset{min-width:92px;font-variant-numeric:tabular-nums}
   .filename{
     font-weight:650;
     max-width:420px;
@@ -118,10 +121,6 @@
     position:relative;
     width:100%;
     min-height:600px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:14px;
     overflow:auto;
     background:
       linear-gradient(45deg,#171e29 25%,transparent 25%) 0 0/20px 20px,
@@ -129,19 +128,31 @@
       linear-gradient(45deg,transparent 75%,#171e29 75%) 10px -10px/20px 20px,
       linear-gradient(45deg,#171e29 25%,#121822 25%) 10px -10px/20px 20px
   }
+  .zoomSurface{
+    width:max-content;
+    min-width:100%;
+    min-height:inherit;
+    box-sizing:border-box;
+    padding:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center
+  }
   .compareBox{
     position:relative;
     display:inline-block;
-    max-width:100%;
+    flex:0 0 auto;
     line-height:0;
     user-select:none;
-    touch-action:none;
+    touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
   .compareBox canvas{
     display:block;
-    max-width:100%;
-    max-height:70vh;
+    width:100%;
+    height:100%;
+    max-width:none;
+    max-height:none;
     box-shadow:none
   }
   .softLayer{
@@ -168,6 +179,7 @@
     transform:translateX(-1.5px);
     box-shadow:0 0 0 1px #0008,0 0 14px #0008;
     cursor:ew-resize;
+    touch-action:none;
     z-index:4
   }
   .divider::after{
@@ -423,6 +435,11 @@
         <button id="leftBtn" disabled>↶ Rotate left</button>
         <button id="rightBtn" disabled>↷ Rotate right</button>
         <button id="resetRotBtn" disabled>Reset rotation</button>
+        <div class="zoomControls" aria-label="Preview zoom controls">
+          <button id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out" disabled>−</button>
+          <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>Reset 100%</button>
+          <button id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in" disabled>+</button>
+        </div>
         <button id="fullBtn" disabled>⛶ Full screen</button>
         <button id="saveOneBtn" disabled>Save this photo</button>
         <button id="zipBtn" class="primary" disabled>Download ZIP</button>
@@ -475,6 +492,7 @@
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), resetRotBtn: $("#resetRotBtn"),
+    zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampColor: $("#stampColor"),
@@ -487,6 +505,7 @@
   let previewToken = 0;
   let busy = false;
   let comparePercent = 50;
+  let previewZoom = 1;
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
 
@@ -499,7 +518,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.resetRotBtn,els.fullBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.resetRotBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -510,6 +529,9 @@
     els.leftBtn.disabled = !selected;
     els.rightBtn.disabled = !selected;
     els.resetRotBtn.disabled = !selected;
+    els.zoomOutBtn.disabled = !selected || previewZoom<=.5;
+    els.zoomResetBtn.disabled = !selected || previewZoom===1;
+    els.zoomInBtn.disabled = !selected || previewZoom>=4;
     els.fullBtn.disabled = !selected;
     els.saveOneBtn.disabled = !selected;
     els.zipBtn.disabled = !has;
@@ -923,7 +945,41 @@
     if(divider) divider.style.left=comparePercent+"%";
   }
 
-  function wireCompare(box){
+  function applyPreviewZoom(recalculateFit=false){
+    const stage=els.viewer.querySelector(".compareStage");
+    const box=els.viewer.querySelector(".compareBox");
+    const canvas=box?.querySelector("canvas");
+    if(!stage||!box||!canvas) return;
+
+    if(recalculateFit||!box.dataset.fitWidth){
+      const availableWidth=Math.max(1,stage.clientWidth-28);
+      const availableHeight=Math.max(1,window.innerHeight*.70);
+      const fitScale=Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
+      box.dataset.fitWidth=String(Math.max(1,canvas.width*fitScale));
+      box.dataset.fitHeight=String(Math.max(1,canvas.height*fitScale));
+    }
+
+    box.style.width=`${+box.dataset.fitWidth*previewZoom}px`;
+    box.style.height=`${+box.dataset.fitHeight*previewZoom}px`;
+    els.zoomResetBtn.textContent=`Reset ${Math.round(previewZoom*100)}%`;
+    updateButtons();
+  }
+
+  function setPreviewZoom(next){
+    const stage=els.viewer.querySelector(".compareStage");
+    const oldWidth=stage?.scrollWidth||0;
+    const oldHeight=stage?.scrollHeight||0;
+    const centerX=stage ? (stage.scrollLeft+stage.clientWidth/2)/Math.max(1,oldWidth) : .5;
+    const centerY=stage ? (stage.scrollTop+stage.clientHeight/2)/Math.max(1,oldHeight) : .5;
+    previewZoom=Math.max(.5,Math.min(4,Math.round(next*4)/4));
+    applyPreviewZoom();
+    if(stage){
+      stage.scrollLeft=centerX*stage.scrollWidth-stage.clientWidth/2;
+      stage.scrollTop=centerY*stage.scrollHeight-stage.clientHeight/2;
+    }
+  }
+
+  function wireCompare(box,divider){
     const updateFromPointer=(e)=>{
       const r=box.getBoundingClientRect();
       setComparePosition((e.clientX-r.left)/r.width*100);
@@ -943,7 +999,7 @@
       box.addEventListener("pointerup",up);
       box.addEventListener("pointercancel",up);
     };
-    box.addEventListener("pointerdown",down);
+    divider.addEventListener("pointerdown",down);
   }
 
   async function makePreview(index){
@@ -972,6 +1028,7 @@
 
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
+      const surface=document.createElement("div"); surface.className="zoomSurface";
       const box=document.createElement("div"); box.className="compareBox";
 
       // Full base = edited result. Left clipped overlay = original.
@@ -992,10 +1049,12 @@
       const before=document.createElement("div"); before.className="compareLabel before"; before.textContent="Original";
       const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Edited";
       box.append(before,after);
-      stage.appendChild(box);
+      surface.appendChild(box);
+      stage.appendChild(surface);
       els.viewer.appendChild(stage);
 
-      wireCompare(box);
+      wireCompare(box,divider);
+      applyPreviewZoom(true);
 
       const captureDate=await getCaptureDate(it.file);
       els.dims.textContent=`Preview ${original.width} × ${original.height}px • ${captureDate.toLocaleString()}`;
@@ -1053,6 +1112,7 @@
   updateStampUI();
 
   function select(i){
+    if(i!==current) previewZoom=1;
     current=i;
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
@@ -1131,6 +1191,9 @@
   els.leftBtn.onclick=()=>rotate(-90);
   els.rightBtn.onclick=()=>rotate(90);
   els.resetRotBtn.onclick=()=>{ if(current>=0){items[current].rotation=0;refreshThumb(current);makePreview(current)} };
+  els.zoomOutBtn.onclick=()=>setPreviewZoom(previewZoom-.25);
+  els.zoomResetBtn.onclick=()=>setPreviewZoom(1);
+  els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
 
   async function toggleFullScreen(){
     try{
@@ -1149,7 +1212,9 @@
   els.fullBtn.onclick=toggleFullScreen;
   document.addEventListener("fullscreenchange",()=>{
     els.fullBtn.textContent = document.fullscreenElement ? "⤢ Exit full screen" : "⛶ Full screen";
+    requestAnimationFrame(()=>applyPreviewZoom(true));
   });
+  window.addEventListener("resize",debounce(()=>applyPreviewZoom(true),120));
 
   async function outputName(file, usedNames=null){
     const dot=file.name.lastIndexOf(".");
