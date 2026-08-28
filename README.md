@@ -32,7 +32,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 
 **Chrome:** open the app link, click the install icon in the address bar. If it is not shown, choose **More → Cast, save, and share → Install page as app**, then confirm.
 
-OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, provides a side-by-side comparison, adds an optional retro film date stamp, and exports finished photos without uploading them to a server.
+OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
 
 ## Features
 
@@ -40,6 +40,8 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Imports individual photos or an entire DCIM folder
 - Supports JPEG, PNG, and WebP input
 - Adjustable de-sharpen strength, halo radius, and edge threshold
+- Old-film fade with adjustable strength
+- Diffusion-style highlight bloom inspired by black-mist filters
 - Optional film grain with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
 - Manual rotation with orientation baked into exports
@@ -57,7 +59,7 @@ Your photos never leave your browser. Processing and exporting happen locally on
 
 1. Open the [web app](https://nikunjsingh93.github.io/ondevice-film-lab/).
 2. Choose photos, select a folder, or drag photos into the page.
-3. Adjust the softening and optional film-grain controls, then compare the original with the processed preview.
+3. Adjust the softening, fade, bloom, and optional film-grain controls, then compare the original with the processed preview.
 4. Optionally rotate photos, rename them using their capture dates, or add a film date stamp.
 5. Save the selected photo or download the entire batch as a ZIP file.
 

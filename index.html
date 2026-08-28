@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
-<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film grain and date stamps, and exporting locally." />
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -84,7 +84,7 @@
   .section:first-of-type{border-top:0}
   .section h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
   .subsectionTitle{font-size:13px;font-weight:750;color:var(--text);margin:2px 0 8px}
-  .grainBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
+  .editBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
   .control{margin:11px 0}
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
   .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
@@ -311,7 +311,7 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and halos, add film grain, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
+        <div class="sub">Soften hard digital sharpening and halos, add film fade, bloom and grain, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
       </div>
 
       <div id="drop" class="drop">
@@ -341,7 +341,19 @@
           <input id="threshold" type="range" min="0" max="30" value="5">
         </div>
 
-        <div class="grainBlock">
+        <div class="editBlock">
+          <div class="subsectionTitle">Film look</div>
+          <div class="control">
+            <label><span>Fade</span><span id="fadeVal" class="value">0%</span></label>
+            <input id="fade" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="control">
+            <label><span>Bloom</span><span id="bloomVal" class="value">0%</span></label>
+            <input id="bloom" type="range" min="0" max="100" value="0">
+          </div>
+        </div>
+
+        <div class="editBlock">
           <div class="subsectionTitle">Film grain</div>
           <label class="check"><input id="grainEnabled" type="checkbox"> Add film grain</label>
 
@@ -420,7 +432,7 @@
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
-            <span>Drag the divider after importing to compare Original and Edited. Softening, grain, date-stamp, and filename changes are previewed before export.</span>
+            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, grain, date-stamp, and filename changes are previewed before export.</span>
           </div>
         </div>
 
@@ -452,10 +464,12 @@
   const els = {
     drop: $("#drop"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
+    fade: $("#fade"), bloom: $("#bloom"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
+    fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
@@ -688,6 +702,81 @@
     };
   }
 
+  function applyFade(canvas){
+    const strength=+els.fade.value/100;
+    if(strength<=0) return canvas;
+
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const data=image.data;
+    const blackLift=.11*strength;
+    const contrast=1-.13*strength;
+    const desaturate=.10*strength;
+
+    for(let i=0;i<data.length;i+=4){
+      let r=data[i]/255;
+      let g=data[i+1]/255;
+      let b=data[i+2]/255;
+      const luminance=.2126*r+.7152*g+.0722*b;
+
+      r=r*(1-desaturate)+luminance*desaturate;
+      g=g*(1-desaturate)+luminance*desaturate;
+      b=b*(1-desaturate)+luminance*desaturate;
+
+      r=(.5+(r-.5)*contrast)*(1-blackLift)+blackLift+.010*strength;
+      g=(.5+(g-.5)*contrast)*(1-blackLift)+blackLift+.004*strength;
+      b=(.5+(b-.5)*contrast)*(1-blackLift)+blackLift-.006*strength;
+
+      data[i]=Math.max(0,Math.min(255,Math.round(r*255)));
+      data[i+1]=Math.max(0,Math.min(255,Math.round(g*255)));
+      data[i+2]=Math.max(0,Math.min(255,Math.round(b*255)));
+    }
+    ctx.putImageData(image,0,0);
+    return canvas;
+  }
+
+  function applyBloom(canvas){
+    const strength=+els.bloom.value/100;
+    if(strength<=0) return canvas;
+
+    const highlights=document.createElement("canvas");
+    highlights.width=canvas.width; highlights.height=canvas.height;
+    const hctx=highlights.getContext("2d",{willReadFrequently:true});
+    hctx.drawImage(canvas,0,0);
+    const image=hctx.getImageData(0,0,canvas.width,canvas.height);
+    const data=image.data;
+
+    // Keep only brighter tones so the effect behaves like a diffusion or
+    // black-mist filter instead of blurring the whole photograph.
+    for(let i=0;i<data.length;i+=4){
+      const luminance=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];
+      let mask=(luminance-145)/110;
+      if(mask<0) mask=0; else if(mask>1) mask=1;
+      mask=mask*mask*(3-2*mask);
+      data[i]=Math.round(data[i]*mask);
+      data[i+1]=Math.round(data[i+1]*mask);
+      data[i+2]=Math.round(data[i+2]*mask);
+      data[i+3]=255;
+    }
+    hctx.putImageData(image,0,0);
+
+    const glow=document.createElement("canvas");
+    glow.width=canvas.width; glow.height=canvas.height;
+    const gctx=glow.getContext("2d");
+    const blurRadius=Math.max(2,Math.max(canvas.width,canvas.height)*.0045);
+    gctx.filter=`blur(${blurRadius}px)`;
+    gctx.drawImage(highlights,0,0);
+    gctx.filter="none";
+
+    const ctx=canvas.getContext("2d");
+    ctx.save();
+    ctx.globalCompositeOperation="screen";
+    ctx.globalAlpha=Math.min(.72,strength*.72);
+    ctx.drawImage(glow,0,0);
+    ctx.restore();
+    return canvas;
+  }
+
   function applyGrain(canvas,file,previewScale=1){
     if(!els.grainEnabled.checked) return canvas;
     const strength=+els.grainStrength.value/100;
@@ -870,9 +959,11 @@
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
-      const softBase=processCanvas(cloneCanvas(original),previewScale);
-      applyGrain(softBase,it.file,previewScale);
-      await applyDateStamp(softBase,it.file);
+      const editedBase=processCanvas(cloneCanvas(original),previewScale);
+      applyFade(editedBase);
+      applyBloom(editedBase);
+      applyGrain(editedBase,it.file,previewScale);
+      await applyDateStamp(editedBase,it.file);
 
       const originalShown=cloneCanvas(original);
       await applyDateStamp(originalShown,it.file);
@@ -885,7 +976,7 @@
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
-      box.appendChild(softBase);
+      box.appendChild(editedBase);
 
       const layer=document.createElement("div"); layer.className="softLayer";
       const clip=`inset(0 ${100-comparePercent}% 0 0)`;
@@ -927,12 +1018,14 @@
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
     els.thresholdVal.textContent=els.threshold.value;
+    els.fadeVal.textContent=`${els.fade.value}%`;
+    els.bloomVal.textContent=`${els.bloom.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
     els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.amount,els.radius,els.threshold,els.fade,els.bloom].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
 
@@ -1091,6 +1184,8 @@
     const src=drawRotated(img,it.rotation,0);
     img.close?.();
     const out=processCanvas(src);
+    applyFade(out);
+    applyBloom(out);
     applyGrain(out,it.file,1);
     await applyDateStamp(out,it.file);
     const mime="image/jpeg";
