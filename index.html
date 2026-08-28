@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>OnDevice Film Lab</title>
+<style>
+  :root{
+    --bg:#111311; --panel:#191c19; --panel2:#202420; --line:#313731;
+    --text:#f3f5ef; --muted:#aab2a8; --accent:#d8ff72; --danger:#ff8f8f;
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:linear-gradient(180deg,#0f110f,#151815 55%,#0f110f);
+    color:var(--text);
+    font:14px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  button,input,select{font:inherit}
+  .app{max-width:1440px;margin:auto;padding:14px 22px 22px}
+  h1{font-size:26px;line-height:1.1;margin:0 0 8px;letter-spacing:-.035em}
+  .sub{color:var(--muted);font-size:12.5px;line-height:1.5}
+  .layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px}
+  .card{
+    background:rgba(25,28,25,.96);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:0 18px 55px #0005;
+    overflow:hidden
+  }
+  .sidebar{
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    gap:13px;
+    position:sticky;
+    top:14px;
+    align-self:start;
+    max-height:calc(100vh - 28px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable
+  }
+  .sidebarIntro{padding:2px 2px 1px}
+  .drop{
+    border:1.5px dashed #495149;
+    border-radius:15px;
+    padding:18px;
+    text-align:center;
+    background:#141714;
+    transition:.15s
+  }
+  .drop.drag{border-color:var(--accent);background:#1b2118}
+  .drop strong{display:block;font-size:16px;margin-bottom:5px}
+  .drop small{color:var(--muted)}
+  .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  button,.button{
+    border:1px solid var(--line);
+    background:#242924;
+    color:var(--text);
+    border-radius:11px;
+    padding:10px 12px;
+    cursor:pointer;
+    transition:.15s
+  }
+  button:hover,.button:hover{background:#2c322c;border-color:#454e45}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#12150d;font-weight:750}
+  button.primary:hover{filter:brightness(.95)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input[type=file]{display:none}
+  .section{border-top:1px solid var(--line);padding-top:12px}
+  .section:first-of-type{border-top:0}
+  .section h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+  .control{margin:11px 0}
+  .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
+  .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent);touch-action:pan-y}
+  select{width:100%;background:#222722;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
+  .check{display:flex;align-items:center;gap:8px;color:var(--muted)}
+  .check input{accent-color:var(--accent)}
+  .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
+  .main{min-height:760px;display:flex;flex-direction:column}
+  .toolbar{
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap
+  }
+  .toolbar .spacer{flex:1}
+  .filename{
+    font-weight:650;
+    max-width:420px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis
+  }
+  .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1}
+  .viewer{
+    position:relative;
+    min-height:600px;
+    background:#111411;
+    overflow:hidden
+  }
+  .compareStage{
+    position:relative;
+    width:100%;
+    min-height:600px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:14px;
+    overflow:auto;
+    background:
+      linear-gradient(45deg,#171a17 25%,transparent 25%) 0 0/20px 20px,
+      linear-gradient(45deg,transparent 75%,#171a17 75%) 0 0/20px 20px,
+      linear-gradient(45deg,transparent 75%,#171a17 75%) 10px -10px/20px 20px,
+      linear-gradient(45deg,#171a17 25%,#121512 25%) 10px -10px/20px 20px
+  }
+  .compareBox{
+    position:relative;
+    display:inline-block;
+    max-width:100%;
+    line-height:0;
+    user-select:none;
+    touch-action:none;
+    box-shadow:0 8px 35px #0007
+  }
+  .compareBox canvas{
+    display:block;
+    max-width:100%;
+    max-height:70vh;
+    box-shadow:none
+  }
+  .softLayer{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    width:100%;
+    clip-path:inset(0 50% 0 0);
+    -webkit-clip-path:inset(0 50% 0 0);
+    pointer-events:none
+  }
+  .softLayer canvas{
+    position:absolute;
+    left:0;top:0;
+    width:100%;height:100%;
+    max-width:none;max-height:none
+  }
+  .divider{
+    position:absolute;
+    top:0;bottom:0;
+    left:50%;
+    width:3px;
+    background:#fff;
+    transform:translateX(-1.5px);
+    box-shadow:0 0 0 1px #0008,0 0 14px #0008;
+    cursor:ew-resize;
+    z-index:4
+  }
+  .divider::after{
+    content:"↔";
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:42px;height:42px;
+    border-radius:50%;
+    background:#f5f7f2;
+    color:#151815;
+    display:grid;
+    place-items:center;
+    font:700 20px/1 system-ui,sans-serif;
+    box-shadow:0 3px 18px #0009
+  }
+  .compareLabel{
+    position:absolute;
+    top:12px;
+    z-index:5;
+    padding:6px 9px;
+    border-radius:999px;
+    background:#101310cc;
+    color:#f2f4ef;
+    font-size:11px;
+    line-height:1;
+    backdrop-filter:blur(7px);
+    pointer-events:none
+  }
+  .compareLabel.before{left:12px}
+  .compareLabel.after{right:12px}
+  canvas{display:block;max-width:100%;max-height:70vh;box-shadow:0 8px 35px #0007}
+  .empty{
+    grid-column:1/-1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;
+    color:var(--muted);background:#121512;min-height:600px;text-align:center;padding:30px
+  }
+  .empty b{font-size:20px;color:var(--text)}
+  .filmstripWrap{
+    border-top:1px solid var(--line);
+    background:#171a17;
+    padding:10px 12px 12px
+  }
+  .filmstripHead{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-bottom:8px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em
+  }
+  .thumbs{
+    display:flex;
+    align-items:flex-start;
+    gap:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    overscroll-behavior-y:auto;
+    touch-action:pan-x pan-y;
+    padding-bottom:2px;
+    scroll-behavior:smooth
+  }
+  .thumb{
+    display:grid;
+    grid-template-rows:auto auto auto;
+    align-content:start;
+    gap:4px;
+    width:140px;
+    min-width:140px;
+    padding:7px;
+    border-radius:12px;
+    cursor:pointer;
+    border:1px solid transparent;
+    background:#1a1f1a
+  }
+  .thumb:hover{background:#202620}
+  .thumb.active{background:#252b22;border-color:#4c5741}
+  .thumb img{
+    width:100%;
+    height:84px;
+    object-fit:cover;
+    border-radius:8px;
+    background:#0d0f0d;
+    display:block
+  }
+  .thumb .name{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-size:13px;
+    font-weight:600
+  }
+  .thumb .meta{font-size:11px;line-height:1.35;color:var(--muted)}
+  .rot{font-size:11px;line-height:1.25;color:var(--accent)}
+  .rot:empty{display:none}
+  .footerbar{
+    padding:11px 14px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;flex-wrap:wrap
+  }
+  .status{margin-left:auto}
+  .progress{height:5px;background:#0e100e;border-radius:99px;overflow:hidden;display:none}
+  .progress>div{height:100%;width:0;background:var(--accent)}
+  .notice{font-size:12px;color:var(--muted);padding:0 2px}
+  .danger{color:var(--danger)}
+  .tip{font-size:12px;color:var(--muted)}
+  .main:fullscreen,
+  .main:-webkit-full-screen{
+    width:100vw;
+    height:100vh;
+    max-width:none;
+    margin:0;
+    border-radius:0
+  }
+  .main:fullscreen .viewer,
+  .main:-webkit-full-screen .viewer{
+    min-height:calc(100vh - 205px)
+  }
+  .main:fullscreen .compareStage,
+  .main:-webkit-full-screen .compareStage{
+    min-height:calc(100vh - 260px)
+  }
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr}
+    .sidebar{position:static;max-height:none}
+    .compareStage{min-height:350px}
+    .viewer{min-height:350px}
+    .thumb{width:122px;min-width:122px}
+    .thumb img{height:72px}
+  }
+  @media(max-width:900px) and (orientation:portrait){
+    .sidebar{
+      overflow:visible;
+      overscroll-behavior:auto;
+      scrollbar-gutter:auto;
+      touch-action:auto
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="layout">
+    <aside class="card sidebar">
+      <div class="sidebarIntro">
+        <h1>OnDevice Film Lab</h1>
+        <div class="sub">Soften hard digital sharpening and halos, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
+      </div>
+
+      <div id="drop" class="drop">
+        <strong>Drop photos or a DCIM folder</strong>
+        <small>JPEG, PNG and WebP. EXIF orientation is honored by the browser and baked into exports.</small>
+        <div class="btnrow">
+          <label class="button" for="fileInput">Choose photos</label>
+          <label class="button" for="folderInput">Choose folder</label>
+        </div>
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
+      </div>
+
+      <div class="section">
+        <h3>Softening</h3>
+        <div class="control">
+          <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
+          <input id="amount" type="range" min="0" max="100" value="50">
+        </div>
+        <div class="control">
+          <label><span>Halo radius</span><span id="radiusVal" class="value">2.2 px</span></label>
+          <input id="radius" type="range" min="4" max="50" value="22">
+        </div>
+        <div class="control">
+          <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
+          <input id="threshold" type="range" min="0" max="30" value="5">
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Export</h3>
+        <div class="control">
+          <label><span>JPEG quality</span><span id="qualityVal" class="value">95%</span></label>
+          <input id="quality" type="range" min="75" max="100" value="95">
+        </div>
+        <div class="control" style="margin-top:16px">
+          <label class="check renameCheck"><input id="dateRename" type="checkbox" checked> Rename using capture date</label>
+        </div>
+        <div class="notice">Example: <b>20260809_124041_FilmLab.jpg</b>. Instead of DSCFXXXX.jpg.</div>
+
+        <div class="section" style="margin-top:14px">
+          <h3>Film date stamp</h3>
+          <label class="check"><input id="dateStamp" type="checkbox"> Add date stamp to photo</label>
+
+          <div id="stampOptions" style="margin-top:10px;opacity:.5;pointer-events:none">
+            <div class="control">
+              <label><span>Position</span></label>
+              <select id="stampPosition">
+                <option value="right">Bottom right</option>
+                <option value="left">Bottom left</option>
+              </select>
+            </div>
+
+            <div class="control">
+              <label><span>Stamp color</span><span id="stampColorText" class="value">#F28C28</span></label>
+              <input id="stampColor" type="color" value="#F28C28" style="width:100%;height:38px;border:1px solid var(--line);border-radius:9px;background:#222722;padding:3px">
+            </div>
+
+            <div class="control">
+              <label><span>Stamp size</span><span id="stampSizeVal" class="value">1.8%</span></label>
+              <input id="stampSize" type="range" min="12" max="40" value="18">
+            </div>
+
+            <div class="notice">Format: <b>10 11 '26</b>. The retro electronic style uses true segmented numerals with a soft film-like bloom. Uses EXIF capture date when available; otherwise falls back to the file date.</div>
+          </div>
+        </div>
+
+        <div class="tip" style="margin-top:10px">ZIP export is the recommended batch option on Mac.</div>
+      </div>
+    </aside>
+
+    <main id="mainPanel" class="card main">
+      <div class="toolbar">
+        <div id="filename" class="filename">No photo selected</div>
+        <div class="spacer"></div>
+        <button id="leftBtn" disabled>↶ Rotate left</button>
+        <button id="rightBtn" disabled>↷ Rotate right</button>
+        <button id="resetRotBtn" disabled>Reset rotation</button>
+        <button id="fullBtn" disabled>⛶ Full screen</button>
+        <button id="saveOneBtn" disabled>Save this photo</button>
+        <button id="zipBtn" class="primary" disabled>Download ZIP</button>
+      </div>
+
+      <div class="viewerShell">
+        <div id="viewer" class="viewer">
+          <div class="empty">
+            <b>Add some photos</b>
+            <span>Drag the divider after importing to compare Original and Softened. Date-stamp and filename changes are also previewed before export.</span>
+          </div>
+        </div>
+
+        <div class="filmstripWrap">
+          <div class="filmstripHead">
+            <span id="count">Photos (0)</span>
+            <span>Filmstrip</span>
+          </div>
+          <div id="thumbs" class="thumbs"></div>
+        </div>
+      </div>
+
+      <div id="progress" class="progress"><div></div></div>
+      <div class="footerbar">
+        <span id="dims">—</span>
+        <span>•</span>
+        <span>Rotation is physically baked into exported pixels.</span>
+        <span id="status" class="status">Ready</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = s => document.querySelector(s);
+  const els = {
+    drop: $("#drop"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
+    amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
+    quality: $("#quality"),
+    amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
+    qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
+    filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
+    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), resetRotBtn: $("#resetRotBtn"),
+    fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"),
+    dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
+    stampPosition: $("#stampPosition"), stampColor: $("#stampColor"),
+    stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
+    progress: $("#progress"), progressBar: $("#progress > div"), mainPanel: $("#mainPanel")
+  };
+
+  const items = [];
+  let current = -1;
+  let previewToken = 0;
+  let busy = false;
+  let comparePercent = 50;
+
+  const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
+
+  function setStatus(s){ els.status.textContent = s; }
+  function setProgress(n, total){
+    if (!total){ els.progress.style.display="none"; return; }
+    els.progress.style.display="block";
+    els.progressBar.style.width = `${Math.max(0,Math.min(100,n/total*100))}%`;
+    if(n >= total) setTimeout(()=>els.progress.style.display="none", 700);
+  }
+  function setBusy(v){
+    busy = v;
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.resetRotBtn,els.fullBtn].forEach(b=>{
+      if(v) b.disabled = true;
+    });
+    if(!v) updateButtons();
+  }
+  function updateButtons(){
+    const has = items.length > 0;
+    const selected = current >= 0;
+    els.leftBtn.disabled = !selected;
+    els.rightBtn.disabled = !selected;
+    els.resetRotBtn.disabled = !selected;
+    els.fullBtn.disabled = !selected;
+    els.saveOneBtn.disabled = !selected;
+    els.zipBtn.disabled = !has;
+  }
+
+
+  function readAscii(view, offset, len){
+    let s="";
+    for(let i=0;i<len;i++){
+      const c=view.getUint8(offset+i);
+      if(!c) break;
+      s+=String.fromCharCode(c);
+    }
+    return s;
+  }
+
+  async function getCaptureDate(file){
+    if(file._captureDate) return file._captureDate;
+    let result = null;
+    try{
+      if(/jpe?g/i.test(file.type) || /\.jpe?g$/i.test(file.name)){
+        const buf = await file.slice(0, Math.min(file.size, 512*1024)).arrayBuffer();
+        const v = new DataView(buf);
+        if(v.byteLength >= 4 && v.getUint16(0,false) === 0xFFD8){
+          let p=2;
+          while(p+4 < v.byteLength){
+            if(v.getUint8(p) !== 0xFF){ p++; continue; }
+            const marker=v.getUint8(p+1);
+            if(marker===0xDA || marker===0xD9) break;
+            const len=v.getUint16(p+2,false);
+            if(len<2 || p+2+len>v.byteLength) break;
+            if(marker===0xE1 && len>=10 && readAscii(v,p+4,6)==="Exif"){
+              const tiff=p+10;
+              const little = v.getUint16(tiff,false)===0x4949;
+              const g16=(o)=>v.getUint16(o,little);
+              const g32=(o)=>v.getUint32(o,little);
+              if(g16(tiff+2)===42){
+                const ifd0=tiff+g32(tiff+4);
+                const readIFD=(off)=>{
+                  const map={};
+                  if(off<0 || off+2>v.byteLength) return map;
+                  const n=g16(off);
+                  for(let i=0;i<n;i++){
+                    const e=off+2+i*12;
+                    if(e+12>v.byteLength) break;
+                    const tag=g16(e), type=g16(e+2), count=g32(e+4);
+                    const sizes={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+                    const size=(sizes[type]||1)*count;
+                    const valOff = size<=4 ? e+8 : tiff+g32(e+8);
+                    map[tag]={type,count,valOff,size};
+                  }
+                  return map;
+                };
+                const parseDateEntry=(ent)=>{
+                  if(!ent || ent.type!==2 || ent.valOff<0 || ent.valOff>=v.byteLength) return null;
+                  const s=readAscii(v, ent.valOff, Math.min(ent.count,32));
+                  const m=s.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+                  if(!m) return null;
+                  return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]);
+                };
+                const base=readIFD(ifd0);
+                let dt=parseDateEntry(base[0x0132]);
+                const exifPtr=base[0x8769];
+                if(exifPtr){
+                  const exifIFD=readIFD(tiff+g32(exifPtr.valOff));
+                  dt=parseDateEntry(exifIFD[0x9003]) || parseDateEntry(exifIFD[0x9004]) || dt;
+                }
+                if(dt && !Number.isNaN(dt.getTime())) result=dt;
+              }
+              break;
+            }
+            p += 2 + len;
+          }
+        }
+      }
+    }catch(e){
+      console.warn("EXIF date read failed", e);
+    }
+    if(!result) result = new Date(file.lastModified || Date.now());
+    file._captureDate=result;
+    return result;
+  }
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function stampDateText(d){
+    return `${pad2(d.getMonth()+1)} ${pad2(d.getDate())} '${String(d.getFullYear()).slice(-2)}`;
+  }
+  function smartphoneBaseName(d){
+    return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}_FilmLab`;
+  }
+
+  async function decode(file){
+    if ("createImageBitmap" in window){
+      try { return await createImageBitmap(file, { imageOrientation:"from-image" }); }
+      catch { return await createImageBitmap(file); }
+    }
+    return await new Promise((resolve,reject)=>{
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.onload=()=>{ URL.revokeObjectURL(u); resolve(img); };
+      img.onerror=e=>{ URL.revokeObjectURL(u); reject(e); };
+      img.src=u;
+    });
+  }
+
+  function rotatedSize(w,h,deg){
+    deg=((deg%360)+360)%360;
+    return (deg===90||deg===270) ? [h,w] : [w,h];
+  }
+
+  function drawRotated(img, deg, maxDim=0){
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const [rw,rh]=rotatedSize(iw,ih,deg);
+    let scale=1;
+    if(maxDim && Math.max(rw,rh)>maxDim) scale=maxDim/Math.max(rw,rh);
+    const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round(rw*scale));
+    c.height=Math.max(1,Math.round(rh*scale));
+    const ctx=c.getContext("2d",{willReadFrequently:true});
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality="high";
+    ctx.save();
+    ctx.translate(c.width/2,c.height/2);
+    ctx.rotate(deg*Math.PI/180);
+    ctx.scale(scale,scale);
+    ctx.drawImage(img,-iw/2,-ih/2);
+    ctx.restore();
+    return c;
+  }
+
+  function processCanvas(src,radiusScale=1){
+    // The new 50% position exactly matches the former 72% strength.
+    // The remaining half of the slider extends the available softening range.
+    const amount=(+els.amount.value/100)*1.44;
+    if(amount<=0) {
+      const out=document.createElement("canvas");
+      out.width=src.width; out.height=src.height;
+      out.getContext("2d").drawImage(src,0,0);
+      return out;
+    }
+    // Preview canvases are reduced for speed. Scale pixel-radius with them so
+    // the preview matches the full-resolution JPEG when both are displayed.
+    const radius=(+els.radius.value/10)*radiusScale;
+    const threshold=+els.threshold.value;
+
+    const blur=document.createElement("canvas");
+    blur.width=src.width; blur.height=src.height;
+    const bctx=blur.getContext("2d",{willReadFrequently:true});
+    bctx.filter=`blur(${radius}px)`;
+    bctx.drawImage(src,-2,-2,src.width+4,src.height+4);
+    bctx.filter="none";
+
+    const sctx=src.getContext("2d",{willReadFrequently:true});
+    const a=sctx.getImageData(0,0,src.width,src.height);
+    const b=bctx.getImageData(0,0,src.width,src.height);
+    const d=a.data, q=b.data;
+
+    for(let i=0;i<d.length;i+=4){
+      const dr=Math.abs(d[i]-q[i]);
+      const dg=Math.abs(d[i+1]-q[i+1]);
+      const db=Math.abs(d[i+2]-q[i+2]);
+      const edge=Math.max(dr,dg,db);
+      let mask=(edge-threshold)/28;
+      if(mask<0) mask=0; else if(mask>1) mask=1;
+      mask=mask*mask*(3-2*mask);
+      const k=Math.min(1,amount*(0.30+0.70*mask));
+      d[i]   = d[i]   + (q[i]  -d[i])   * k;
+      d[i+1] = d[i+1] + (q[i+1]-d[i+1]) * k;
+      d[i+2] = d[i+2] + (q[i+2]-d[i+2]) * k;
+    }
+    const out=document.createElement("canvas");
+    out.width=src.width; out.height=src.height;
+    out.getContext("2d").putImageData(a,0,0);
+    return out;
+  }
+
+  function cloneCanvas(c){
+    const n=document.createElement("canvas");
+    n.width=c.width; n.height=c.height; n.getContext("2d").drawImage(c,0,0);
+    return n;
+  }
+
+
+  const digitSegments={
+    "0":"abcdef", "1":"bc", "2":"abdeg", "3":"abcdg", "4":"bcfg",
+    "5":"acdfg", "6":"acdefg", "7":"abc", "8":"abcdefg", "9":"abcdfg"
+  };
+  const segmentLines={
+    a:[.13,.07,.49,.07], b:[.55,.13,.55,.44], c:[.55,.56,.55,.87],
+    d:[.49,.93,.13,.93], e:[.07,.87,.07,.56], f:[.07,.44,.07,.13],
+    g:[.13,.50,.49,.50]
+  };
+
+  function segmentedAdvance(ch,fontPx){
+    if(ch===" ") return fontPx*.34;
+    if(ch==="'") return fontPx*.30;
+    return fontPx*.72;
+  }
+
+  function segmentedWidth(text,fontPx){
+    let width=0;
+    for(const ch of text) width+=segmentedAdvance(ch,fontPx);
+    return Math.max(0,width-fontPx*.10);
+  }
+
+  function traceSegmentedText(ctx,text,startX,top,fontPx){
+    let cursor=startX;
+    for(const ch of text){
+      if(digitSegments[ch]){
+        for(const segment of digitSegments[ch]){
+          const line=segmentLines[segment];
+          ctx.beginPath();
+          ctx.moveTo(cursor+line[0]*fontPx,top+line[1]*fontPx);
+          ctx.lineTo(cursor+line[2]*fontPx,top+line[3]*fontPx);
+          ctx.stroke();
+        }
+      }else if(ch==="'"){
+        ctx.beginPath();
+        ctx.moveTo(cursor+.17*fontPx,top+.04*fontPx);
+        ctx.lineTo(cursor+.12*fontPx,top+.23*fontPx);
+        ctx.stroke();
+      }
+      cursor+=segmentedAdvance(ch,fontPx);
+    }
+  }
+
+  function drawSegmentedStamp(ctx,text,x,y,fontPx,align,color){
+    const width=segmentedWidth(text,fontPx);
+    const startX=align==="right" ? x-width : x;
+    const top=y-fontPx;
+    const passes=[
+      {alpha:.16,blur:.42,line:.15},
+      {alpha:.34,blur:.19,line:.13},
+      {alpha:.94,blur:.055,line:.105}
+    ];
+    ctx.lineCap="round";
+    ctx.lineJoin="round";
+    ctx.strokeStyle=color;
+    ctx.shadowColor=color;
+    for(const pass of passes){
+      ctx.globalAlpha=pass.alpha;
+      ctx.lineWidth=Math.max(1,fontPx*pass.line);
+      ctx.shadowBlur=Math.max(1,fontPx*pass.blur);
+      traceSegmentedText(ctx,text,startX,top,fontPx);
+    }
+  }
+
+  async function applyDateStamp(canvas, file){
+    if(!els.dateStamp.checked) return canvas;
+    const d=await getCaptureDate(file);
+    const text=stampDateText(d);
+    const ctx=canvas.getContext("2d");
+    const pct=+els.stampSize.value/1000; // 18 => 1.8% of long edge
+    const fontPx=Math.max(16, Math.round(Math.max(canvas.width,canvas.height)*pct));
+    ctx.save();
+    const insetX=Math.max(22,Math.round(fontPx*1.35));
+    const insetY=Math.max(22,Math.round(fontPx*1.25));
+    const align=els.stampPosition.value==="left" ? "left" : "right";
+    const x=align==="left" ? insetX : canvas.width-insetX;
+    const y=canvas.height-insetY;
+    drawSegmentedStamp(ctx,text,x,y,fontPx,align,els.stampColor.value);
+    ctx.restore();
+    return canvas;
+  }
+
+  function setComparePosition(percent){
+    comparePercent=Math.max(0,Math.min(100,percent));
+    const layer=els.viewer.querySelector(".softLayer");
+    const divider=els.viewer.querySelector(".divider");
+    if(layer){
+      const clip=`inset(0 ${100-comparePercent}% 0 0)`;
+      layer.style.clipPath=clip;
+      layer.style.webkitClipPath=clip;
+    }
+    if(divider) divider.style.left=comparePercent+"%";
+  }
+
+  function wireCompare(box){
+    const updateFromPointer=(e)=>{
+      const r=box.getBoundingClientRect();
+      setComparePosition((e.clientX-r.left)/r.width*100);
+    };
+    const down=(e)=>{
+      e.preventDefault();
+      box.setPointerCapture?.(e.pointerId);
+      updateFromPointer(e);
+      const move=(ev)=>updateFromPointer(ev);
+      const up=(ev)=>{
+        box.releasePointerCapture?.(ev.pointerId);
+        box.removeEventListener("pointermove",move);
+        box.removeEventListener("pointerup",up);
+        box.removeEventListener("pointercancel",up);
+      };
+      box.addEventListener("pointermove",move);
+      box.addEventListener("pointerup",up);
+      box.addEventListener("pointercancel",up);
+    };
+    box.addEventListener("pointerdown",down);
+  }
+
+  async function makePreview(index){
+    if(index<0||!items[index]) return;
+    const token=++previewToken;
+    const it=items[index];
+    setStatus("Rendering preview…");
+    try{
+      const img=await decode(it.file);
+      if(token!==previewToken) { img.close?.(); return; }
+      const sourceLong=Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height);
+      const original=drawRotated(img,it.rotation,1800);
+      const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
+      img.close?.();
+
+      const softBase=processCanvas(cloneCanvas(original),previewScale);
+      await applyDateStamp(softBase,it.file);
+
+      const originalShown=cloneCanvas(original);
+      await applyDateStamp(originalShown,it.file);
+
+      if(token!==previewToken) return;
+
+      els.viewer.innerHTML="";
+      const stage=document.createElement("div"); stage.className="compareStage";
+      const box=document.createElement("div"); box.className="compareBox";
+
+      // Full base = softened result. Left clipped overlay = original.
+      // Therefore dragging LEFT reveals MORE softened, matching Lightroom-style expectation.
+      box.appendChild(softBase);
+
+      const layer=document.createElement("div"); layer.className="softLayer";
+      const clip=`inset(0 ${100-comparePercent}% 0 0)`;
+      layer.style.clipPath=clip;
+      layer.style.webkitClipPath=clip;
+      layer.appendChild(originalShown);
+      box.appendChild(layer);
+
+      const divider=document.createElement("div"); divider.className="divider";
+      divider.style.left=comparePercent+"%";
+      box.appendChild(divider);
+
+      const before=document.createElement("div"); before.className="compareLabel before"; before.textContent="Original";
+      const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Softened";
+      box.append(before,after);
+      stage.appendChild(box);
+      els.viewer.appendChild(stage);
+
+      wireCompare(box);
+
+      const captureDate=await getCaptureDate(it.file);
+      els.dims.textContent=`Preview ${original.width} × ${original.height}px • ${captureDate.toLocaleString()}`;
+      setStatus("Preview ready");
+
+      const activeThumb = els.thumbs.children[index];
+      activeThumb?.scrollIntoView({behavior:"smooth", block:"nearest", inline:"center"});
+    }catch(e){
+      console.error(e);
+      setStatus("Could not decode this image");
+    }
+  }
+
+  function debounce(fn,ms=180){
+    let t; return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};
+  }
+  const rerender=debounce(()=>{if(current>=0)makePreview(current)},160);
+
+  function updateSliderLabels(){
+    els.amountVal.textContent=`${els.amount.value}%`;
+    els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
+    els.thresholdVal.textContent=els.threshold.value;
+    els.qualityVal.textContent=`${els.quality.value}%`;
+  }
+  [els.amount,els.radius,els.threshold].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  els.quality.addEventListener("input",updateSliderLabels);
+
+  function updateStampUI(){
+    const on=els.dateStamp.checked;
+    els.stampOptions.style.opacity=on?"1":".5";
+    els.stampOptions.style.pointerEvents=on?"auto":"none";
+    els.stampColorText.textContent=els.stampColor.value.toUpperCase();
+    els.stampSizeVal.textContent=(+els.stampSize.value/10).toFixed(1)+"%";
+  }
+  els.dateRename.addEventListener("change",()=>{ if(current>=0) makePreview(current); });
+  els.dateStamp.addEventListener("change",()=>{updateStampUI();rerender()});
+  els.stampPosition.addEventListener("change",rerender);
+  els.stampColor.addEventListener("input",()=>{updateStampUI();rerender()});
+  els.stampSize.addEventListener("input",()=>{updateStampUI();rerender()});
+  updateSliderLabels();
+  updateStampUI();
+
+  function select(i){
+    current=i;
+    [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
+    const it=items[i];
+    els.filename.textContent=it?.file.name || "No photo selected";
+    updateButtons();
+    makePreview(i);
+  }
+
+  function refreshThumb(i){
+    const node=els.thumbs.children[i];
+    if(!node) return;
+    node.querySelector(".rot").textContent = items[i].rotation ? `${items[i].rotation}°` : "";
+  }
+
+  async function addFiles(list){
+    const files=[...list].filter(supported);
+    if(!files.length){ setStatus("No supported photos found"); return; }
+    const known=new Set(items.map(x=>x.file.name+"|"+x.file.size+"|"+x.file.lastModified));
+    const added=[];
+    for(const f of files){
+      const key=f.name+"|"+f.size+"|"+f.lastModified;
+      if(known.has(key)) continue;
+      known.add(key);
+      const captureDate=await getCaptureDate(f);
+      const it={file:f,rotation:0,thumbUrl:URL.createObjectURL(f),captureDate};
+      items.push(it); added.push(it);
+      const row=document.createElement("div"); row.className="thumb";
+      const im=document.createElement("img"); im.src=it.thumbUrl;
+      const n=document.createElement("div"); n.className="name"; n.textContent=f.name;
+      const m=document.createElement("div"); m.className="meta";
+      m.textContent=`${captureDate.getFullYear()}-${pad2(captureDate.getMonth()+1)}-${pad2(captureDate.getDate())} ${pad2(captureDate.getHours())}:${pad2(captureDate.getMinutes())} • ${(f.size/1024/1024).toFixed(1)} MB`;
+      const r=document.createElement("div"); r.className="rot";
+      row.append(im,n,m,r);
+      row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
+      els.thumbs.appendChild(row);
+    }
+    els.count.textContent=`Photos (${items.length})`;
+    updateButtons();
+    if(current<0 && items.length) select(0);
+    setStatus(`Added ${added.length} photo${added.length===1?"":"s"}`);
+  }
+
+  els.fileInput.addEventListener("change",e=>addFiles(e.target.files));
+  els.folderInput.addEventListener("change",e=>addFiles(e.target.files));
+
+  async function traverseEntry(entry,path=""){
+    if(entry.isFile) return new Promise(res=>entry.file(f=>res([f]),()=>res([])));
+    if(entry.isDirectory){
+      const reader=entry.createReader(), out=[];
+      while(true){
+        const batch=await new Promise(res=>reader.readEntries(res,()=>res([])));
+        if(!batch.length) break;
+        for(const e of batch) out.push(...await traverseEntry(e,path+entry.name+"/"));
+      }
+      return out;
+    }
+    return [];
+  }
+  els.drop.addEventListener("dragover",e=>{e.preventDefault();els.drop.classList.add("drag")});
+  els.drop.addEventListener("dragleave",()=>els.drop.classList.remove("drag"));
+  els.drop.addEventListener("drop",async e=>{
+    e.preventDefault(); els.drop.classList.remove("drag");
+    const dt=e.dataTransfer;
+    const entries=[...dt.items].map(i=>i.webkitGetAsEntry?.()).filter(Boolean);
+    if(entries.length){
+      const fs=[]; for(const en of entries) fs.push(...await traverseEntry(en));
+      addFiles(fs);
+    } else addFiles(dt.files);
+  });
+
+  function rotate(delta){
+    if(current<0)return;
+    items[current].rotation=(items[current].rotation+delta+360)%360;
+    refreshThumb(current); makePreview(current);
+  }
+  els.leftBtn.onclick=()=>rotate(-90);
+  els.rightBtn.onclick=()=>rotate(90);
+  els.resetRotBtn.onclick=()=>{ if(current>=0){items[current].rotation=0;refreshThumb(current);makePreview(current)} };
+
+  async function toggleFullScreen(){
+    try{
+      if(!document.fullscreenElement){
+        await els.mainPanel.requestFullscreen?.();
+        els.fullBtn.textContent = "⤢ Exit full screen";
+      }else{
+        await document.exitFullscreen?.();
+        els.fullBtn.textContent = "⛶ Full screen";
+      }
+    }catch(e){
+      console.error(e);
+      setStatus("Full screen not available in this browser");
+    }
+  }
+  els.fullBtn.onclick=toggleFullScreen;
+  document.addEventListener("fullscreenchange",()=>{
+    els.fullBtn.textContent = document.fullscreenElement ? "⤢ Exit full screen" : "⛶ Full screen";
+  });
+
+  async function outputName(file, usedNames=null){
+    const dot=file.name.lastIndexOf(".");
+    const base=dot>=0?file.name.slice(0,dot):file.name;
+    const outExt=".jpg";
+
+    let outBase;
+    if(els.dateRename.checked){
+      outBase=smartphoneBaseName(await getCaptureDate(file));
+    }else{
+      outBase=`_soft_${base}`;
+    }
+
+    let candidate=outBase+outExt;
+    if(usedNames){
+      let n=2;
+      while(usedNames.has(candidate.toLowerCase())){
+        candidate=`${outBase}_${n}${outExt}`;
+        n++;
+      }
+      usedNames.add(candidate.toLowerCase());
+    }
+    return candidate;
+  }
+
+  function canvasToBlob(c,mime,quality){
+    return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
+  }
+
+  async function processItem(it){
+    const img=await decode(it.file);
+    const src=drawRotated(img,it.rotation,0);
+    img.close?.();
+    const out=processCanvas(src);
+    await applyDateStamp(out,it.file);
+    const mime="image/jpeg";
+    const quality=+els.quality.value/100;
+    return await canvasToBlob(out,mime,quality);
+  }
+
+  async function downloadBlob(blob,name){
+    const a=document.createElement("a");
+    const u=URL.createObjectURL(blob);
+    a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(u),2000);
+  }
+
+  els.saveOneBtn.onclick=async()=>{
+    if(current<0||busy)return;
+    setBusy(true);setStatus("Processing full-resolution photo…");
+    try{
+      const it=items[current], blob=await processItem(it);
+      await downloadBlob(blob,await outputName(it.file));
+      setStatus("Saved");
+    }catch(e){console.error(e);setStatus("Export failed");}
+    setBusy(false);
+  };
+
+  const crcTable=(()=>{
+    const t=new Uint32Array(256);
+    for(let n=0;n<256;n++){
+      let c=n;
+      for(let k=0;k<8;k++) c=(c&1)?0xedb88320^(c>>>1):c>>>1;
+      t[n]=c>>>0;
+    }
+    return t;
+  })();
+  function crc32(u8){
+    let c=0xffffffff;
+    for(const b of u8)c=crcTable[(c^b)&255]^(c>>>8);
+    return (c^0xffffffff)>>>0;
+  }
+  function le16(n){return new Uint8Array([n&255,(n>>>8)&255])}
+  function le32(n){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255])}
+  function concat(parts){
+    let len=0; for(const p of parts)len+=p.length;
+    const out=new Uint8Array(len); let o=0;
+    for(const p of parts){out.set(p,o);o+=p.length} return out;
+  }
+  async function buildZip(entries){
+    const enc=new TextEncoder(), locals=[], centrals=[]; let offset=0;
+    for(const e of entries){
+      const name=enc.encode(e.name), data=new Uint8Array(await e.blob.arrayBuffer()), crc=crc32(data);
+      const local=concat([
+        le32(0x04034b50),le16(20),le16(0),le16(0),le16(0),le16(0),
+        le32(crc),le32(data.length),le32(data.length),le16(name.length),le16(0),name,data
+      ]);
+      locals.push(local);
+      centrals.push(concat([
+        le32(0x02014b50),le16(20),le16(20),le16(0),le16(0),le16(0),le16(0),
+        le32(crc),le32(data.length),le32(data.length),le16(name.length),le16(0),le16(0),
+        le16(0),le16(0),le32(0),le32(offset),name
+      ]));
+      offset+=local.length;
+    }
+    const central=concat(centrals), localAll=concat(locals);
+    const end=concat([
+      le32(0x06054b50),le16(0),le16(0),le16(entries.length),le16(entries.length),
+      le32(central.length),le32(localAll.length),le16(0)
+    ]);
+    return new Blob([localAll,central,end],{type:"application/zip"});
+  }
+
+  els.zipBtn.onclick=async()=>{
+    if(!items.length||busy)return;
+    setBusy(true);setProgress(0,items.length);
+    try{
+      const entries=[];
+      const usedNames=new Set();
+      for(let i=0;i<items.length;i++){
+        setStatus(`Processing ${i+1} of ${items.length}: ${items[i].file.name}`);
+        const blob=await processItem(items[i]);
+        entries.push({name:await outputName(items[i].file,usedNames),blob});
+        setProgress(i+1,items.length);
+        await new Promise(r=>setTimeout(r,0));
+      }
+      setStatus("Building ZIP…");
+      const zip=await buildZip(entries);
+      await downloadBlob(zip,"OnDevice_Film_Lab_Exports.zip");
+      setStatus(`ZIP ready • ${items.length} photos`);
+    }catch(e){console.error(e);setStatus("ZIP export failed");}
+    setBusy(false);
+  };
+
+  updateButtons();
+})();
+</script>
+</body>
+</html>
