@@ -40,7 +40,8 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Imports individual photos or an entire DCIM folder
 - Supports JPEG, PNG, and WebP input
 - Adjustable de-sharpen strength, halo radius, and edge threshold
-- Original-versus-softened comparison preview
+- Optional film grain with adjustable strength, size, and roughness
+- Original-versus-edited comparison preview
 - Manual rotation with orientation baked into exports
 - Optional retro segmented date stamp with a soft orange film-like glow
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
@@ -56,7 +57,7 @@ Your photos never leave your browser. Processing and exporting happen locally on
 
 1. Open the [web app](https://nikunjsingh93.github.io/ondevice-film-lab/).
 2. Choose photos, select a folder, or drag photos into the page.
-3. Adjust the softening controls and compare the original with the processed preview.
+3. Adjust the softening and optional film-grain controls, then compare the original with the processed preview.
 4. Optionally rotate photos, rename them using their capture dates, or add a film date stamp.
 5. Save the selected photo or download the entire batch as a ZIP file.
 

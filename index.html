@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
-<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film date stamps, and exporting locally." />
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -83,6 +83,8 @@
   .section{border-top:1px solid var(--line);padding-top:12px}
   .section:first-of-type{border-top:0}
   .section h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+  .subsectionTitle{font-size:13px;font-weight:750;color:var(--text);margin:2px 0 8px}
+  .grainBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
   .control{margin:11px 0}
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
   .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
@@ -309,7 +311,7 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and halos, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
+        <div class="sub">Soften hard digital sharpening and halos, add film grain, bake orientation into the pixels, manually rotate problem shots, preview side-by-side, and export locally. Your photos never leave your device.</div>
       </div>
 
       <div id="drop" class="drop">
@@ -324,7 +326,8 @@
       </div>
 
       <div class="section">
-        <h3>Softening</h3>
+        <h3>Edits</h3>
+        <div class="subsectionTitle">Softening</div>
         <div class="control">
           <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
           <input id="amount" type="range" min="0" max="100" value="50">
@@ -336,6 +339,26 @@
         <div class="control">
           <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
           <input id="threshold" type="range" min="0" max="30" value="5">
+        </div>
+
+        <div class="grainBlock">
+          <div class="subsectionTitle">Film grain</div>
+          <label class="check"><input id="grainEnabled" type="checkbox"> Add film grain</label>
+
+          <div id="grainOptions" style="margin-top:10px;opacity:.5;pointer-events:none">
+            <div class="control">
+              <label><span>Grain strength</span><span id="grainStrengthVal" class="value">20%</span></label>
+              <input id="grainStrength" type="range" min="0" max="100" value="20">
+            </div>
+            <div class="control">
+              <label><span>Grain size</span><span id="grainSizeVal" class="value">1.4 px</span></label>
+              <input id="grainSize" type="range" min="10" max="40" value="14">
+            </div>
+            <div class="control">
+              <label><span>Roughness</span><span id="grainRoughnessVal" class="value">55%</span></label>
+              <input id="grainRoughness" type="range" min="0" max="100" value="55">
+            </div>
+          </div>
         </div>
       </div>
 
@@ -397,7 +420,7 @@
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
-            <span>Drag the divider after importing to compare Original and Softened. Date-stamp and filename changes are also previewed before export.</span>
+            <span>Drag the divider after importing to compare Original and Edited. Softening, grain, date-stamp, and filename changes are previewed before export.</span>
           </div>
         </div>
 
@@ -429,8 +452,12 @@
   const els = {
     drop: $("#drop"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
+    grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
+    grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
+    grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
+    grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), resetRotBtn: $("#resetRotBtn"),
@@ -644,6 +671,68 @@
     return out;
   }
 
+  function seedFromFile(file){
+    const value=`${file.name}|${file.size}|${file.lastModified}`;
+    let hash=2166136261;
+    for(let i=0;i<value.length;i++) hash=Math.imul(hash^value.charCodeAt(i),16777619);
+    return hash>>>0;
+  }
+
+  function seededRandom(seed){
+    return ()=>{
+      seed=(seed+0x6D2B79F5)|0;
+      let t=seed;
+      t=Math.imul(t^(t>>>15),t|1);
+      t^=t+Math.imul(t^(t>>>7),t|61);
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+  }
+
+  function applyGrain(canvas,file,previewScale=1){
+    if(!els.grainEnabled.checked) return canvas;
+    const strength=+els.grainStrength.value/100;
+    if(strength<=0) return canvas;
+
+    // The grain field is generated at its selected physical pixel size and
+    // then scaled to the photo. This is faster and lighter than another full
+    // RGB processing pass, especially during batch export on mobile devices.
+    // Very large photos cap the noise field at roughly eight million cells.
+    const selectedSize=(+els.grainSize.value/10)*previewScale;
+    const memoryFloor=Math.sqrt((canvas.width*canvas.height)/8000000);
+    const grainSize=Math.max(1,selectedSize,memoryFloor);
+    const roughness=+els.grainRoughness.value/100;
+    const field=document.createElement("canvas");
+    field.width=Math.max(1,Math.ceil(canvas.width/grainSize));
+    field.height=Math.max(1,Math.ceil(canvas.height/grainSize));
+    const fctx=field.getContext("2d",{willReadFrequently:true});
+    const image=fctx.createImageData(field.width,field.height);
+    const data=image.data;
+    const random=seededRandom(seedFromFile(file));
+    const curve=1.75-roughness*1.20;
+    const contrast=.62+roughness*.38;
+
+    for(let i=0;i<data.length;i+=4){
+      let noise=random()*2-1;
+      noise=Math.sign(noise)*Math.pow(Math.abs(noise),curve);
+      const value=Math.max(0,Math.min(255,Math.round(128+noise*118*contrast)));
+      data[i]=value;
+      data[i+1]=value;
+      data[i+2]=value;
+      data[i+3]=255;
+    }
+    fctx.putImageData(image,0,0);
+
+    const ctx=canvas.getContext("2d");
+    ctx.save();
+    ctx.globalCompositeOperation="soft-light";
+    ctx.globalAlpha=Math.min(.88,strength*.88);
+    ctx.imageSmoothingEnabled=roughness<.78;
+    ctx.imageSmoothingQuality="high";
+    ctx.drawImage(field,0,0,canvas.width,canvas.height);
+    ctx.restore();
+    return canvas;
+  }
+
   function cloneCanvas(c){
     const n=document.createElement("canvas");
     n.width=c.width; n.height=c.height; n.getContext("2d").drawImage(c,0,0);
@@ -782,6 +871,7 @@
       img.close?.();
 
       const softBase=processCanvas(cloneCanvas(original),previewScale);
+      applyGrain(softBase,it.file,previewScale);
       await applyDateStamp(softBase,it.file);
 
       const originalShown=cloneCanvas(original);
@@ -793,8 +883,8 @@
       const stage=document.createElement("div"); stage.className="compareStage";
       const box=document.createElement("div"); box.className="compareBox";
 
-      // Full base = softened result. Left clipped overlay = original.
-      // Therefore dragging LEFT reveals MORE softened, matching Lightroom-style expectation.
+      // Full base = edited result. Left clipped overlay = original.
+      // Therefore dragging LEFT reveals more of the finished edit.
       box.appendChild(softBase);
 
       const layer=document.createElement("div"); layer.className="softLayer";
@@ -809,7 +899,7 @@
       box.appendChild(divider);
 
       const before=document.createElement("div"); before.className="compareLabel before"; before.textContent="Original";
-      const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Softened";
+      const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Edited";
       box.append(before,after);
       stage.appendChild(box);
       els.viewer.appendChild(stage);
@@ -837,10 +927,20 @@
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
     els.thresholdVal.textContent=els.threshold.value;
+    els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
+    els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
+    els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
   [els.amount,els.radius,els.threshold].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
+
+  function updateGrainUI(){
+    const on=els.grainEnabled.checked;
+    els.grainOptions.style.opacity=on?"1":".5";
+    els.grainOptions.style.pointerEvents=on?"auto":"none";
+  }
 
   function updateStampUI(){
     const on=els.dateStamp.checked;
@@ -850,11 +950,13 @@
     els.stampSizeVal.textContent=(+els.stampSize.value/10).toFixed(1)+"%";
   }
   els.dateRename.addEventListener("change",()=>{ if(current>=0) makePreview(current); });
+  els.grainEnabled.addEventListener("change",()=>{updateGrainUI();rerender()});
   els.dateStamp.addEventListener("change",()=>{updateStampUI();rerender()});
   els.stampPosition.addEventListener("change",rerender);
   els.stampColor.addEventListener("input",()=>{updateStampUI();rerender()});
   els.stampSize.addEventListener("input",()=>{updateStampUI();rerender()});
   updateSliderLabels();
+  updateGrainUI();
   updateStampUI();
 
   function select(i){
@@ -989,6 +1091,7 @@
     const src=drawRotated(img,it.rotation,0);
     img.close?.();
     const out=processCanvas(src);
+    applyGrain(out,it.file,1);
     await applyDateStamp(out,it.file);
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
