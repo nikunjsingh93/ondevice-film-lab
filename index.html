@@ -1140,8 +1140,13 @@
     ctx.save();
     ctx.translate(c.width/2,c.height/2);
     ctx.rotate(deg*Math.PI/180);
-    ctx.scale(scale,scale);
-    ctx.drawImage(img,-iw/2,-ih/2);
+    // Fill the integer-sized canvas exactly. Scaling around the source centre
+    // with a fractional factor can leave a partially transparent edge row on
+    // Android after the destination dimensions are rounded.
+    const normalized=((deg%360)+360)%360;
+    const drawWidth=(normalized===90||normalized===270)?c.height:c.width;
+    const drawHeight=(normalized===90||normalized===270)?c.width:c.height;
+    ctx.drawImage(img,-drawWidth/2,-drawHeight/2,drawWidth,drawHeight);
     ctx.restore();
     return c;
   }
