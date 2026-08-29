@@ -185,7 +185,7 @@
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
-  .compareBox canvas,.compareBox .previewImage{
+  .compareBox canvas{
     display:block;
     width:100%;
     height:100%;
@@ -202,7 +202,7 @@
     -webkit-clip-path:inset(0 50% 0 0);
     pointer-events:none
   }
-  .softLayer canvas,.softLayer .previewImage{
+  .softLayer canvas{
     position:absolute;
     left:0;top:0;
     width:100%;height:100%;
@@ -568,7 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.0</div>
+        <div class="appVersion">Version 1.0.1</div>
       </div>
 
       <div id="editSection" class="section">
@@ -831,7 +831,6 @@
   let busy = false;
   let comparePercent = 50;
   let previewZoom = 1;
-  let previewObjectUrls = [];
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
 
@@ -1565,19 +1564,17 @@
   function applyPreviewZoom(recalculateFit=false){
     const stage=els.viewer.querySelector(".compareStage");
     const box=els.viewer.querySelector(".compareBox");
-    const visual=box?.querySelector("canvas,.previewImage");
-    if(!stage||!box||!visual) return;
-    const pixelWidth=visual.naturalWidth||visual.width;
-    const pixelHeight=visual.naturalHeight||visual.height;
+    const canvas=box?.querySelector("canvas");
+    if(!stage||!box||!canvas) return;
 
     if(recalculateFit||!box.dataset.fitWidth){
       const availableWidth=Math.max(1,stage.clientWidth-28);
       stage.style.height="";
       stage.style.minHeight="";
       const availableHeight=Math.max(1,stage.clientHeight-28);
-      const fitScale=Math.min(1,availableWidth/pixelWidth,availableHeight/pixelHeight);
-      box.dataset.fitWidth=String(Math.max(1,pixelWidth*fitScale));
-      box.dataset.fitHeight=String(Math.max(1,pixelHeight*fitScale));
+      const fitScale=Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
+      box.dataset.fitWidth=String(Math.max(1,canvas.width*fitScale));
+      box.dataset.fitHeight=String(Math.max(1,canvas.height*fitScale));
     }
 
     box.style.width=`${+box.dataset.fitWidth*previewZoom}px`;
@@ -1654,26 +1651,28 @@
     stage.addEventListener("pointerdown",down);
   }
 
-  function sealPreviewBottomEdge(canvas,rows=4){
-    if(canvas.height<=rows||canvas.width<1)return;
-    const ctx=canvas.getContext("2d");
-    const cleanRow=ctx.getImageData(0,canvas.height-rows-1,canvas.width,1);
-    for(let y=canvas.height-rows;y<canvas.height;y++)ctx.putImageData(cleanRow,0,y);
-  }
-
-  async function previewImageFromCanvas(canvas){
-    const blob=await canvasToBlob(canvas,"image/png",1);
-    const url=URL.createObjectURL(blob);
-    const image=new Image();
-    image.className="previewImage";
-    image.src=url;
-    try{await image.decode()}catch{}
-    return {image,url};
-  }
-
-  function replacePreviewObjectUrls(urls=[]){
-    previewObjectUrls.forEach(url=>URL.revokeObjectURL(url));
-    previewObjectUrls=urls;
+  function repairDecodedBottomPadding(canvas,maxRows=64){
+    const width=canvas.width,height=canvas.height;
+    if(width<2||height<2)return 0;
+    const rows=Math.min(maxRows,height-1);
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    const strip=ctx.getImageData(0,height-rows,width,rows).data;
+    const sampleStep=Math.max(1,Math.floor(width/512));
+    let padding=0;
+    for(let localY=rows-1;localY>=0;localY--){
+      let white=0,total=0;
+      for(let x=0;x<width;x+=sampleStep){
+        const i=(localY*width+x)*4;
+        if(strip[i]>=250&&strip[i+1]>=250&&strip[i+2]>=250)white++;
+        total++;
+      }
+      if(white/total<.985)break;
+      padding++;
+    }
+    if(!padding||padding>=height)return 0;
+    const cleanRow=ctx.getImageData(0,height-padding-1,width,1);
+    for(let y=height-padding;y<height;y++)ctx.putImageData(cleanRow,0,y);
+    return padding;
   }
 
   async function makePreview(index){
@@ -1698,6 +1697,7 @@
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
       const original=drawRotated(img,it.rotation,previewMax);
+      repairDecodedBottomPadding(original);
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
@@ -1714,26 +1714,6 @@
 
       if(token!==previewToken) return;
 
-      let editedDisplay=editedBase,originalDisplay=originalShown;
-      let nextPreviewUrls=[];
-      if(window.matchMedia("(max-width:900px)").matches){
-        if(sourceLong>previewMax){
-          sealPreviewBottomEdge(editedBase);
-          sealPreviewBottomEdge(originalShown);
-        }
-        const [editedImage,originalImage]=await Promise.all([
-          previewImageFromCanvas(editedBase),previewImageFromCanvas(originalShown)
-        ]);
-        nextPreviewUrls=[editedImage.url,originalImage.url];
-        if(token!==previewToken){
-          nextPreviewUrls.forEach(url=>URL.revokeObjectURL(url));
-          return;
-        }
-        editedDisplay=editedImage.image;
-        originalDisplay=originalImage.image;
-      }
-
-      replacePreviewObjectUrls(nextPreviewUrls);
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
@@ -1741,13 +1721,13 @@
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
-      box.appendChild(editedDisplay);
+      box.appendChild(editedBase);
 
       const layer=document.createElement("div"); layer.className="softLayer";
       const clip=`inset(0 ${100-comparePercent}% 0 0)`;
       layer.style.clipPath=clip;
       layer.style.webkitClipPath=clip;
-      layer.appendChild(originalDisplay);
+      layer.appendChild(originalShown);
       box.appendChild(layer);
 
       const divider=document.createElement("div"); divider.className="divider";
@@ -2016,6 +1996,7 @@
     const img=await decode(it.file);
     const src=drawRotated(img,it.rotation,0);
     img.close?.();
+    repairDecodedBottomPadding(src);
     const out=processCanvas(src);
     applyChromaticAberration(out);
     applyFade(out);
