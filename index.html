@@ -995,6 +995,62 @@
     });
   }
 
+  async function encodedImageSize(file){
+    try{
+      const bytes=new Uint8Array(await file.slice(0,Math.min(file.size,2*1024*1024)).arrayBuffer());
+      const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+      if(bytes.length>=24&&bytes[0]===0x89&&bytes[1]===0x50&&bytes[2]===0x4e&&bytes[3]===0x47){
+        return {width:view.getUint32(16),height:view.getUint32(20)};
+      }
+      if(bytes.length>=4&&bytes[0]===0xff&&bytes[1]===0xd8){
+        const sof=new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);
+        let offset=2;
+        while(offset+8<bytes.length){
+          if(bytes[offset]!==0xff){offset++;continue}
+          while(offset<bytes.length&&bytes[offset]===0xff)offset++;
+          if(offset>=bytes.length)break;
+          const marker=bytes[offset++];
+          if(marker===0xd9||marker===0xda)break;
+          if(marker===0x01||(marker>=0xd0&&marker<=0xd7))continue;
+          if(offset+2>bytes.length)break;
+          const length=view.getUint16(offset);
+          if(length<2||offset+length>bytes.length)break;
+          if(sof.has(marker)&&length>=7){
+            return {width:view.getUint16(offset+5),height:view.getUint16(offset+3)};
+          }
+          offset+=length;
+        }
+      }
+    }catch(e){
+      console.warn("Could not read image dimensions",e);
+    }
+    return null;
+  }
+
+  async function decodePreview(file,maxDim){
+    const encoded=await encodedImageSize(file);
+    const sourceLong=encoded?Math.max(encoded.width,encoded.height):0;
+    if(encoded&&sourceLong>maxDim&&"createImageBitmap" in window){
+      const scale=maxDim/sourceLong;
+      const resizeWidth=Math.max(1,Math.round(encoded.width*scale));
+      const resizeHeight=Math.max(1,Math.round(encoded.height*scale));
+      const resize={resizeWidth,resizeHeight,resizeQuality:"high"};
+      try{
+        const image=await createImageBitmap(file,{...resize,imageOrientation:"from-image"});
+        return {image,sourceLong};
+      }catch(firstError){
+        try{
+          const image=await createImageBitmap(file,resize);
+          return {image,sourceLong};
+        }catch(secondError){
+          console.warn("Reduced-size image decode failed; trying standard decode",firstError,secondError);
+        }
+      }
+    }
+    const image=await decode(file);
+    return {image,sourceLong:sourceLong||Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height)};
+  }
+
   function rotatedSize(w,h,deg){
     deg=((deg%360)+360)%360;
     return (deg===90||deg===270) ? [h,w] : [w,h];
@@ -1518,12 +1574,13 @@
     }
     setStatus("Rendering preview…");
     try{
-      const img=await decode(it.file);
+      // Decode large mobile photos directly near preview size. This avoids
+      // allocating a full-resolution bitmap before it can be downscaled.
+      const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
+      const {image:img,sourceLong}=await decodePreview(it.file,previewMax);
       if(token!==previewToken) { img.close?.(); return; }
-      const sourceLong=Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height);
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
-      const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
       const original=drawRotated(img,it.rotation,previewMax);
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
