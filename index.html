@@ -103,10 +103,15 @@
   }
   .toolbar button{padding:7px 9px;white-space:nowrap}
   .toolbar .spacer{display:none}
-  .toolbar .iconButton{width:34px;min-width:34px;padding:7px}
+  .toolbarGroup{display:flex;align-items:center;gap:4px}
+  .toolbarGroup+.toolbarGroup{margin-left:3px;padding-left:8px;border-left:1px solid #3a475b}
+  .toolbar .iconButton{width:38px;min-width:38px;padding:7px;border-radius:12px}
+  .toolbarIcon{display:block;width:21px;height:21px;margin:auto;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
+  .toolbar .iconButton:hover .toolbarIcon{stroke:var(--accent)}
   .zoomControls{display:flex;align-items:center;gap:5px}
-  .zoomControls button{min-width:34px;padding:7px}
-  .zoomControls .zoomReset{width:56px;min-width:56px;font-variant-numeric:tabular-nums}
+  .zoomControls button{min-width:36px;padding:7px;font-size:17px;font-weight:800}
+  .zoomControls .zoomReset{width:56px;min-width:56px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
+  .toolbarDivider{width:1px;height:26px;margin:0 3px;background:#3a475b;flex:0 0 auto}
   .filename{
     flex:1 1 auto;
     min-width:0;
@@ -117,7 +122,8 @@
     overflow:hidden;
     text-overflow:ellipsis
   }
-  .mobileEmptyLabel{display:none}
+  .mobileEmptyLabel{display:none;font-weight:750}
+  .addPhotosArrow{display:inline-block;margin-right:3px;font-size:22px;line-height:.7;font-weight:900;vertical-align:-1px}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
   .viewer{
     position:relative;
@@ -304,6 +310,12 @@
   .main.chromeHidden .toolbar>:not(.chromeToggle){display:none}
   .main.chromeHidden .filmstripWrap,
   .main.chromeHidden .mobileTools{display:none}
+  .chromeToggle .chevronUp{display:none}
+  .chromeToggle[aria-pressed="true"] .chevronDown{display:none}
+  .chromeToggle[aria-pressed="true"] .chevronUp{display:block}
+  #fullBtn .fullscreenContract{display:none}
+  #fullBtn[aria-pressed="true"] .fullscreenExpand{display:none}
+  #fullBtn[aria-pressed="true"] .fullscreenContract{display:block}
   .app:fullscreen,
   .app:-webkit-full-screen{
     width:100vw;
@@ -406,6 +418,9 @@
     .mobileBackdrop.open{display:block}
     .mobileOnly{display:inline-flex}
     .toolbar{flex:0 0 auto;flex-wrap:wrap}
+    .toolbarGroup+.toolbarGroup{margin-left:2px;padding-left:6px}
+    .toolbar .iconButton,.zoomControls button{min-height:44px}
+    .toolbar .iconButton{width:44px;min-width:44px}
     .filename{flex-basis:calc(100% - 42px)}
     .desktopEmptyLabel{display:none}
     .mobileEmptyLabel{display:inline}
@@ -599,7 +614,6 @@
           </div>
         </div>
 
-        <div class="tip" style="margin-top:10px">ZIP export is the recommended batch option on Mac.</div>
       </div>
     </aside>
 
@@ -608,19 +622,36 @@
     <main class="card main">
       <div class="toolbar">
         <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">☰</button>
-        <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel">← Add Photos</span></div>
+        <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><span class="addPhotosArrow">←</span>Add Photos</span></div>
         <div class="spacer"></div>
-        <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>↶</button>
-        <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>↷</button>
-        <div class="zoomControls" aria-label="Preview zoom controls">
-          <button id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out" disabled>−</button>
-          <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>100%</button>
-          <button id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in" disabled>+</button>
+        <div class="toolbarGroup rotationControls" aria-label="Rotation controls">
+          <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>
+            <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 9V4.5M4.5 9H9"/><path d="M4.8 8.5a8 8 0 1 1-.7 7.3"/></svg>
+          </button>
+          <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>
+            <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 9V4.5M19.5 9H15"/><path d="M19.2 8.5a8 8 0 1 0 .7 7.3"/></svg>
+          </button>
         </div>
-        <button id="fullBtn" class="iconButton" title="Full screen" aria-label="Full screen" disabled>⛶</button>
-        <button id="saveOneBtn" disabled>Save photo</button>
-        <button id="zipBtn" class="primary" disabled>Download all .zip</button>
-        <button id="chromeToggleBtn" class="iconButton chromeToggle" type="button" title="Hide toolbar and filmstrip" aria-label="Hide toolbar and filmstrip" aria-pressed="false">↓</button>
+        <div class="toolbarGroup viewControls" aria-label="Preview view controls">
+          <div class="zoomControls" aria-label="Preview zoom controls">
+            <button id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out" disabled>−</button>
+            <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>100%</button>
+            <button id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in" disabled>+</button>
+          </div>
+          <span class="toolbarDivider" aria-hidden="true"></span>
+          <button id="fullBtn" class="iconButton" title="Full screen" aria-label="Full screen" aria-pressed="false" disabled>
+            <svg class="toolbarIcon fullscreenExpand" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+            <svg class="toolbarIcon fullscreenContract" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>
+          </button>
+        </div>
+        <div class="toolbarGroup outputControls">
+          <button id="saveOneBtn" disabled>Save photo</button>
+          <button id="zipBtn" class="primary" disabled>Download all .zip</button>
+        </div>
+        <button id="chromeToggleBtn" class="iconButton chromeToggle" type="button" title="Hide toolbar and filmstrip" aria-label="Hide toolbar and filmstrip" aria-pressed="false">
+          <svg class="toolbarIcon chevronDown" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          <svg class="toolbarIcon chevronUp" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 15 5.5-5.5 5.5 5.5"/></svg>
+        </button>
       </div>
 
       <div class="viewerShell">
@@ -1567,7 +1598,6 @@
 
   function setChromeHidden(hidden){
     document.querySelector(".main").classList.toggle("chromeHidden",hidden);
-    els.chromeToggleBtn.textContent=hidden ? "↑" : "↓";
     els.chromeToggleBtn.title=hidden ? "Show toolbar and filmstrip" : "Hide toolbar and filmstrip";
     els.chromeToggleBtn.setAttribute("aria-label",els.chromeToggleBtn.title);
     els.chromeToggleBtn.setAttribute("aria-pressed",String(hidden));
@@ -1595,12 +1625,10 @@
     try{
       if(!document.fullscreenElement){
         await els.appRoot.requestFullscreen?.();
-        els.fullBtn.textContent = "⤢";
         els.fullBtn.title = "Exit full screen";
         els.fullBtn.setAttribute("aria-label","Exit full screen");
       }else{
         await document.exitFullscreen?.();
-        els.fullBtn.textContent = "⛶";
         els.fullBtn.title = "Full screen";
         els.fullBtn.setAttribute("aria-label","Full screen");
       }
@@ -1612,9 +1640,9 @@
   els.fullBtn.onclick=toggleFullScreen;
   document.addEventListener("fullscreenchange",()=>{
     const active=!!document.fullscreenElement;
-    els.fullBtn.textContent=active ? "⤢" : "⛶";
     els.fullBtn.title=active ? "Exit full screen" : "Full screen";
     els.fullBtn.setAttribute("aria-label",els.fullBtn.title);
+    els.fullBtn.setAttribute("aria-pressed",String(active));
     requestAnimationFrame(()=>applyPreviewZoom(true));
   });
   window.addEventListener("resize",debounce(()=>{
