@@ -568,7 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.1</div>
+        <div class="appVersion">Version 1.0.2</div>
       </div>
 
       <div id="editSection" class="section">
@@ -1660,13 +1660,20 @@
     const sampleStep=Math.max(1,Math.floor(width/512));
     let padding=0;
     for(let localY=rows-1;localY>=0;localY--){
-      let white=0,total=0;
+      let transparent=0,white=0,total=0;
       for(let x=0;x<width;x+=sampleStep){
         const i=(localY*width+x)*4;
-        if(strip[i]>=250&&strip[i+1]>=250&&strip[i+2]>=250)white++;
+        if(strip[i+3]<250)transparent++;
+        // Film fade maps pure decoder white to roughly 249–251, so use a
+        // small tolerance here. The 98.5% full-row requirement below keeps
+        // ordinary bright photographic detail from being mistaken for padding.
+        if(strip[i]>=246&&strip[i+1]>=246&&strip[i+2]>=246)white++;
         total++;
       }
-      if(white/total<.985)break;
+      // Some Android JPEG decoders expose MCU padding as transparent pixels;
+      // others turn the same padding white. Treat either form as decoder-only
+      // padding and extend the final real image row over it.
+      if(Math.max(transparent,white)/total<.985)break;
       padding++;
     }
     if(!padding||padding>=height)return 0;
@@ -1711,6 +1718,11 @@
 
       const originalShown=cloneCanvas(original);
       await applyDateStamp(originalShown,it.file);
+
+      // Effects such as bloom can spread a decoder edge into several visible
+      // rows, so make the final preview edge-safe as well as the decoded input.
+      repairDecodedBottomPadding(editedBase);
+      repairDecodedBottomPadding(originalShown);
 
       if(token!==previewToken) return;
 
@@ -1989,7 +2001,16 @@
   }
 
   function canvasToBlob(c,mime,quality){
-    return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
+    let source=c;
+    if(mime==="image/jpeg"){
+      // JPEG has no alpha channel. Flatten explicitly onto an opaque canvas so
+      // Android cannot choose a browser-specific colour for transparent pixels.
+      source=document.createElement("canvas");
+      source.width=c.width;source.height=c.height;
+      const ctx=source.getContext("2d",{alpha:false});
+      ctx.drawImage(c,0,0);
+    }
+    return new Promise((res,rej)=>source.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
   }
 
   async function processItem(it){
@@ -2004,6 +2025,10 @@
     applyBloom(out);
     applyGrain(out,it.file,1);
     await applyDateStamp(out,it.file);
+    // Last-line safety check after every effect. This is deliberately done
+    // immediately before encoding because Android's padded JPEG rows can be
+    // enlarged by blur-based film effects.
+    repairDecodedBottomPadding(out);
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
     return await canvasToBlob(out,mime,quality);
