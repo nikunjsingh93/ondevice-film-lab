@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
-<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, grain and date stamps, and exporting locally." />
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, halation, grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -95,7 +95,7 @@
   .check{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--muted);cursor:pointer}
   .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
-  .main{min-height:760px;display:flex;flex-direction:column}
+  .main{position:relative;min-height:760px;display:flex;flex-direction:column}
   .toolbar{
     padding:7px 9px;
     border-bottom:1px solid var(--line);
@@ -117,6 +117,7 @@
     overflow:hidden;
     text-overflow:ellipsis
   }
+  .mobileEmptyLabel{display:none}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
   .viewer{
     position:relative;
@@ -290,7 +291,19 @@
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
   .tip{font-size:12px;color:var(--muted)}
-  .mobileOnly,.mobilePanelHeader,.mobileTools,.mobileBackdrop{display:none}
+  .mobileOnly,.mobilePanelHeader,.mobileTools,.mobileBackdrop,.chromeToggle{display:none}
+  .main.chromeHidden .toolbar{
+    position:absolute;
+    z-index:20;
+    top:8px;
+    right:8px;
+    padding:0;
+    border:0;
+    background:transparent
+  }
+  .main.chromeHidden .toolbar>:not(.chromeToggle){display:none}
+  .main.chromeHidden .filmstripWrap,
+  .main.chromeHidden .mobileTools{display:none}
   .app:fullscreen,
   .app:-webkit-full-screen{
     width:100vw;
@@ -317,6 +330,7 @@
     min-height:0
   }
   @media(min-width:901px){
+    .chromeToggle{display:inline-flex}
     .main{
       position:sticky;
       top:14px;
@@ -393,6 +407,8 @@
     .mobileOnly{display:inline-flex}
     .toolbar{flex:0 0 auto;flex-wrap:wrap}
     .filename{flex-basis:calc(100% - 42px)}
+    .desktopEmptyLabel{display:none}
+    .mobileEmptyLabel{display:inline}
     .viewerShell{flex:1 1 auto;min-height:0}
     .compareStage{height:100%;min-height:0}
     .viewer{flex:1 1 auto;min-height:0}
@@ -416,6 +432,31 @@
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
   }
+  @media(max-width:900px) and (orientation:landscape){
+    .app{padding:8px;height:100dvh}
+    .layout{grid-template-columns:minmax(240px,285px) minmax(0,1fr);gap:10px}
+    .sidebar{
+      display:flex;
+      position:static;
+      width:auto;
+      height:100%;
+      max-height:100%;
+      padding:12px;
+      overflow-y:auto;
+      border-radius:14px
+    }
+    .mobilePanelHeader,.mobileOnly,.mobileTools,.mobileBackdrop{display:none!important}
+    .main{height:100%;border:1px solid var(--line);border-radius:14px}
+    .toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .toolbar::-webkit-scrollbar{display:none}
+    .toolbar button{flex:0 0 auto}
+    .filename{flex-basis:auto}
+    .chromeToggle{display:inline-flex;order:-1}
+    .viewerShell{min-height:0}
+    .viewer,.compareStage{height:100%;min-height:0}
+    .thumb{width:145px;min-width:145px}
+    .thumb img{height:58px}
+  }
 </style>
 </head>
 <body>
@@ -431,7 +472,7 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and halos, and add film fade, bloom and grain. Your photos never leave your device.</div>
+        <div class="sub">Soften hard digital sharpening and halos, and add film fade, bloom, halation and grain. Your photos never leave your device.</div>
       </div>
 
       <div class="photoPicker">
@@ -472,6 +513,10 @@
           <div class="control">
             <label><span>Bloom</span><span id="bloomVal" class="value">30%</span></label>
             <input id="bloom" type="range" min="0" max="100" value="30">
+          </div>
+          <div class="control">
+            <label><span>Halation</span><span id="halationVal" class="value">30%</span></label>
+            <input id="halation" type="range" min="0" max="100" value="30">
           </div>
         </div>
 
@@ -559,7 +604,7 @@
     <main class="card main">
       <div class="toolbar">
         <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">☰</button>
-        <div id="filename" class="filename">No photo selected</div>
+        <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel">← Add Photos</span></div>
         <div class="spacer"></div>
         <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>↶</button>
         <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>↷</button>
@@ -571,13 +616,14 @@
         <button id="fullBtn" class="iconButton" title="Full screen" aria-label="Full screen" disabled>⛶</button>
         <button id="saveOneBtn" disabled>Save photo</button>
         <button id="zipBtn" class="primary" disabled>Download all .zip</button>
+        <button id="chromeToggleBtn" class="iconButton chromeToggle" type="button" title="Hide toolbar and filmstrip" aria-label="Hide toolbar and filmstrip" aria-pressed="false">↓</button>
       </div>
 
       <div class="viewerShell">
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
-            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, grain, date-stamp, and filename changes are previewed before export.</span>
+            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, grain, date-stamp, and filename changes are previewed before export.</span>
           </div>
         </div>
 
@@ -616,19 +662,19 @@
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
     mobileBackdrop: $("#mobileBackdrop"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
-    fade: $("#fade"), bloom: $("#bloom"),
+    fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
-    fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"),
+    fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
-    fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"),
+    fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
@@ -653,7 +699,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -667,6 +713,7 @@
     els.zoomResetBtn.disabled = !selected || previewZoom===1;
     els.zoomInBtn.disabled = !selected || previewZoom>=4;
     els.fullBtn.disabled = !selected;
+    els.chromeToggleBtn.disabled = !selected;
     els.saveOneBtn.disabled = !selected;
     els.zipBtn.disabled = !has;
   }
@@ -939,6 +986,60 @@
     return canvas;
   }
 
+  function applyHalation(canvas){
+    const strength=+els.halation.value/100;
+    if(strength<=0) return canvas;
+
+    const highlights=document.createElement("canvas");
+    highlights.width=canvas.width; highlights.height=canvas.height;
+    const hctx=highlights.getContext("2d",{willReadFrequently:true});
+    const source=canvas.getContext("2d",{willReadFrequently:true}).getImageData(0,0,canvas.width,canvas.height);
+    const mask=hctx.createImageData(canvas.width,canvas.height);
+    const pixels=source.data;
+    const data=mask.data;
+
+    // Halation is local fog around intense highlights, not a general red
+    // color grade. A smooth high-luminance mask keeps midtones and shadows
+    // clean while supplying warm light for the reflected halo.
+    for(let i=0;i<data.length;i+=4){
+      const luminance=.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
+      let amount=(luminance-168)/82;
+      if(amount<0) amount=0; else if(amount>1) amount=1;
+      amount=amount*amount*(3-2*amount);
+      data[i]=255;
+      data[i+1]=54;
+      data[i+2]=18;
+      data[i+3]=Math.round(amount*255);
+    }
+    hctx.putImageData(mask,0,0);
+
+    const glow=document.createElement("canvas");
+    glow.width=canvas.width; glow.height=canvas.height;
+    const gctx=glow.getContext("2d");
+    const radius=Math.max(2,Math.max(canvas.width,canvas.height)*.0042);
+    gctx.filter=`blur(${radius}px)`;
+    gctx.drawImage(highlights,0,0);
+    gctx.filter="none";
+    // Reduce the bright core so the color concentrates around its boundary.
+    gctx.globalCompositeOperation="destination-out";
+    gctx.globalAlpha=.46;
+    gctx.drawImage(highlights,0,0);
+
+    const ctx=canvas.getContext("2d");
+    ctx.save();
+    ctx.globalCompositeOperation="screen";
+    // 1.3824 is another 20% stronger than the previous 1.152 blend.
+    // Split values above 1 into another screen pass because globalAlpha caps at 1.
+    let intensity=strength*1.3824;
+    while(intensity>0){
+      ctx.globalAlpha=Math.min(1,intensity);
+      ctx.drawImage(glow,0,0);
+      intensity-=1;
+    }
+    ctx.restore();
+    return canvas;
+  }
+
   function applyGrain(canvas,file,previewScale=1){
     if(!els.grainEnabled.checked) return canvas;
     const strength=+els.grainStrength.value/100;
@@ -1184,17 +1285,24 @@
       x:(previousStage.scrollLeft+previousStage.clientWidth/2)/Math.max(1,previousStage.scrollWidth),
       y:(previousStage.scrollTop+previousStage.clientHeight/2)/Math.max(1,previousStage.scrollHeight)
     } : null;
+    if(els.viewer.querySelector(".empty")){
+      els.viewer.innerHTML='<div class="empty loading"><b>Preparing preview…</b></div>';
+    }
     setStatus("Rendering preview…");
     try{
       const img=await decode(it.file);
       if(token!==previewToken) { img.close?.(); return; }
       const sourceLong=Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height);
-      const original=drawRotated(img,it.rotation,1800);
+      // Keep mobile preview buffers lighter so several default film effects
+      // can render reliably on memory-constrained phones. Export remains full resolution.
+      const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
+      const original=drawRotated(img,it.rotation,previewMax);
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
       const editedBase=processCanvas(cloneCanvas(original),previewScale);
       applyFade(editedBase);
+      applyHalation(editedBase);
       applyBloom(editedBase);
       applyGrain(editedBase,it.file,previewScale);
       await applyDateStamp(editedBase,it.file);
@@ -1251,6 +1359,10 @@
       }
     }catch(e){
       console.error(e);
+      if(token===previewToken){
+        els.viewer.classList.remove("hasPreview");
+        els.viewer.innerHTML='<div class="empty"><b>Could not preview this photo</b><span>Please try selecting it again.</span></div>';
+      }
       setStatus("Could not decode this image");
     }
   }
@@ -1266,12 +1378,13 @@
     els.thresholdVal.textContent=els.threshold.value;
     els.fadeVal.textContent=`${els.fade.value}%`;
     els.bloomVal.textContent=`${els.bloom.value}%`;
+    els.halationVal.textContent=`${els.halation.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
     els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold,els.fade,els.bloom].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
 
@@ -1390,6 +1503,16 @@
   els.zoomResetBtn.onclick=()=>setPreviewZoom(1);
   els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
 
+  function setChromeHidden(hidden){
+    document.querySelector(".main").classList.toggle("chromeHidden",hidden);
+    els.chromeToggleBtn.textContent=hidden ? "↑" : "↓";
+    els.chromeToggleBtn.title=hidden ? "Show toolbar and filmstrip" : "Hide toolbar and filmstrip";
+    els.chromeToggleBtn.setAttribute("aria-label",els.chromeToggleBtn.title);
+    els.chromeToggleBtn.setAttribute("aria-pressed",String(hidden));
+    requestAnimationFrame(()=>applyPreviewZoom(true));
+  }
+  els.chromeToggleBtn.onclick=()=>setChromeHidden(!document.querySelector(".main").classList.contains("chromeHidden"));
+
   document.addEventListener("keydown",e=>{
     if(e.key==="Escape"&&els.sidebar.classList.contains("mobileOpen")){
       e.preventDefault();
@@ -1434,6 +1557,7 @@
   });
   window.addEventListener("resize",debounce(()=>{
     if(window.innerWidth>900) closeMobilePanel();
+    if(window.innerWidth<=900&&window.matchMedia("(orientation:portrait)").matches) setChromeHidden(false);
     applyPreviewZoom(true);
   },120));
 
@@ -1471,6 +1595,7 @@
     img.close?.();
     const out=processCanvas(src);
     applyFade(out);
+    applyHalation(out);
     applyBloom(out);
     applyGrain(out,it.file,1);
     await applyDateStamp(out,it.file);
