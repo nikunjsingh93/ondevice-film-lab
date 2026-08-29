@@ -581,8 +581,8 @@
               <label class="stampColorRow">
                 <span>Stamp color</span>
                 <span class="stampColorValue">
-                  <span id="stampColorText" class="value">#F28C28</span>
-                  <input id="stampColor" class="stampColorPicker" type="color" value="#F28C28" aria-label="Choose stamp color">
+                  <span id="stampColorText" class="value">#FF7A1A</span>
+                  <input id="stampColor" class="stampColorPicker" type="color" value="#FF7A1A" aria-label="Choose stamp color">
                 </span>
               </label>
             </div>
@@ -1097,15 +1097,15 @@
     "5":"acdfg", "6":"acdefg", "7":"abc", "8":"abcdefg", "9":"abcdfg"
   };
   const segmentLines={
-    a:[.13,.07,.49,.07], b:[.55,.13,.55,.44], c:[.55,.56,.55,.87],
-    d:[.49,.93,.13,.93], e:[.07,.87,.07,.56], f:[.07,.44,.07,.13],
-    g:[.13,.50,.49,.50]
+    a:[.17,.08,.45,.08], b:[.56,.17,.56,.41], c:[.56,.59,.56,.83],
+    d:[.45,.92,.17,.92], e:[.06,.83,.06,.59], f:[.06,.41,.06,.17],
+    g:[.17,.50,.45,.50]
   };
 
   function segmentedAdvance(ch,fontPx){
-    if(ch===" ") return fontPx*.34;
-    if(ch==="'") return fontPx*.30;
-    return fontPx*.72;
+    if(ch===" ") return fontPx*.42;
+    if(ch==="'") return fontPx*.34;
+    return fontPx*.80;
   }
 
   function segmentedWidth(text,fontPx){
@@ -1126,10 +1126,13 @@
           ctx.stroke();
         }
       }else if(ch==="'"){
+        ctx.save();
+        ctx.lineCap="butt";
         ctx.beginPath();
-        ctx.moveTo(cursor+.17*fontPx,top+.04*fontPx);
-        ctx.lineTo(cursor+.12*fontPx,top+.23*fontPx);
+        ctx.moveTo(cursor+.16*fontPx,top+.04*fontPx);
+        ctx.lineTo(cursor+.16*fontPx,top+.23*fontPx);
         ctx.stroke();
+        ctx.restore();
       }
       cursor+=segmentedAdvance(ch,fontPx);
     }
@@ -1140,10 +1143,16 @@
     const startX=align==="right" ? x-width : x;
     const top=y-fontPx;
     const passes=[
-      {alpha:.16,blur:.42,line:.15},
-      {alpha:.34,blur:.19,line:.13},
-      {alpha:.94,blur:.055,line:.105}
+      {alpha:.12,blur:.76,line:.19},
+      {alpha:.24,blur:.46,line:.17},
+      {alpha:.43,blur:.23,line:.14},
+      {alpha:.88,blur:.065,line:.10}
     ];
+    ctx.save();
+    // A restrained shear gives the imprint the slight mechanical italic lean
+    // seen in many compact-camera date modules without looking typeset.
+    ctx.translate(startX+fontPx*.065,top);
+    ctx.transform(1,0,-.065,1,0,0);
     ctx.lineCap="round";
     ctx.lineJoin="round";
     ctx.strokeStyle=color;
@@ -1152,8 +1161,9 @@
       ctx.globalAlpha=pass.alpha;
       ctx.lineWidth=Math.max(1,fontPx*pass.line);
       ctx.shadowBlur=Math.max(1,fontPx*pass.blur);
-      traceSegmentedText(ctx,text,startX,top,fontPx);
+      traceSegmentedText(ctx,text,0,0,fontPx);
     }
+    ctx.restore();
   }
 
   async function applyDateStamp(canvas, file){
