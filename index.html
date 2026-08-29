@@ -568,7 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.2</div>
+        <div class="appVersion">Version 1.0.3</div>
       </div>
 
       <div id="editSection" class="section">
@@ -1005,6 +1005,19 @@
       }
     }
     return await decodeWithImageElement(file);
+  }
+
+  async function decodeForProcessing(file){
+    // Android's createImageBitmap JPEG path can expose block-alignment rows
+    // that are not part of the visible photograph. HTMLImageElement uses the
+    // browser's display-image path, which already respects the JPEG's visible
+    // dimensions and EXIF orientation. Prefer it for the full-resolution
+    // processing source; retain the bitmap decoder as a fallback.
+    if(/jpe?g/i.test(file.type)||/\.jpe?g$/i.test(file.name)){
+      try{return await decodeWithImageElement(file)}
+      catch(error){console.warn("Image-element decode failed; using bitmap fallback",error)}
+    }
+    return await decode(file);
   }
 
   async function encodedImageSize(file){
@@ -1651,9 +1664,9 @@
     stage.addEventListener("pointerdown",down);
   }
 
-  function repairDecodedBottomPadding(canvas,maxRows=64){
+  function normalizeDecodedBottomPadding(canvas,maxRows=64){
     const width=canvas.width,height=canvas.height;
-    if(width<2||height<2)return 0;
+    if(width<2||height<2)return canvas;
     const rows=Math.min(maxRows,height-1);
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
     const strip=ctx.getImageData(0,height-rows,width,rows).data;
@@ -1676,10 +1689,18 @@
       if(Math.max(transparent,white)/total<.985)break;
       padding++;
     }
-    if(!padding||padding>=height)return 0;
-    const cleanRow=ctx.getImageData(0,height-padding-1,width,1);
-    for(let y=height-padding;y<height;y++)ctx.putImageData(cleanRow,0,y);
-    return padding;
+    if(!padding||padding>=height)return canvas;
+
+    // Do not repeat one edge row: that produces visible straight lines and a
+    // false-colour strip. Crop only the decoder padding and distribute the
+    // tiny height correction smoothly over the complete photograph instead.
+    const normalized=document.createElement("canvas");
+    normalized.width=width;normalized.height=height;
+    const normalizedContext=normalized.getContext("2d",{alpha:false});
+    normalizedContext.imageSmoothingEnabled=true;
+    normalizedContext.imageSmoothingQuality="high";
+    normalizedContext.drawImage(canvas,0,0,width,height-padding,0,0,width,height);
+    return normalized;
   }
 
   async function makePreview(index){
@@ -1703,8 +1724,7 @@
       if(token!==previewToken) { img.close?.(); return; }
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
-      const original=drawRotated(img,it.rotation,previewMax);
-      repairDecodedBottomPadding(original);
+      const original=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax));
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
@@ -1718,11 +1738,6 @@
 
       const originalShown=cloneCanvas(original);
       await applyDateStamp(originalShown,it.file);
-
-      // Effects such as bloom can spread a decoder edge into several visible
-      // rows, so make the final preview edge-safe as well as the decoded input.
-      repairDecodedBottomPadding(editedBase);
-      repairDecodedBottomPadding(originalShown);
 
       if(token!==previewToken) return;
 
@@ -2001,23 +2016,13 @@
   }
 
   function canvasToBlob(c,mime,quality){
-    let source=c;
-    if(mime==="image/jpeg"){
-      // JPEG has no alpha channel. Flatten explicitly onto an opaque canvas so
-      // Android cannot choose a browser-specific colour for transparent pixels.
-      source=document.createElement("canvas");
-      source.width=c.width;source.height=c.height;
-      const ctx=source.getContext("2d",{alpha:false});
-      ctx.drawImage(c,0,0);
-    }
-    return new Promise((res,rej)=>source.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
+    return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
   }
 
   async function processItem(it){
-    const img=await decode(it.file);
-    const src=drawRotated(img,it.rotation,0);
+    const img=await decodeForProcessing(it.file);
+    const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0));
     img.close?.();
-    repairDecodedBottomPadding(src);
     const out=processCanvas(src);
     applyChromaticAberration(out);
     applyFade(out);
@@ -2025,10 +2030,6 @@
     applyBloom(out);
     applyGrain(out,it.file,1);
     await applyDateStamp(out,it.file);
-    // Last-line safety check after every effect. This is deliberately done
-    // immediately before encoding because Android's padded JPEG rows can be
-    // enlarged by blur-based film effects.
-    repairDecodedBottomPadding(out);
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
     return await canvasToBlob(out,mime,quality);
