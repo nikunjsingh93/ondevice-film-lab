@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>OnDevice Film Lab</title>
-<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, halation, grain and date stamps, and exporting locally." />
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, halation, chromatic aberration, grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -472,7 +472,7 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and halos, and add film fade, bloom, halation and grain. Your photos never leave your device.</div>
+        <div class="sub">Soften hard digital sharpening and halos, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
       </div>
 
       <div class="photoPicker">
@@ -517,6 +517,10 @@
           <div class="control">
             <label><span>Halation</span><span id="halationVal" class="value">30%</span></label>
             <input id="halation" type="range" min="0" max="100" value="30">
+          </div>
+          <div class="control">
+            <label><span>Chromatic aberration</span><span id="chromaticVal" class="value">30%</span></label>
+            <input id="chromatic" type="range" min="0" max="100" value="30">
           </div>
         </div>
 
@@ -623,7 +627,7 @@
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
-            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, grain, date-stamp, and filename changes are previewed before export.</span>
+            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, chromatic aberration, grain, date-stamp, and filename changes are previewed before export.</span>
           </div>
         </div>
 
@@ -662,12 +666,12 @@
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
     mobileBackdrop: $("#mobileBackdrop"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
-    fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"),
+    fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
-    fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"),
+    fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
@@ -941,6 +945,52 @@
       data[i+2]=Math.max(0,Math.min(255,Math.round(b*255)));
     }
     ctx.putImageData(image,0,0);
+    return canvas;
+  }
+
+  function applyChromaticAberration(canvas){
+    const strength=+els.chromatic.value/100;
+    if(strength<=0) return canvas;
+
+    // Lateral chromatic aberration is a wavelength-dependent magnification
+    // error. Scaling channels around the optical center makes separation grow
+    // naturally toward the frame edges instead of shifting the whole image.
+    const channel=document.createElement("canvas");
+    channel.width=canvas.width; channel.height=canvas.height;
+    const cctx=channel.getContext("2d");
+    const output=document.createElement("canvas");
+    output.width=canvas.width; output.height=canvas.height;
+    const octx=output.getContext("2d");
+    octx.fillStyle="#000";
+    octx.fillRect(0,0,output.width,output.height);
+    octx.globalCompositeOperation="screen";
+    octx.imageSmoothingEnabled=true;
+    octx.imageSmoothingQuality="high";
+
+    const drawChannel=(color,scale)=>{
+      cctx.clearRect(0,0,channel.width,channel.height);
+      cctx.globalCompositeOperation="source-over";
+      cctx.drawImage(canvas,0,0);
+      cctx.globalCompositeOperation="multiply";
+      cctx.fillStyle=color;
+      cctx.fillRect(0,0,channel.width,channel.height);
+      cctx.globalCompositeOperation="source-over";
+      const width=channel.width*scale;
+      const height=channel.height*scale;
+      octx.drawImage(channel,(output.width-width)/2,(output.height-height)/2,width,height);
+    };
+
+    // Red magnifies most, blue slightly, and green remains the reference.
+    // Keeping all scales >= 1 avoids introducing a colored outer border.
+    drawChannel("#00ff00",1);
+    drawChannel("#0000ff",1+strength*.0017);
+    drawChannel("#ff0000",1+strength*.0064);
+
+    const ctx=canvas.getContext("2d");
+    ctx.save();
+    ctx.globalCompositeOperation="copy";
+    ctx.drawImage(output,0,0);
+    ctx.restore();
     return canvas;
   }
 
@@ -1311,6 +1361,7 @@
       img.close?.();
 
       const editedBase=processCanvas(cloneCanvas(original),previewScale);
+      applyChromaticAberration(editedBase);
       applyFade(editedBase);
       applyHalation(editedBase);
       applyBloom(editedBase);
@@ -1389,12 +1440,13 @@
     els.fadeVal.textContent=`${els.fade.value}%`;
     els.bloomVal.textContent=`${els.bloom.value}%`;
     els.halationVal.textContent=`${els.halation.value}%`;
+    els.chromaticVal.textContent=`${els.chromatic.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
     els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
 
@@ -1604,6 +1656,7 @@
     const src=drawRotated(img,it.rotation,0);
     img.close?.();
     const out=processCanvas(src);
+    applyChromaticAberration(out);
     applyFade(out);
     applyHalation(out);
     applyBloom(out);

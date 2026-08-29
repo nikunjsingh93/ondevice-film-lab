@@ -32,7 +32,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 
 **Chrome:** open the app link, click the install icon in the address bar. If it is not shown, choose **More → Cast, save, and share → Install page as app**, then confirm.
 
-OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom, halation and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
+OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom, halation, chromatic aberration and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
 
 ## Features
 
@@ -43,6 +43,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Old-film fade with adjustable strength, set to 30% by default
 - Diffusion-style highlight bloom inspired by black-mist filters, set to 30% by default
 - Highlight-sensitive red/orange film halation, set to 30% by default with adjustable strength
+- Radial red/cyan chromatic aberration, set to 30% by default
 - Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
