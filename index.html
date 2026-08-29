@@ -82,6 +82,23 @@
   .section{border-top:1px solid var(--line);padding-top:12px}
   .section:first-of-type{border-top:0}
   .section h3{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 10px}
+  .sectionCollapseToggle{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:0 0 10px;padding:2px 1px;border:0;border-radius:5px;background:transparent;
+    color:var(--muted);font-size:12px;font-weight:750;line-height:1.35;
+    letter-spacing:.12em;text-align:left;text-transform:uppercase
+  }
+  .sectionCollapseToggle:hover{background:transparent;color:var(--text)}
+  .sectionCollapseToggle svg{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+  .sectionCollapseToggle[aria-expanded="false"] svg{transform:rotate(-90deg)}
+  .groupCollapseToggle{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:2px 0 8px;padding:1px 0;border:0;border-radius:4px;background:transparent;
+    color:var(--text);font-size:13px;font-weight:750;text-align:left
+  }
+  .groupCollapseToggle:hover{background:transparent;color:var(--accent)}
+  .groupCollapseToggle svg{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+  .groupCollapseToggle[aria-expanded="false"] svg{transform:rotate(-90deg)}
   .subsectionTitle{font-size:13px;font-weight:750;color:var(--text);margin:2px 0 8px}
   .editBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
   .control{margin:11px 0}
@@ -122,8 +139,10 @@
     overflow:hidden;
     text-overflow:ellipsis
   }
+  .mobileTitleRow{display:contents}
   .mobileEmptyLabel{display:none;font-weight:750}
-  .addPhotosArrow{display:inline-block;margin-right:3px;font-size:22px;line-height:.7;font-weight:900;vertical-align:-1px}
+  .addPhotosArrow{display:block;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+  .mobileMenuIcon{width:27px;height:27px;stroke-width:2.5}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
   .viewer{
     position:relative;
@@ -428,6 +447,8 @@
       backdrop-filter:blur(12px)
     }
     .mobilePanelHeader strong{font-size:15px}
+    #mobilePanelClose{width:44px;height:44px;min-width:44px;padding:7px;display:grid;place-items:center;border-radius:12px}
+    #mobilePanelClose svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
     .sidebar.mobileOpen>.section{display:contents}
     .sidebar.mobileOpen>.section>h3,
     .sidebar.mobileOpen .settingsGroup>.subsectionTitle,
@@ -460,7 +481,7 @@
     .toolbar .iconButton{width:44px;min-width:44px}
     .filename{flex-basis:calc(100% - 42px)}
     .desktopEmptyLabel{display:none}
-    .mobileEmptyLabel{display:inline}
+    .mobileEmptyLabel{display:inline-flex;align-items:center;gap:7px}
     .viewerShell{flex:1 1 auto;min-height:0}
     .compareStage{height:100%;min-height:0}
     .viewer{flex:1 1 auto;min-height:0}
@@ -483,6 +504,14 @@
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
+    .sectionCollapseToggle,.groupCollapseToggle{display:none}
+    .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
+    .mobileTitleRow .filename{flex:1 1 0;max-width:none;min-width:0;font-size:14px}
+    #mobileMenuBtn{flex:0 0 44px}
+  }
+  @media(min-width:901px), (max-width:900px) and (orientation:landscape){
+    .collapsibleContent.isCollapsed{display:none}
+    .settingsGroup.groupCollapsed>:not(.groupCollapseToggle){display:none}
   }
   @media(max-width:900px) and (orientation:landscape){
     .app{padding:8px;height:100dvh}
@@ -517,7 +546,9 @@
     <aside class="card sidebar">
       <div class="mobilePanelHeader">
         <strong id="mobilePanelTitle">Menu</strong>
-        <button id="mobilePanelClose" class="iconButton" type="button" aria-label="Close panel">×</button>
+        <button id="mobilePanelClose" class="iconButton" type="button" aria-label="Close panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+        </button>
       </div>
       <div class="sidebarIntro">
         <div class="brandTitle">
@@ -539,9 +570,16 @@
       </div>
 
       <div id="editSection" class="section">
-        <h3>Edits</h3>
+        <button class="sectionCollapseToggle" type="button" data-collapse="editSectionContent" aria-expanded="true">
+          <span>Edits</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+        </button>
+        <div id="editSectionContent" class="collapsibleContent">
         <div id="softeningGroup" class="settingsGroup">
-          <div class="subsectionTitle">Softening</div>
+          <button class="groupCollapseToggle" type="button" aria-expanded="true">
+            <span>Softening</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
           <div class="control">
             <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
             <input id="amount" type="range" min="0" max="100" value="50">
@@ -557,7 +595,10 @@
         </div>
 
         <div id="filmGroup" class="editBlock settingsGroup">
-          <div class="subsectionTitle">Film look</div>
+          <button class="groupCollapseToggle" type="button" aria-expanded="true">
+            <span>Film look</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
           <div class="control">
             <label><span>Fade</span><span id="fadeVal" class="value">30%</span></label>
             <input id="fade" type="range" min="0" max="100" value="30">
@@ -577,7 +618,10 @@
         </div>
 
         <div id="grainGroup" class="editBlock settingsGroup">
-          <div class="subsectionTitle">Film grain</div>
+          <button class="groupCollapseToggle" type="button" aria-expanded="true">
+            <span>Film grain</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
           <label class="check"><input id="grainEnabled" type="checkbox" checked> Add film grain</label>
 
           <div id="grainOptions" style="margin-top:10px">
@@ -595,10 +639,15 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       <div id="exportSection" class="section">
-        <h3>Export</h3>
+        <button class="sectionCollapseToggle" type="button" data-collapse="exportSectionContent" aria-expanded="true">
+          <span>Export</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+        </button>
+        <div id="exportSectionContent" class="collapsibleContent">
         <div id="outputGroup" class="settingsGroup">
           <div class="control">
             <label><span>JPEG quality</span><span id="qualityVal" class="value">95%</span></label>
@@ -609,9 +658,14 @@
           </div>
           <div class="notice">Example: <b>20260809_124041_FilmLab.jpg</b>. Instead of DSCFXXXX.jpg.</div>
         </div>
+        </div>
 
         <div id="stampGroup" class="section settingsGroup" style="margin-top:14px">
-          <h3>Film date stamp</h3>
+          <button class="sectionCollapseToggle" type="button" data-collapse="stampSectionContent" aria-expanded="true">
+            <span>Film date stamp</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
+          <div id="stampSectionContent" class="collapsibleContent">
           <label class="check"><input id="dateStamp" type="checkbox" checked> Add date stamp to photo</label>
 
           <div id="stampOptions" style="margin-top:10px">
@@ -649,6 +703,7 @@
             </div>
 
           </div>
+          </div>
         </div>
 
       </div>
@@ -658,8 +713,12 @@
 
     <main class="card main">
       <div class="toolbar">
-        <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">☰</button>
-        <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><span class="addPhotosArrow">←</span>Add Photos</span></div>
+        <div class="mobileTitleRow">
+          <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">
+            <svg class="toolbarIcon mobileMenuIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
+          </button>
+          <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span></div>
+        </div>
         <div class="spacer"></div>
         <div class="toolbarGroup rotationControls" aria-label="Rotation controls">
           <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>
@@ -815,6 +874,21 @@
     els.saveOneBtn.disabled = !selected;
     els.zipBtn.disabled = !has;
   }
+
+  document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const content=document.getElementById(button.dataset.collapse);
+      if(!content)return;
+      const collapsed=content.classList.toggle("isCollapsed");
+      button.setAttribute("aria-expanded",String(!collapsed));
+    });
+  });
+  document.querySelectorAll(".groupCollapseToggle").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const collapsed=button.parentElement.classList.toggle("groupCollapsed");
+      button.setAttribute("aria-expanded",String(!collapsed));
+    });
+  });
 
 
   function readAscii(view, offset, len){
