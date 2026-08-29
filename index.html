@@ -184,7 +184,6 @@
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
-  .compareBox.decoderEdgeGuard{overflow:hidden}
   .compareBox canvas{
     display:block;
     width:100%;
@@ -193,8 +192,6 @@
     max-height:none;
     box-shadow:none
   }
-  .compareBox.decoderEdgeGuard>canvas,
-  .compareBox.decoderEdgeGuard>.softLayer canvas{height:calc(100% + 4px)}
   .softLayer{
     position:absolute;
     inset:0;
@@ -1040,6 +1037,40 @@
     return null;
   }
 
+  async function copyVideoFrameToCanvas(frame){
+    const rect=frame.visibleRect;
+    const width=Math.max(1,Math.trunc(rect?.width||frame.codedWidth));
+    const height=Math.max(1,Math.trunc(rect?.height||frame.codedHeight));
+    const options={format:"RGBA",colorSpace:"srgb"};
+    const pixels=new Uint8Array(frame.allocationSize(options));
+    const layouts=await frame.copyTo(pixels,options);
+    const offset=layouts[0]?.offset||0;
+    const stride=layouts[0]?.stride||width*4;
+    const rowBytes=width*4;
+    const packed=new Uint8ClampedArray(rowBytes*height);
+    for(let y=0;y<height;y++){
+      packed.set(pixels.subarray(offset+y*stride,offset+y*stride+rowBytes),y*rowBytes);
+    }
+
+    const raw=document.createElement("canvas");
+    raw.width=width;raw.height=height;
+    raw.getContext("2d").putImageData(new ImageData(packed,width,height),0,0);
+
+    const rotation=((Math.round((frame.rotation||0)/90)*90)%360+360)%360;
+    const flip=!!frame.flip;
+    if(!rotation&&!flip)return raw;
+
+    const [outWidth,outHeight]=rotatedSize(width,height,rotation);
+    const oriented=document.createElement("canvas");
+    oriented.width=outWidth;oriented.height=outHeight;
+    const ctx=oriented.getContext("2d");
+    ctx.translate(outWidth/2,outHeight/2);
+    if(flip)ctx.scale(-1,1);
+    ctx.rotate(rotation*Math.PI/180);
+    ctx.drawImage(raw,-width/2,-height/2);
+    return oriented;
+  }
+
   async function decodePreview(file,maxDim){
     const encoded=await encodedImageSize(file);
     const sourceLong=encoded?Math.max(encoded.width,encoded.height):0;
@@ -1057,16 +1088,8 @@
             });
             const result=await decoder.decode({frameIndex:0});
             try{
-              const frame=result.image;
-              const rect=frame.visibleRect;
-              const sx=rect?.x||0,sy=rect?.y||0;
-              const sw=rect?.width||frame.displayWidth||frame.codedWidth;
-              const fullHeight=rect?.height||frame.displayHeight||frame.codedHeight;
-              // Some Android decoders expose a padded final YUV row as a
-              // bright hairline. Trim that padding before creating the preview bitmap.
-              const sh=Math.max(1,fullHeight-(fullHeight>2?2:0));
-              const image=await createImageBitmap(frame,sx,sy,sw,sh);
-              return {image,sourceLong,decoderEdgeGuard:true};
+              const image=await copyVideoFrameToCanvas(result.image);
+              return {image,sourceLong};
             }finally{
               result.image.close();
             }
@@ -1624,7 +1647,7 @@
       // Decode large mobile photos directly near preview size. This avoids
       // allocating a full-resolution bitmap before it can be downscaled.
       const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
-      const {image:img,sourceLong,decoderEdgeGuard=false}=await decodePreview(it.file,previewMax);
+      const {image:img,sourceLong}=await decodePreview(it.file,previewMax);
       if(token!==previewToken) { img.close?.(); return; }
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
@@ -1648,7 +1671,7 @@
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
-      const box=document.createElement("div"); box.className=`compareBox${decoderEdgeGuard?" decoderEdgeGuard":""}`;
+      const box=document.createElement("div"); box.className="compareBox";
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
