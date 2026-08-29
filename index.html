@@ -64,6 +64,7 @@
   }
   .photoPicker strong{display:block;font-size:16px;margin-bottom:5px}
   .photoPicker small{color:var(--muted)}
+  .appVersion{margin-top:10px;color:#7f8da2;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   button,.button{
     border:1px solid var(--line);
@@ -184,7 +185,7 @@
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
-  .compareBox canvas{
+  .compareBox canvas,.compareBox .previewImage{
     display:block;
     width:100%;
     height:100%;
@@ -201,7 +202,7 @@
     -webkit-clip-path:inset(0 50% 0 0);
     pointer-events:none
   }
-  .softLayer canvas{
+  .softLayer canvas,.softLayer .previewImage{
     position:absolute;
     left:0;top:0;
     width:100%;height:100%;
@@ -567,6 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
+        <div class="appVersion">Version 1.0.0</div>
       </div>
 
       <div id="editSection" class="section">
@@ -829,6 +831,7 @@
   let busy = false;
   let comparePercent = 50;
   let previewZoom = 1;
+  let previewObjectUrls = [];
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
 
@@ -1562,17 +1565,19 @@
   function applyPreviewZoom(recalculateFit=false){
     const stage=els.viewer.querySelector(".compareStage");
     const box=els.viewer.querySelector(".compareBox");
-    const canvas=box?.querySelector("canvas");
-    if(!stage||!box||!canvas) return;
+    const visual=box?.querySelector("canvas,.previewImage");
+    if(!stage||!box||!visual) return;
+    const pixelWidth=visual.naturalWidth||visual.width;
+    const pixelHeight=visual.naturalHeight||visual.height;
 
     if(recalculateFit||!box.dataset.fitWidth){
       const availableWidth=Math.max(1,stage.clientWidth-28);
       stage.style.height="";
       stage.style.minHeight="";
       const availableHeight=Math.max(1,stage.clientHeight-28);
-      const fitScale=Math.min(1,availableWidth/canvas.width,availableHeight/canvas.height);
-      box.dataset.fitWidth=String(Math.max(1,canvas.width*fitScale));
-      box.dataset.fitHeight=String(Math.max(1,canvas.height*fitScale));
+      const fitScale=Math.min(1,availableWidth/pixelWidth,availableHeight/pixelHeight);
+      box.dataset.fitWidth=String(Math.max(1,pixelWidth*fitScale));
+      box.dataset.fitHeight=String(Math.max(1,pixelHeight*fitScale));
     }
 
     box.style.width=`${+box.dataset.fitWidth*previewZoom}px`;
@@ -1649,6 +1654,28 @@
     stage.addEventListener("pointerdown",down);
   }
 
+  function sealPreviewBottomEdge(canvas,rows=4){
+    if(canvas.height<=rows||canvas.width<1)return;
+    const ctx=canvas.getContext("2d");
+    const cleanRow=ctx.getImageData(0,canvas.height-rows-1,canvas.width,1);
+    for(let y=canvas.height-rows;y<canvas.height;y++)ctx.putImageData(cleanRow,0,y);
+  }
+
+  async function previewImageFromCanvas(canvas){
+    const blob=await canvasToBlob(canvas,"image/png",1);
+    const url=URL.createObjectURL(blob);
+    const image=new Image();
+    image.className="previewImage";
+    image.src=url;
+    try{await image.decode()}catch{}
+    return {image,url};
+  }
+
+  function replacePreviewObjectUrls(urls=[]){
+    previewObjectUrls.forEach(url=>URL.revokeObjectURL(url));
+    previewObjectUrls=urls;
+  }
+
   async function makePreview(index){
     if(index<0||!items[index]) return;
     const token=++previewToken;
@@ -1687,6 +1714,26 @@
 
       if(token!==previewToken) return;
 
+      let editedDisplay=editedBase,originalDisplay=originalShown;
+      let nextPreviewUrls=[];
+      if(window.matchMedia("(max-width:900px)").matches){
+        if(sourceLong>previewMax){
+          sealPreviewBottomEdge(editedBase);
+          sealPreviewBottomEdge(originalShown);
+        }
+        const [editedImage,originalImage]=await Promise.all([
+          previewImageFromCanvas(editedBase),previewImageFromCanvas(originalShown)
+        ]);
+        nextPreviewUrls=[editedImage.url,originalImage.url];
+        if(token!==previewToken){
+          nextPreviewUrls.forEach(url=>URL.revokeObjectURL(url));
+          return;
+        }
+        editedDisplay=editedImage.image;
+        originalDisplay=originalImage.image;
+      }
+
+      replacePreviewObjectUrls(nextPreviewUrls);
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
@@ -1694,13 +1741,13 @@
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
-      box.appendChild(editedBase);
+      box.appendChild(editedDisplay);
 
       const layer=document.createElement("div"); layer.className="softLayer";
       const clip=`inset(0 ${100-comparePercent}% 0 0)`;
       layer.style.clipPath=clip;
       layer.style.webkitClipPath=clip;
-      layer.appendChild(originalShown);
+      layer.appendChild(originalDisplay);
       box.appendChild(layer);
 
       const divider=document.createElement("div"); divider.className="divider";
@@ -2081,9 +2128,11 @@
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(error => {
-        console.warn("Offline support could not be enabled", error);
-      });
+      navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"})
+        .then(registration=>registration.update())
+        .catch(error => {
+          console.warn("Offline support could not be enabled", error);
+        });
     });
   }
 </script>
