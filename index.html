@@ -568,7 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.4</div>
+        <div class="appVersion">Version 1.0.5</div>
       </div>
 
       <div id="editSection" class="section">
@@ -1295,7 +1295,9 @@
 
         if(vignetteStrength>0){
           const distance=Math.sqrt(vignetteX[x]+normalizedY*normalizedY);
-          let edge=(distance-.42)/.94;
+          // Keep the center and side midpoints mostly clear; concentrate the
+          // falloff near the corners while retaining the same corner strength.
+          let edge=(distance-.72)/.66;
           if(edge<0)edge=0;else if(edge>1)edge=1;
           edge=edge*edge*(3-2*edge);
           // Exposure-style falloff preserves hue better than painting black

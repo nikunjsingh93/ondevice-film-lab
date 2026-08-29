@@ -1,4 +1,4 @@
-const CACHE_NAME = "ondevice-film-lab-v1.0.4";
+const CACHE_NAME = "ondevice-film-lab-v1.0.5";
 const APP_SHELL = [
   "./",
   "./index.html",
