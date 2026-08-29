@@ -292,8 +292,45 @@
   .rot{font-size:9px;line-height:1.15;color:var(--accent)}
   .rot:empty{display:none}
   .visuallyHidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-  .progress{height:5px;background:#0e131b;border-radius:99px;overflow:hidden;display:none}
-  .progress>div{height:100%;width:0;background:var(--accent)}
+  .processingOverlay{
+    position:fixed;
+    z-index:3000;
+    inset:0;
+    display:grid;
+    place-items:center;
+    padding:22px;
+    background:#06091199;
+    -webkit-backdrop-filter:blur(12px);
+    backdrop-filter:blur(12px);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .18s ease,visibility .18s ease
+  }
+  .processingOverlay.open{opacity:1;visibility:visible}
+  .processingCard{
+    width:min(390px,100%);
+    padding:24px;
+    border:1px solid #465875;
+    border-radius:18px;
+    background:#182130f2;
+    box-shadow:0 22px 70px #000a;
+    text-align:center
+  }
+  .processingSpinner{
+    width:34px;
+    height:34px;
+    margin:0 auto 14px;
+    border:3px solid #40516a;
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:processingSpin .8s linear infinite
+  }
+  @keyframes processingSpin{to{transform:rotate(360deg)}}
+  .processingTitle{display:block;font-size:17px;margin-bottom:5px}
+  .processingDetail{display:block;min-height:20px;color:var(--muted);font-size:12px}
+  .processingProgress{height:8px;margin-top:17px;background:#0d131d;border-radius:99px;overflow:hidden}
+  .processingProgress>div{height:100%;width:0;background:linear-gradient(90deg,#679bd2,var(--accent));border-radius:inherit;transition:width .18s ease}
+  .processingPercent{display:block;margin-top:8px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
   .tip{font-size:12px;color:var(--muted)}
@@ -679,10 +716,19 @@
         </div>
       </div>
 
-      <div id="progress" class="progress"><div></div></div>
       <span id="dims" class="visuallyHidden">—</span>
       <span id="status" class="visuallyHidden" aria-live="polite">Ready</span>
     </main>
+  </div>
+
+  <div id="processingOverlay" class="processingOverlay" role="dialog" aria-modal="true" aria-labelledby="processingTitle" aria-describedby="processingDetail" aria-hidden="true">
+    <div class="processingCard">
+      <div class="processingSpinner" aria-hidden="true"></div>
+      <strong id="processingTitle" class="processingTitle">Processing photos…</strong>
+      <span id="processingDetail" class="processingDetail">Preparing your export</span>
+      <div id="processingProgress" class="processingProgress" role="progressbar" aria-label="ZIP export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+      <span id="processingPercent" class="processingPercent">0%</span>
+    </div>
   </div>
 </div>
 
@@ -713,7 +759,9 @@
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
-    progress: $("#progress"), progressBar: $("#progress > div")
+    processingOverlay: $("#processingOverlay"), processingTitle: $("#processingTitle"),
+    processingDetail: $("#processingDetail"), processingProgress: $("#processingProgress"),
+    processingBar: $("#processingProgress > div"), processingPercent: $("#processingPercent")
   };
 
   const items = [];
@@ -727,10 +775,25 @@
 
   function setStatus(s){ els.status.textContent = s; }
   function setProgress(n, total){
-    if (!total){ els.progress.style.display="none"; return; }
-    els.progress.style.display="block";
-    els.progressBar.style.width = `${Math.max(0,Math.min(100,n/total*100))}%`;
-    if(n >= total) setTimeout(()=>els.progress.style.display="none", 700);
+    const percent=total?Math.max(0,Math.min(100,n/total*100)):0;
+    els.processingBar.style.width=`${percent}%`;
+    els.processingProgress.setAttribute("aria-valuenow",String(Math.round(percent)));
+    els.processingPercent.textContent=`${Math.round(percent)}%`;
+  }
+  function showProcessing(total){
+    els.processingTitle.textContent="Processing photos…";
+    els.processingDetail.textContent=`Preparing 0 of ${total}`;
+    setProgress(0,total);
+    els.processingOverlay.setAttribute("aria-hidden","false");
+    requestAnimationFrame(()=>els.processingOverlay.classList.add("open"));
+  }
+  function setProcessingStage(title,detail){
+    els.processingTitle.textContent=title;
+    els.processingDetail.textContent=detail;
+  }
+  function hideProcessing(){
+    els.processingOverlay.classList.remove("open");
+    els.processingOverlay.setAttribute("aria-hidden","true");
   }
   function setBusy(v){
     busy = v;
@@ -1760,22 +1823,32 @@
 
   els.zipBtn.onclick=async()=>{
     if(!items.length||busy)return;
-    setBusy(true);setProgress(0,items.length);
+    setBusy(true);showProcessing(items.length);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{
       const entries=[];
       const usedNames=new Set();
       for(let i=0;i<items.length;i++){
         setStatus(`Processing ${i+1} of ${items.length}: ${items[i].file.name}`);
+        setProcessingStage("Processing photos…",`Photo ${i+1} of ${items.length}`);
         const blob=await processItem(items[i]);
         entries.push({name:await outputName(items[i].file,usedNames),blob});
         setProgress(i+1,items.length);
         await new Promise(r=>setTimeout(r,0));
       }
       setStatus("Building ZIP…");
+      setProcessingStage("Building ZIP…",`Packing ${items.length} ${items.length===1?"photo":"photos"}`);
       const zip=await buildZip(entries);
       await downloadBlob(zip,"OnDevice_Film_Lab_Exports.zip");
       setStatus(`ZIP ready • ${items.length} photos`);
-    }catch(e){console.error(e);setStatus("ZIP export failed");}
+      setProcessingStage("Download ready",`${items.length} ${items.length===1?"photo":"photos"} exported`);
+      await new Promise(r=>setTimeout(r,350));
+    }catch(e){
+      console.error(e);setStatus("ZIP export failed");
+      setProcessingStage("Export failed","Please try again");
+      await new Promise(r=>setTimeout(r,1200));
+    }
+    hideProcessing();
     setBusy(false);
   };
 
