@@ -982,17 +982,27 @@
     return `${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}_FilmLab`;
   }
 
+  function decodeWithImageElement(file){
+    return new Promise((resolve,reject)=>{
+      const img = new Image(), u = URL.createObjectURL(file);
+      img.decoding="async";
+      img.onload=()=>{ URL.revokeObjectURL(u); resolve(img); };
+      img.onerror=()=>{ URL.revokeObjectURL(u); reject(new Error("Image element could not decode this file")); };
+      img.src=u;
+    });
+  }
+
   async function decode(file){
     if ("createImageBitmap" in window){
       try { return await createImageBitmap(file, { imageOrientation:"from-image" }); }
-      catch { return await createImageBitmap(file); }
+      catch(firstError){
+        try { return await createImageBitmap(file); }
+        catch(secondError){
+          console.warn("Bitmap decode failed; using image-element fallback",firstError,secondError);
+        }
+      }
     }
-    return await new Promise((resolve,reject)=>{
-      const img = new Image(), u = URL.createObjectURL(file);
-      img.onload=()=>{ URL.revokeObjectURL(u); resolve(img); };
-      img.onerror=e=>{ URL.revokeObjectURL(u); reject(e); };
-      img.src=u;
-    });
+    return await decodeWithImageElement(file);
   }
 
   async function encodedImageSize(file){
@@ -1030,10 +1040,33 @@
   async function decodePreview(file,maxDim){
     const encoded=await encodedImageSize(file);
     const sourceLong=encoded?Math.max(encoded.width,encoded.height):0;
-    if(encoded&&sourceLong>maxDim&&"createImageBitmap" in window){
+    if(encoded&&sourceLong>maxDim){
       const scale=maxDim/sourceLong;
       const resizeWidth=Math.max(1,Math.round(encoded.width*scale));
       const resizeHeight=Math.max(1,Math.round(encoded.height*scale));
+      if("ImageDecoder" in window){
+        let decoder=null;
+        try{
+          const type=file.type||(/\.png$/i.test(file.name)?"image/png":/\.webp$/i.test(file.name)?"image/webp":"image/jpeg");
+          if(await window.ImageDecoder.isTypeSupported(type)){
+            decoder=new window.ImageDecoder({
+              data:file.stream(),type,desiredWidth:resizeWidth,desiredHeight:resizeHeight,preferAnimation:false
+            });
+            const result=await decoder.decode({frameIndex:0});
+            try{
+              const image=await createImageBitmap(result.image);
+              return {image,sourceLong};
+            }finally{
+              result.image.close();
+            }
+          }
+        }catch(e){
+          console.warn("Reduced-size ImageDecoder path failed",e);
+        }finally{
+          try{decoder?.close()}catch{}
+        }
+      }
+      if("createImageBitmap" in window){
       const resize={resizeWidth,resizeHeight,resizeQuality:"high"};
       try{
         const image=await createImageBitmap(file,{...resize,imageOrientation:"from-image"});
@@ -1043,8 +1076,11 @@
           const image=await createImageBitmap(file,resize);
           return {image,sourceLong};
         }catch(secondError){
-          console.warn("Reduced-size image decode failed; trying standard decode",firstError,secondError);
+          console.warn("Reduced-size bitmap decode failed; using image-element fallback",firstError,secondError);
+          const image=await decodeWithImageElement(file);
+          return {image,sourceLong:sourceLong||Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height)};
         }
+      }
       }
     }
     const image=await decode(file);
