@@ -184,6 +184,7 @@
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
+  .compareBox.decoderEdgeGuard{overflow:hidden}
   .compareBox canvas{
     display:block;
     width:100%;
@@ -192,6 +193,8 @@
     max-height:none;
     box-shadow:none
   }
+  .compareBox.decoderEdgeGuard>canvas,
+  .compareBox.decoderEdgeGuard>.softLayer canvas{height:calc(100% + 4px)}
   .softLayer{
     position:absolute;
     inset:0;
@@ -1063,7 +1066,7 @@
               // bright hairline. Trim that padding before creating the preview bitmap.
               const sh=Math.max(1,fullHeight-(fullHeight>2?2:0));
               const image=await createImageBitmap(frame,sx,sy,sw,sh);
-              return {image,sourceLong};
+              return {image,sourceLong,decoderEdgeGuard:true};
             }finally{
               result.image.close();
             }
@@ -1621,7 +1624,7 @@
       // Decode large mobile photos directly near preview size. This avoids
       // allocating a full-resolution bitmap before it can be downscaled.
       const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
-      const {image:img,sourceLong}=await decodePreview(it.file,previewMax);
+      const {image:img,sourceLong,decoderEdgeGuard=false}=await decodePreview(it.file,previewMax);
       if(token!==previewToken) { img.close?.(); return; }
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
@@ -1645,7 +1648,7 @@
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
-      const box=document.createElement("div"); box.className="compareBox";
+      const box=document.createElement("div"); box.className=`compareBox${decoderEdgeGuard?" decoderEdgeGuard":""}`;
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
