@@ -1037,7 +1037,7 @@
     return null;
   }
 
-  async function copyVideoFrameToCanvas(frame){
+  async function copyVideoFrameToCanvas(frame,targetWidth,targetHeight){
     const rect=frame.visibleRect;
     const width=Math.max(1,Math.trunc(rect?.width||frame.codedWidth));
     const height=Math.max(1,Math.trunc(rect?.height||frame.codedHeight));
@@ -1056,18 +1056,32 @@
     raw.width=width;raw.height=height;
     raw.getContext("2d").putImageData(new ImageData(packed,width,height),0,0);
 
+    // JPEG decoders may expose block-alignment padding (for example, the
+    // Samsung 4896×3672 4:2:0 sample decodes against a 4896×3680 MCU grid).
+    // Crop to the true encoded aspect ratio before scaling to preview size.
+    const targetAspect=targetWidth/targetHeight;
+    let sourceWidth=width,sourceHeight=height;
+    if(width/height>targetAspect)sourceWidth=height*targetAspect;
+    else if(width/height<targetAspect)sourceHeight=width/targetAspect;
+    const normalized=document.createElement("canvas");
+    normalized.width=targetWidth;normalized.height=targetHeight;
+    const normalizedContext=normalized.getContext("2d");
+    normalizedContext.imageSmoothingEnabled=true;
+    normalizedContext.imageSmoothingQuality="high";
+    normalizedContext.drawImage(raw,0,0,sourceWidth,sourceHeight,0,0,targetWidth,targetHeight);
+
     const rotation=((Math.round((frame.rotation||0)/90)*90)%360+360)%360;
     const flip=!!frame.flip;
-    if(!rotation&&!flip)return raw;
+    if(!rotation&&!flip)return normalized;
 
-    const [outWidth,outHeight]=rotatedSize(width,height,rotation);
+    const [outWidth,outHeight]=rotatedSize(targetWidth,targetHeight,rotation);
     const oriented=document.createElement("canvas");
     oriented.width=outWidth;oriented.height=outHeight;
     const ctx=oriented.getContext("2d");
     ctx.translate(outWidth/2,outHeight/2);
     if(flip)ctx.scale(-1,1);
     ctx.rotate(rotation*Math.PI/180);
-    ctx.drawImage(raw,-width/2,-height/2);
+    ctx.drawImage(normalized,-targetWidth/2,-targetHeight/2);
     return oriented;
   }
 
@@ -1088,7 +1102,7 @@
             });
             const result=await decoder.decode({frameIndex:0});
             try{
-              const image=await copyVideoFrameToCanvas(result.image);
+              const image=await copyVideoFrameToCanvas(result.image,resizeWidth,resizeHeight);
               return {image,sourceLong};
             }finally{
               result.image.close();
