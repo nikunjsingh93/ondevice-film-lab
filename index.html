@@ -1054,7 +1054,15 @@
             });
             const result=await decoder.decode({frameIndex:0});
             try{
-              const image=await createImageBitmap(result.image);
+              const frame=result.image;
+              const rect=frame.visibleRect;
+              const sx=rect?.x||0,sy=rect?.y||0;
+              const sw=rect?.width||frame.displayWidth||frame.codedWidth;
+              const fullHeight=rect?.height||frame.displayHeight||frame.codedHeight;
+              // Some Android decoders expose a padded final YUV row as a
+              // bright hairline. Trim that padding before creating the preview bitmap.
+              const sh=Math.max(1,fullHeight-(fullHeight>2?2:0));
+              const image=await createImageBitmap(frame,sx,sy,sw,sh);
               return {image,sourceLong};
             }finally{
               result.image.close();
