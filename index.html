@@ -568,7 +568,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.3</div>
+        <div class="appVersion">Version 1.0.4</div>
       </div>
 
       <div id="editSection" class="section">
@@ -616,6 +616,14 @@
           <div class="control">
             <label><span>Chromatic aberration</span><span id="chromaticVal" class="value">30%</span></label>
             <input id="chromatic" type="range" min="0" max="100" value="30">
+          </div>
+          <div class="control">
+            <label><span>Vignette</span><span id="vignetteVal" class="value">0%</span></label>
+            <input id="vignette" type="range" min="0" max="100" value="0">
+          </div>
+          <div class="control">
+            <label><span>Light leaks</span><span id="lightLeaksVal" class="value">0%</span></label>
+            <input id="lightLeaks" type="range" min="0" max="100" value="0">
           </div>
         </div>
 
@@ -805,11 +813,13 @@
     mobileBackdrop: $("#mobileBackdrop"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
+    vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
+    vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
@@ -1245,7 +1255,8 @@
 
   function applyFade(canvas){
     const strength=+els.fade.value/100;
-    if(strength<=0) return canvas;
+    const vignetteStrength=+els.vignette.value/100;
+    if(strength<=0&&vignetteStrength<=0) return canvas;
 
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
     const image=ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -1254,25 +1265,107 @@
     const contrast=1-.13*strength;
     const desaturate=.10*strength;
 
-    for(let i=0;i<data.length;i+=4){
-      let r=data[i]/255;
-      let g=data[i+1]/255;
-      let b=data[i+2]/255;
-      const luminance=.2126*r+.7152*g+.0722*b;
+    const halfWidth=canvas.width/2;
+    const halfHeight=canvas.height/2;
+    const vignetteX=vignetteStrength>0 ? new Float32Array(canvas.width) : null;
+    if(vignetteX){
+      for(let x=0;x<canvas.width;x++){
+        const normalizedX=(x+.5-halfWidth)/halfWidth;
+        vignetteX[x]=normalizedX*normalizedX;
+      }
+    }
+    for(let y=0;y<canvas.height;y++){
+      const normalizedY=(y+.5-halfHeight)/halfHeight;
+      for(let x=0;x<canvas.width;x++){
+        const i=(y*canvas.width+x)*4;
+        let r=data[i]/255;
+        let g=data[i+1]/255;
+        let b=data[i+2]/255;
 
-      r=r*(1-desaturate)+luminance*desaturate;
-      g=g*(1-desaturate)+luminance*desaturate;
-      b=b*(1-desaturate)+luminance*desaturate;
+        if(strength>0){
+          const luminance=.2126*r+.7152*g+.0722*b;
+          r=r*(1-desaturate)+luminance*desaturate;
+          g=g*(1-desaturate)+luminance*desaturate;
+          b=b*(1-desaturate)+luminance*desaturate;
 
-      r=(.5+(r-.5)*contrast)*(1-blackLift)+blackLift+.010*strength;
-      g=(.5+(g-.5)*contrast)*(1-blackLift)+blackLift+.004*strength;
-      b=(.5+(b-.5)*contrast)*(1-blackLift)+blackLift-.006*strength;
+          r=(.5+(r-.5)*contrast)*(1-blackLift)+blackLift+.010*strength;
+          g=(.5+(g-.5)*contrast)*(1-blackLift)+blackLift+.004*strength;
+          b=(.5+(b-.5)*contrast)*(1-blackLift)+blackLift-.006*strength;
+        }
 
-      data[i]=Math.max(0,Math.min(255,Math.round(r*255)));
-      data[i+1]=Math.max(0,Math.min(255,Math.round(g*255)));
-      data[i+2]=Math.max(0,Math.min(255,Math.round(b*255)));
+        if(vignetteStrength>0){
+          const distance=Math.sqrt(vignetteX[x]+normalizedY*normalizedY);
+          let edge=(distance-.42)/.94;
+          if(edge<0)edge=0;else if(edge>1)edge=1;
+          edge=edge*edge*(3-2*edge);
+          // Exposure-style falloff preserves hue better than painting black
+          // over the frame. At maximum, the far corners lose about 1.8 stops.
+          const exposure=Math.pow(2,-1.8*vignetteStrength*edge);
+          r*=exposure;g*=exposure;b*=exposure;
+        }
+
+        data[i]=Math.max(0,Math.min(255,Math.round(r*255)));
+        data[i+1]=Math.max(0,Math.min(255,Math.round(g*255)));
+        data[i+2]=Math.max(0,Math.min(255,Math.round(b*255)));
+      }
     }
     ctx.putImageData(image,0,0);
+    return canvas;
+  }
+
+  function applyLightLeaks(canvas,file){
+    const strength=+els.lightLeaks.value/100;
+    if(strength<=0)return canvas;
+
+    // Build the leak on a smaller surface: the shapes are intentionally soft,
+    // so a full-resolution buffer would add memory without visible detail.
+    const scale=Math.min(1,1200/Math.max(canvas.width,canvas.height));
+    const overlay=document.createElement("canvas");
+    overlay.width=Math.max(1,Math.round(canvas.width*scale));
+    overlay.height=Math.max(1,Math.round(canvas.height*scale));
+    const ctx=overlay.getContext("2d");
+    const random=seededRandom(seedFromFile(file)^0x9e3779b9);
+    const count=1+Math.floor(random()*2);
+    const palettes=[
+      [[255,229,174],[255,139,34],[208,31,19]],
+      [[255,205,137],[255,91,31],[178,22,45]],
+      [[255,236,190],[255,164,56],[224,48,22]]
+    ];
+
+    ctx.globalCompositeOperation="screen";
+    for(let n=0;n<count;n++){
+      const edge=Math.floor(random()*4);
+      const palette=palettes[Math.floor(random()*palettes.length)];
+      const sideEdge=edge<2;
+      const cx=edge===0 ? -overlay.width*(.04+random()*.18) :
+        edge===1 ? overlay.width*(1.04+random()*.18) : overlay.width*(.12+random()*.76);
+      const cy=edge===2 ? -overlay.height*(.04+random()*.18) :
+        edge===3 ? overlay.height*(1.04+random()*.18) : overlay.height*(.12+random()*.76);
+      const radiusX=overlay.width*(sideEdge ? .20+random()*.28 : .32+random()*.34);
+      const radiusY=overlay.height*(sideEdge ? .32+random()*.34 : .20+random()*.28);
+      const alpha=.54+random()*.28;
+
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.scale(radiusX,radiusY);
+      const gradient=ctx.createRadialGradient(0,0,0,0,0,1);
+      gradient.addColorStop(0,`rgba(${palette[0].join(",")},${alpha})`);
+      gradient.addColorStop(.20,`rgba(${palette[1].join(",")},${alpha*.78})`);
+      gradient.addColorStop(.54,`rgba(${palette[2].join(",")},${alpha*.42})`);
+      gradient.addColorStop(1,"rgba(150,12,20,0)");
+      ctx.fillStyle=gradient;
+      ctx.fillRect(-1,-1,2,2);
+      ctx.restore();
+    }
+
+    const output=canvas.getContext("2d");
+    output.save();
+    output.globalCompositeOperation="screen";
+    output.globalAlpha=Math.min(.92,strength*.92);
+    output.imageSmoothingEnabled=true;
+    output.imageSmoothingQuality="high";
+    output.drawImage(overlay,0,0,canvas.width,canvas.height);
+    output.restore();
     return canvas;
   }
 
@@ -1731,6 +1824,7 @@
       const editedBase=processCanvas(cloneCanvas(original),previewScale);
       applyChromaticAberration(editedBase);
       applyFade(editedBase);
+      applyLightLeaks(editedBase,it.file);
       applyHalation(editedBase);
       applyBloom(editedBase);
       applyGrain(editedBase,it.file,previewScale);
@@ -1801,6 +1895,57 @@
   }
   const rerender=debounce(()=>{if(current>=0)makePreview(current)},160);
 
+  const SETTINGS_STORAGE_KEY="ondevice-film-lab-settings-v1";
+  const settingsControls=[
+    els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic,
+    els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
+    els.quality,els.stampSize,els.grainEnabled,els.dateRename,els.dateStamp,
+    els.stampPosition,els.stampFormat,els.stampColor
+  ];
+
+  function restoreSettings(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)||"null");
+      if(!saved||typeof saved!=="object")return;
+      for(const control of settingsControls){
+        if(!control||!(control.id in saved))continue;
+        const value=saved[control.id];
+        if(control.type==="checkbox"){
+          if(typeof value==="boolean")control.checked=value;
+        }else if(control.type==="range"){
+          const number=Number(value);
+          if(Number.isFinite(number)){
+            const minimum=Number(control.min),maximum=Number(control.max);
+            control.value=String(Math.max(minimum,Math.min(maximum,number)));
+          }
+        }else if(control.type==="color"){
+          if(/^#[0-9a-f]{6}$/i.test(String(value)))control.value=String(value);
+        }else if(control.tagName==="SELECT"){
+          if([...control.options].some(option=>option.value===value))control.value=value;
+        }
+      }
+    }catch(error){console.warn("Saved settings could not be restored",error)}
+  }
+
+  function saveSettings(){
+    try{
+      const saved={};
+      for(const control of settingsControls){
+        if(!control)continue;
+        saved[control.id]=control.type==="checkbox" ? control.checked : control.value;
+      }
+      localStorage.setItem(SETTINGS_STORAGE_KEY,JSON.stringify(saved));
+    }catch(error){console.warn("Settings could not be saved",error)}
+  }
+
+  restoreSettings();
+  const persistSettings=debounce(saveSettings,120);
+  for(const control of settingsControls){
+    if(!control)continue;
+    if(control.type==="range"||control.type==="color")control.addEventListener("input",persistSettings);
+    control.addEventListener("change",saveSettings);
+  }
+
   function updateSliderLabels(){
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
@@ -1809,12 +1954,14 @@
     els.bloomVal.textContent=`${els.bloom.value}%`;
     els.halationVal.textContent=`${els.halation.value}%`;
     els.chromaticVal.textContent=`${els.chromatic.value}%`;
+    els.vignetteVal.textContent=`${els.vignette.value}%`;
+    els.lightLeaksVal.textContent=`${els.lightLeaks.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
     els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic,els.vignette,els.lightLeaks].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
 
@@ -2026,6 +2173,7 @@
     const out=processCanvas(src);
     applyChromaticAberration(out);
     applyFade(out);
+    applyLightLeaks(out,it.file);
     applyHalation(out);
     applyBloom(out);
     applyGrain(out,it.file,1);
