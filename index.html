@@ -1764,6 +1764,9 @@
   els.mobilePanelClose.addEventListener("click",closeMobilePanel);
   els.mobileBackdrop.addEventListener("click",closeMobilePanel);
   mobileToolButtons.forEach(button=>button.addEventListener("click",()=>openMobilePanel(button.dataset.panel,button.dataset.title)));
+  if(!items.length&&window.matchMedia("(max-width:900px) and (orientation:portrait)").matches){
+    requestAnimationFrame(()=>openMobilePanel("menu","Add Photos"));
+  }
 
   function select(i){
     if(i!==current) previewZoom=1;
