@@ -511,7 +511,6 @@
     .mobileTools button.active{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:750}
     .thumb{width:150px;min-width:150px}
     .thumb img{height:64px}
-    .toolbar,.mobileTools,.filmstripWrap{transition:opacity .14s ease}
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
@@ -519,23 +518,6 @@
     .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
     .mobileTitleRow .filename{flex:1 1 0;max-width:none;min-width:0;font-size:14px}
     #mobileMenuBtn{flex:0 0 44px}
-    body.adjustingSlider .mobileBackdrop{background:transparent;backdrop-filter:none;pointer-events:none}
-    body.adjustingSlider .sidebar.mobileOpen{background:transparent;border-color:transparent;box-shadow:none}
-    body.adjustingSlider .sidebar.mobileOpen .mobilePanelHeader,
-    body.adjustingSlider .sidebar.mobileOpen .sidebarIntro,
-    body.adjustingSlider .sidebar.mobileOpen .photoPicker,
-    body.adjustingSlider .sidebar.mobileOpen .groupCollapseToggle,
-    body.adjustingSlider .sidebar.mobileOpen .sectionCollapseToggle,
-    body.adjustingSlider .sidebar.mobileOpen .check,
-    body.adjustingSlider .sidebar.mobileOpen .notice,
-    body.adjustingSlider .sidebar.mobileOpen .control:not(.isAdjusting){opacity:0;pointer-events:none}
-    body.adjustingSlider .sidebar.mobileOpen .control.isAdjusting{
-      position:relative;z-index:3;opacity:1;padding:12px;border:1px solid #4a5d77;
-      border-radius:14px;background:#182130e8;box-shadow:0 12px 38px #0008
-    }
-    body.adjustingSlider .main .toolbar,
-    body.adjustingSlider .main .mobileTools,
-    body.adjustingSlider .main .filmstripWrap{opacity:.08;pointer-events:none}
   }
   @media(min-width:901px), (max-width:900px) and (orientation:landscape){
     .collapsibleContent.isCollapsed{display:none}
@@ -605,7 +587,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.7</div>
+        <div class="appVersion">Version 1.0.8</div>
       </div>
 
       <div id="editSection" class="section">
@@ -2052,25 +2034,6 @@
     control.addEventListener("change",saveSettings);
   }
 
-  let adjustingControl=null;
-  function beginSliderFocus(slider){
-    if(!window.matchMedia("(max-width:900px) and (orientation:portrait)").matches)return;
-    adjustingControl=slider.closest(".control");
-    adjustingControl?.classList.add("isAdjusting");
-    document.body.classList.add("adjustingSlider");
-  }
-  function endSliderFocus(){
-    adjustingControl?.classList.remove("isAdjusting");
-    adjustingControl=null;
-    document.body.classList.remove("adjustingSlider");
-  }
-  document.querySelectorAll('input[type="range"]').forEach(slider=>{
-    slider.addEventListener("pointerdown",()=>beginSliderFocus(slider));
-    slider.addEventListener("pointercancel",endSliderFocus);
-    slider.addEventListener("blur",endSliderFocus);
-  });
-  window.addEventListener("pointerup",endSliderFocus);
-
   function updateSliderLabels(){
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
@@ -2320,7 +2283,6 @@
     if(window.innerWidth>900) closeMobilePanel();
     if(window.innerWidth<=900&&window.matchMedia("(orientation:portrait)").matches) setChromeHidden(false);
     updateFullscreenAvailability();
-    endSliderFocus();
     applyPreviewZoom(true);
   },120));
 
