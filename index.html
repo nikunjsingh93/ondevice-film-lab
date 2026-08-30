@@ -587,7 +587,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.8</div>
+        <div class="appVersion">Version 1.0.9</div>
       </div>
 
       <div id="editSection" class="section">
@@ -1282,7 +1282,10 @@
     const blurred=document.createElement("canvas");
     blurred.width=canvas.width;blurred.height=canvas.height;
     const blurredContext=blurred.getContext("2d",{willReadFrequently:true});
-    const radius=Math.max(.35,(.65+strength*1.85)*radiusScale);
+    // Low-light chroma noise often forms broad red/green/blue blotches rather
+    // than isolated pixels. Scale up to a 10 px source radius at maximum so
+    // the full range can clean those larger patches as well as fine speckles.
+    const radius=Math.max(.45,(1+strength*9)*radiusScale);
     blurredContext.filter=`blur(${radius}px)`;
     blurredContext.drawImage(canvas,-2,-2,canvas.width+4,canvas.height+4);
     blurredContext.filter="none";
@@ -1300,12 +1303,13 @@
       const cb=b-y,cr=r-y;
       const smoothCb=sb-smoothY,smoothCr=sr-smoothY;
 
-      // Strong brightness edges usually represent real object boundaries.
-      // Protect them to reduce colour bleeding at fine detail.
-      let edge=(Math.abs(y-smoothY)-3)/18;
+      // Only strong brightness transitions receive heavy edge protection.
+      // Small variations in dark areas are commonly part of the noise itself.
+      let edge=(Math.abs(y-smoothY)-8)/34;
       if(edge<0)edge=0;else if(edge>1)edge=1;
       edge=edge*edge*(3-2*edge);
-      const blend=strength*(1-edge*.92);
+      const shadowBoost=.90+(1-y/255)*.38;
+      const blend=Math.min(1,Math.pow(strength,.72)*shadowBoost*(1-edge*.72));
       const newCb=cb+(smoothCb-cb)*blend;
       const newCr=cr+(smoothCr-cr)*blend;
       const newR=y+newCr;
