@@ -587,7 +587,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.9</div>
+        <div class="appVersion">Version 1.1.0</div>
       </div>
 
       <div id="editSection" class="section">
@@ -614,8 +614,8 @@
             <input id="threshold" type="range" min="0" max="30" value="5">
           </div>
           <div class="control">
-            <label><span>Chroma noise reduction</span><span id="chromaNoiseVal" class="value">0%</span></label>
-            <input id="chromaNoise" type="range" min="0" max="100" value="0">
+            <label><span>Chroma noise reduction</span><span id="chromaNoiseVal" class="value">50%</span></label>
+            <input id="chromaNoise" type="range" min="0" max="100" value="50">
           </div>
         </div>
 
@@ -1283,9 +1283,9 @@
     blurred.width=canvas.width;blurred.height=canvas.height;
     const blurredContext=blurred.getContext("2d",{willReadFrequently:true});
     // Low-light chroma noise often forms broad red/green/blue blotches rather
-    // than isolated pixels. Scale up to a 10 px source radius at maximum so
+    // than isolated pixels. Scale up to a 15 px source radius at maximum so
     // the full range can clean those larger patches as well as fine speckles.
-    const radius=Math.max(.45,(1+strength*9)*radiusScale);
+    const radius=Math.max(.45,(1+strength*14)*radiusScale);
     blurredContext.filter=`blur(${radius}px)`;
     blurredContext.drawImage(canvas,-2,-2,canvas.width+4,canvas.height+4);
     blurredContext.filter="none";
@@ -1309,7 +1309,7 @@
       if(edge<0)edge=0;else if(edge>1)edge=1;
       edge=edge*edge*(3-2*edge);
       const shadowBoost=.90+(1-y/255)*.38;
-      const blend=Math.min(1,Math.pow(strength,.72)*shadowBoost*(1-edge*.72));
+      const blend=Math.min(1,Math.pow(strength,.72)*shadowBoost*(1-edge*.72)*1.5);
       const newCb=cb+(smoothCb-cb)*blend;
       const newCr=cr+(smoothCr-cr)*blend;
       const newR=y+newCr;
