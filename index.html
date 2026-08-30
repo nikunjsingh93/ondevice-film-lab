@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>OnDevice Film Lab</title>
 <meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, halation, chromatic aberration, grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
@@ -66,6 +66,8 @@
   .photoPicker small{color:var(--muted)}
   .appVersion{margin-top:10px;color:#7f8da2;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .photoActions{margin-top:8px}
+  .photoActions button{padding:8px 9px;font-size:11px}
   button,.button{
     border:1px solid var(--line);
     background:#242e3d;
@@ -373,6 +375,8 @@
   #fullBtn .fullscreenContract{display:none}
   #fullBtn[aria-pressed="true"] .fullscreenExpand{display:none}
   #fullBtn[aria-pressed="true"] .fullscreenContract{display:block}
+  body.fullscreenUnavailable #fullBtn,
+  body.fullscreenUnavailable .fullscreenDivider{display:none!important}
   .app:fullscreen,
   .app:-webkit-full-screen{
     width:100vw;
@@ -414,7 +418,11 @@
   @media(max-width:900px){
     html,body{height:100%;overflow:hidden}
     body.mobilePanelOpen{overflow:hidden}
-    .app{height:100dvh;padding:0;background:#0d1118}
+    .app{
+      height:100dvh;
+      padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      background:#0d1118
+    }
     .layout{height:100%;grid-template-columns:1fr}
     .main{height:100%;min-height:0;border-radius:0;border-left:0;border-right:0}
     .sidebar{display:none}
@@ -424,7 +432,7 @@
       z-index:1002;
       left:10px;
       right:10px;
-      bottom:10px;
+      bottom:max(10px,env(safe-area-inset-bottom));
       top:auto;
       width:auto;
       max-height:min(74vh,680px);
@@ -502,6 +510,7 @@
     .mobileTools button.active{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:750}
     .thumb{width:150px;min-width:150px}
     .thumb img{height:64px}
+    .toolbar,.mobileTools,.filmstripWrap{transition:opacity .14s ease}
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
@@ -509,13 +518,36 @@
     .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
     .mobileTitleRow .filename{flex:1 1 0;max-width:none;min-width:0;font-size:14px}
     #mobileMenuBtn{flex:0 0 44px}
+    body.adjustingSlider .mobileBackdrop{background:transparent;backdrop-filter:none;pointer-events:none}
+    body.adjustingSlider .sidebar.mobileOpen{background:transparent;border-color:transparent;box-shadow:none}
+    body.adjustingSlider .sidebar.mobileOpen .mobilePanelHeader,
+    body.adjustingSlider .sidebar.mobileOpen .sidebarIntro,
+    body.adjustingSlider .sidebar.mobileOpen .photoPicker,
+    body.adjustingSlider .sidebar.mobileOpen .groupCollapseToggle,
+    body.adjustingSlider .sidebar.mobileOpen .sectionCollapseToggle,
+    body.adjustingSlider .sidebar.mobileOpen .check,
+    body.adjustingSlider .sidebar.mobileOpen .notice,
+    body.adjustingSlider .sidebar.mobileOpen .control:not(.isAdjusting){opacity:0;pointer-events:none}
+    body.adjustingSlider .sidebar.mobileOpen .control.isAdjusting{
+      position:relative;z-index:3;opacity:1;padding:12px;border:1px solid #4a5d77;
+      border-radius:14px;background:#182130e8;box-shadow:0 12px 38px #0008
+    }
+    body.adjustingSlider .main .toolbar,
+    body.adjustingSlider .main .mobileTools,
+    body.adjustingSlider .main .filmstripWrap{opacity:.08;pointer-events:none}
   }
   @media(min-width:901px), (max-width:900px) and (orientation:landscape){
     .collapsibleContent.isCollapsed{display:none}
     .settingsGroup.groupCollapsed>:not(.groupCollapseToggle){display:none}
   }
   @media(max-width:900px) and (orientation:landscape){
-    .app{padding:8px;height:100dvh}
+    .app{
+      height:100dvh;
+      padding-top:max(8px,env(safe-area-inset-top));
+      padding-right:max(8px,env(safe-area-inset-right));
+      padding-bottom:max(8px,env(safe-area-inset-bottom));
+      padding-left:max(8px,env(safe-area-inset-left))
+    }
     .layout{grid-template-columns:minmax(240px,285px) minmax(0,1fr);gap:10px}
     .sidebar{
       display:flex;
@@ -566,9 +598,13 @@
           <label class="button" for="fileInput">Choose photos</label>
           <label class="button" for="folderInput">Choose folder</label>
         </div>
+        <div class="btnrow photoActions">
+          <button id="removePhotoBtn" type="button" disabled>Remove this photo</button>
+          <button id="clearPhotosBtn" type="button" disabled>Clear all photos</button>
+        </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.0.5</div>
+        <div class="appVersion">Version 1.0.6</div>
       </div>
 
       <div id="editSection" class="section">
@@ -593,6 +629,10 @@
           <div class="control">
             <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
             <input id="threshold" type="range" min="0" max="30" value="5">
+          </div>
+          <div class="control">
+            <label><span>Chroma noise reduction</span><span id="chromaNoiseVal" class="value">0%</span></label>
+            <input id="chromaNoise" type="range" min="0" max="100" value="0">
           </div>
         </div>
 
@@ -744,7 +784,7 @@
             <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>100%</button>
             <button id="zoomInBtn" type="button" title="Zoom in" aria-label="Zoom in" disabled>+</button>
           </div>
-          <span class="toolbarDivider" aria-hidden="true"></span>
+          <span class="toolbarDivider fullscreenDivider" aria-hidden="true"></span>
           <button id="fullBtn" class="iconButton" title="Full screen" aria-label="Full screen" aria-pressed="false" disabled>
             <svg class="toolbarIcon fullscreenExpand" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
             <svg class="toolbarIcon fullscreenContract" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>
@@ -811,13 +851,13 @@
     sidebar: $(".sidebar"), mobileMenuBtn: $("#mobileMenuBtn"),
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
     mobileBackdrop: $("#mobileBackdrop"),
-    amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"),
+    amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
-    amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"),
+    amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
     vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
@@ -827,6 +867,7 @@
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
+    removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
@@ -868,7 +909,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -885,6 +926,8 @@
     els.chromeToggleBtn.disabled = !selected;
     els.saveOneBtn.disabled = !selected;
     els.zipBtn.disabled = !has;
+    els.removePhotoBtn.disabled = !selected;
+    els.clearPhotosBtn.disabled = !has;
   }
 
   document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
@@ -1234,6 +1277,53 @@
     out.width=src.width; out.height=src.height;
     out.getContext("2d").putImageData(a,0,0);
     return out;
+  }
+
+  function applyChromaNoiseReduction(canvas,radiusScale=1){
+    const strength=+els.chromaNoise.value/100;
+    if(strength<=0)return canvas;
+
+    // Smooth a local colour reference, then restore the original luminance.
+    // This targets coloured speckles without softening monochrome texture.
+    const blurred=document.createElement("canvas");
+    blurred.width=canvas.width;blurred.height=canvas.height;
+    const blurredContext=blurred.getContext("2d",{willReadFrequently:true});
+    const radius=Math.max(.35,(.65+strength*1.85)*radiusScale);
+    blurredContext.filter=`blur(${radius}px)`;
+    blurredContext.drawImage(canvas,-2,-2,canvas.width+4,canvas.height+4);
+    blurredContext.filter="none";
+
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const original=context.getImageData(0,0,canvas.width,canvas.height);
+    const smooth=blurredContext.getImageData(0,0,canvas.width,canvas.height).data;
+    const pixels=original.data;
+
+    for(let i=0;i<pixels.length;i+=4){
+      const r=pixels[i],g=pixels[i+1],b=pixels[i+2];
+      const sr=smooth[i],sg=smooth[i+1],sb=smooth[i+2];
+      const y=.2126*r+.7152*g+.0722*b;
+      const smoothY=.2126*sr+.7152*sg+.0722*sb;
+      const cb=b-y,cr=r-y;
+      const smoothCb=sb-smoothY,smoothCr=sr-smoothY;
+
+      // Strong brightness edges usually represent real object boundaries.
+      // Protect them to reduce colour bleeding at fine detail.
+      let edge=(Math.abs(y-smoothY)-3)/18;
+      if(edge<0)edge=0;else if(edge>1)edge=1;
+      edge=edge*edge*(3-2*edge);
+      const blend=strength*(1-edge*.92);
+      const newCb=cb+(smoothCb-cb)*blend;
+      const newCr=cr+(smoothCr-cr)*blend;
+      const newR=y+newCr;
+      const newB=y+newCb;
+      const newG=(y-.2126*newR-.0722*newB)/.7152;
+
+      pixels[i]=Math.max(0,Math.min(255,Math.round(newR)));
+      pixels[i+1]=Math.max(0,Math.min(255,Math.round(newG)));
+      pixels[i+2]=Math.max(0,Math.min(255,Math.round(newB)));
+    }
+    context.putImageData(original,0,0);
+    return canvas;
   }
 
   function seedFromFile(file){
@@ -1824,6 +1914,7 @@
       img.close?.();
 
       const editedBase=processCanvas(cloneCanvas(original),previewScale);
+      applyChromaNoiseReduction(editedBase,previewScale);
       applyChromaticAberration(editedBase);
       applyFade(editedBase);
       applyLightLeaks(editedBase,it.file);
@@ -1899,7 +1990,7 @@
 
   const SETTINGS_STORAGE_KEY="ondevice-film-lab-settings-v1";
   const settingsControls=[
-    els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic,
+    els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
     els.quality,els.stampSize,els.grainEnabled,els.dateRename,els.dateStamp,
     els.stampPosition,els.stampFormat,els.stampColor
@@ -1948,10 +2039,30 @@
     control.addEventListener("change",saveSettings);
   }
 
+  let adjustingControl=null;
+  function beginSliderFocus(slider){
+    if(!window.matchMedia("(max-width:900px) and (orientation:portrait)").matches)return;
+    adjustingControl=slider.closest(".control");
+    adjustingControl?.classList.add("isAdjusting");
+    document.body.classList.add("adjustingSlider");
+  }
+  function endSliderFocus(){
+    adjustingControl?.classList.remove("isAdjusting");
+    adjustingControl=null;
+    document.body.classList.remove("adjustingSlider");
+  }
+  document.querySelectorAll('input[type="range"]').forEach(slider=>{
+    slider.addEventListener("pointerdown",()=>beginSliderFocus(slider));
+    slider.addEventListener("pointercancel",endSliderFocus);
+    slider.addEventListener("blur",endSliderFocus);
+  });
+  window.addEventListener("pointerup",endSliderFocus);
+
   function updateSliderLabels(){
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
     els.thresholdVal.textContent=els.threshold.value;
+    els.chromaNoiseVal.textContent=`${els.chromaNoise.value}%`;
     els.fadeVal.textContent=`${els.fade.value}%`;
     els.bloomVal.textContent=`${els.bloom.value}%`;
     els.halationVal.textContent=`${els.halation.value}%`;
@@ -1963,7 +2074,7 @@
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold,els.fade,els.bloom,els.halation,els.chromatic,els.vignette,els.lightLeaks].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
+  [els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,els.vignette,els.lightLeaks].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
   els.quality.addEventListener("input",updateSliderLabels);
 
@@ -2071,8 +2182,51 @@
     setStatus(`Added ${added.length} photo${added.length===1?"":"s"}`);
   }
 
+  function showEmptyLibrary(){
+    previewToken++;
+    current=-1;
+    previewZoom=1;
+    els.viewer.classList.remove("hasPreview");
+    els.viewer.innerHTML='<div class="empty"><b>Add some photos</b><span>Choose photos from the menu to begin editing.</span></div>';
+    els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span>';
+    els.count.textContent="Photos (0)";
+    els.dims.textContent="—";
+    setStatus("Ready");
+    updateButtons();
+  }
+
+  function removeCurrentPhoto(){
+    if(current<0||!items[current])return;
+    previewToken++;
+    const index=current;
+    URL.revokeObjectURL(items[index].thumbUrl);
+    items.splice(index,1);
+    els.thumbs.children[index]?.remove();
+    els.fileInput.value="";
+    els.folderInput.value="";
+    els.count.textContent=`Photos (${items.length})`;
+    current=-1;
+    if(items.length)select(Math.min(index,items.length-1));
+    else showEmptyLibrary();
+    closeMobilePanel();
+  }
+
+  function clearAllPhotos(){
+    if(!items.length)return;
+    previewToken++;
+    for(const item of items)URL.revokeObjectURL(item.thumbUrl);
+    items.length=0;
+    els.thumbs.replaceChildren();
+    els.fileInput.value="";
+    els.folderInput.value="";
+    showEmptyLibrary();
+    closeMobilePanel();
+  }
+
   els.fileInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
   els.folderInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
+  els.removePhotoBtn.addEventListener("click",removeCurrentPhoto);
+  els.clearPhotosBtn.addEventListener("click",clearAllPhotos);
 
   function rotate(delta){
     if(current<0)return;
@@ -2110,6 +2264,21 @@
     select(next);
   });
 
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
+    (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  const isAndroid=/Android/i.test(navigator.userAgent);
+  const standaloneMode=window.matchMedia("(display-mode: standalone)");
+  const fullscreenDisplayMode=window.matchMedia("(display-mode: fullscreen)");
+  function updateFullscreenAvailability(){
+    const installed=standaloneMode.matches||fullscreenDisplayMode.matches||navigator.standalone===true;
+    const androidPortrait=isAndroid&&window.matchMedia("(orientation:portrait)").matches;
+    const unsupported=!document.fullscreenEnabled||typeof els.appRoot.requestFullscreen!=="function";
+    document.body.classList.toggle("fullscreenUnavailable",installed||isIOS||androidPortrait||unsupported);
+  }
+  updateFullscreenAvailability();
+  standaloneMode.addEventListener?.("change",updateFullscreenAvailability);
+  fullscreenDisplayMode.addEventListener?.("change",updateFullscreenAvailability);
+
   async function toggleFullScreen(){
     try{
       if(!document.fullscreenElement){
@@ -2137,6 +2306,8 @@
   window.addEventListener("resize",debounce(()=>{
     if(window.innerWidth>900) closeMobilePanel();
     if(window.innerWidth<=900&&window.matchMedia("(orientation:portrait)").matches) setChromeHidden(false);
+    updateFullscreenAvailability();
+    endSliderFocus();
     applyPreviewZoom(true);
   },120));
 
@@ -2173,6 +2344,7 @@
     const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0));
     img.close?.();
     const out=processCanvas(src);
+    applyChromaNoiseReduction(out,1);
     applyChromaticAberration(out);
     applyFade(out);
     applyLightLeaks(out,it.file);
