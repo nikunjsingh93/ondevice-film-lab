@@ -511,10 +511,6 @@
     .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
     .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar,
-    .sidebar.mobileOpen[data-mobile-panel="softening"] #editScopeBar,
-    .sidebar.mobileOpen[data-mobile-panel="film"] #editScopeBar,
-    .sidebar.mobileOpen[data-mobile-panel="grain"] #editScopeBar,
-    .sidebar.mobileOpen[data-mobile-panel="stamp"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
     .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
@@ -523,11 +519,6 @@
     .sidebar.mobileOpen[data-mobile-panel="output"] #outputGroup{display:block}
     .sidebar.mobileOpen .settingsGroup{border-top:0;margin-top:0;padding-top:2px}
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
-    .sidebar.mobileOpen .editScopeActions{display:none}
-    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeTitle,
-    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeSwitch,
-    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeHint{display:none}
-    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeActions{display:grid;margin:0;padding:0;border-top:0}
     .mobileBackdrop{
       position:fixed;
       z-index:1001;
@@ -642,7 +633,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.3</div>
+        <div class="appVersion">Version 1.2.5</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -2420,6 +2411,49 @@
   updateSliderLabels();
   updateGrainUI();
   updateStampUI();
+
+  // Mobile range inputs normally jump when any point on the track is tapped.
+  // Only let a touch/pen gesture reach the native control when it begins on
+  // the current thumb; touches elsewhere remain available for panel scrolling.
+  const blockedMobileRangeClicks=new WeakSet();
+  const blockedMobileRangePointers=new Map();
+  const mobileSliderLayout=()=>window.matchMedia("(max-width:900px) and (orientation:portrait)").matches;
+  document.addEventListener("pointerdown",event=>{
+    if(event.pointerType==="mouse"||!mobileSliderLayout())return;
+    const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
+    if(!range||range.disabled)return;
+    const rect=range.getBoundingClientRect();
+    const minimum=Number(range.min)||0;
+    const maximum=Number(range.max)||100;
+    const value=Number(range.value);
+    const ratio=maximum===minimum ? 0 : (value-minimum)/(maximum-minimum);
+    const thumbDiameter=Math.max(22,Math.min(28,rect.height||22));
+    const thumbCenter=rect.left+thumbDiameter/2+ratio*Math.max(0,rect.width-thumbDiameter);
+    const hitRadius=Math.max(18,thumbDiameter*.8);
+    if(Math.abs(event.clientX-thumbCenter)<=hitRadius)return;
+    blockedMobileRangeClicks.add(range);
+    blockedMobileRangePointers.set(event.pointerId,range);
+    event.preventDefault();
+    event.stopPropagation();
+    range.blur();
+  },true);
+  document.addEventListener("click",event=>{
+    const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
+    if(!range||!blockedMobileRangeClicks.has(range))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    blockedMobileRangeClicks.delete(range);
+  },true);
+  document.addEventListener("pointerup",event=>{
+    const range=blockedMobileRangePointers.get(event.pointerId);
+    blockedMobileRangePointers.delete(event.pointerId);
+    if(range)setTimeout(()=>blockedMobileRangeClicks.delete(range),0);
+  },true);
+  document.addEventListener("pointercancel",event=>{
+    const range=blockedMobileRangePointers.get(event.pointerId);
+    blockedMobileRangePointers.delete(event.pointerId);
+    if(range)blockedMobileRangeClicks.delete(range);
+  },true);
 
   els.scopeAllBtn.addEventListener("click",()=>{
     editScope="all";
