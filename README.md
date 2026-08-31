@@ -47,7 +47,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 - Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
-- Manual rotation with orientation baked into exports
+- Manual 90° rotation plus fine ±15° straightening with an adjustment grid and automatic edge cropping, baked into exports
 - Preserves the original JPEG EXIF metadata, including camera, capture time, exposure, ISO, focal length, technical comments, and GPS data when present, while removing CampSnap's generic `My favorite picture` description
 - Left and Right Arrow navigation between photos
 - Retro segmented date stamp enabled by default, with selectable date formats and a soft orange film-like glow

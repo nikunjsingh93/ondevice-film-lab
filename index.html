@@ -129,6 +129,7 @@
   .toolbar .iconButton{width:38px;min-width:38px;padding:7px;border-radius:12px}
   .toolbarIcon{display:block;width:21px;height:21px;margin:auto;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
   .toolbar .iconButton:hover .toolbarIcon{stroke:var(--accent)}
+  .toolbar .straightenButton.active,.toolbar .straightenButton.hasAdjustment{color:var(--accent);border-color:#79afe28c;background:#253750}
   .zoomControls{display:flex;align-items:center;gap:5px}
   .zoomControls button{min-width:36px;padding:7px;font-size:17px;font-weight:800}
   .zoomControls .zoomReset{width:56px;min-width:56px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
@@ -148,6 +149,16 @@
   .addPhotosArrow{display:block;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
   .mobileMenuIcon{width:27px;height:27px;stroke-width:2.5}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+  .straightenPanel{
+    display:flex;align-items:center;gap:10px;flex:0 0 auto;
+    min-height:42px;padding:6px 12px;border-top:1px solid var(--line);
+    background:#171e29
+  }
+  .straightenPanel[hidden]{display:none}
+  .straightenPanel label{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+  .straightenPanel input{flex:1 1 auto;min-width:90px;margin:0}
+  .straightenValue{width:48px;color:var(--accent);font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+  .straightenReset{padding:6px 9px;font-size:11px}
   .viewer{
     position:relative;
     flex:1 1 auto;
@@ -187,6 +198,15 @@
     user-select:none;
     touch-action:auto;
     box-shadow:0 8px 35px #0007
+  }
+  .viewer.straightening .compareBox::after{
+    content:"";
+    position:absolute;inset:0;z-index:3;pointer-events:none;
+    background:
+      linear-gradient(to right,transparent calc(100% - 1.2px),#ffffffe6 calc(100% - 1.2px)) 0 0/calc(100% / 6) 100% repeat-x,
+      linear-gradient(to bottom,transparent calc(100% - 1.2px),#ffffffe6 calc(100% - 1.2px)) 0 0/100% calc(100% / 6) repeat-y;
+    box-shadow:inset 0 0 0 1px #ffffffb8;
+    filter:drop-shadow(0 0 1px #000)
   }
   .compareBox canvas{
     display:block;
@@ -369,7 +389,8 @@
   }
   .main.chromeHidden .toolbar>:not(.chromeToggle){display:none}
   .main.chromeHidden .filmstripWrap,
-  .main.chromeHidden .mobileTools{display:none}
+  .main.chromeHidden .mobileTools,
+  .main.chromeHidden .straightenPanel{display:none}
   .chromeToggle .chevronUp{display:none}
   .chromeToggle[aria-pressed="true"] .chevronDown{display:none}
   .chromeToggle[aria-pressed="true"] .chevronUp{display:block}
@@ -489,6 +510,9 @@
     .toolbarGroup+.toolbarGroup{margin-left:2px;padding-left:6px}
     .toolbar .iconButton,.zoomControls button{min-height:44px}
     .toolbar .iconButton{width:44px;min-width:44px}
+    .straightenPanel{gap:8px;padding:6px 9px;min-height:44px}
+    .straightenPanel label{font-size:11px}
+    .straightenValue{width:44px}
     .filename{flex-basis:calc(100% - 42px)}
     .desktopEmptyLabel{display:none}
     .mobileEmptyLabel{display:inline-flex;align-items:center;gap:7px}
@@ -587,7 +611,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.1.4</div>
+        <div class="appVersion">Version 1.1.8</div>
       </div>
 
       <div id="editSection" class="section">
@@ -757,6 +781,12 @@
           <button id="leftBtn" class="iconButton" title="Rotate left" aria-label="Rotate left" disabled>
             <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 9V4.5M4.5 9H9"/><path d="M4.8 8.5a8 8 0 1 1-.7 7.3"/></svg>
           </button>
+          <button id="straightenBtn" class="iconButton straightenButton" title="Straighten photo" aria-label="Straighten photo" aria-expanded="false" disabled>
+            <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="5" width="14" height="14" rx="1.8" transform="rotate(14 12 12)"/>
+              <path d="M2.5 12h19" stroke-dasharray="2.4 2.2"/>
+            </svg>
+          </button>
           <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>
             <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 9V4.5M19.5 9H15"/><path d="M19.2 8.5a8 8 0 1 0 .7 7.3"/></svg>
           </button>
@@ -789,6 +819,13 @@
             <b>Add some photos</b>
             <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, chromatic aberration, grain, and date-stamp effects are previewed before export.</span>
           </div>
+        </div>
+
+        <div id="straightenPanel" class="straightenPanel" hidden>
+          <label for="straightenSlider">Straighten</label>
+          <input id="straightenSlider" type="range" min="-150" max="150" step="1" value="0" aria-label="Straighten angle">
+          <output id="straightenValue" class="straightenValue" for="straightenSlider">0.0°</output>
+          <button id="straightenReset" class="straightenReset" type="button">Reset</button>
         </div>
 
         <div class="mobileTools" aria-label="Editing tools">
@@ -847,7 +884,9 @@
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
-    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"),
+    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"),
+    straightenPanel: $("#straightenPanel"), straightenSlider: $("#straightenSlider"),
+    straightenValue: $("#straightenValue"), straightenReset: $("#straightenReset"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
@@ -865,6 +904,9 @@
   let busy = false;
   let comparePercent = 50;
   let previewZoom = 1;
+  let straightenOpen = false;
+  let straightenDragging = false;
+  let straightenGridTimer = 0;
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
@@ -872,6 +914,13 @@
   const isAndroid=/Android/i.test(navigator.userAgent);
 
   function setStatus(s){ els.status.textContent = s; }
+  function showStraightenGrid(show,autoHide=false){
+    clearTimeout(straightenGridTimer);
+    els.viewer.classList.toggle("straightening",show&&current>=0);
+    if(show&&autoHide){
+      straightenGridTimer=setTimeout(()=>els.viewer.classList.remove("straightening"),650);
+    }
+  }
   function setProgress(n, total){
     const percent=total?Math.max(0,Math.min(100,n/total*100)):0;
     els.processingBar.style.width=`${percent}%`;
@@ -895,10 +944,21 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
+  }
+  function updateStraightenUI(){
+    const selected=current>=0&&!!items[current];
+    const angle=selected ? (items[current].straighten||0) : 0;
+    els.straightenSlider.value=String(Math.round(angle*10));
+    els.straightenValue.textContent=`${angle>0?"+":""}${angle.toFixed(1)}°`;
+    els.straightenPanel.hidden=!selected||!straightenOpen;
+    els.straightenBtn.setAttribute("aria-expanded",String(selected&&straightenOpen));
+    els.straightenBtn.classList.toggle("active",selected&&straightenOpen);
+    els.straightenBtn.classList.toggle("hasAdjustment",selected&&Math.abs(angle)>.05);
+    els.straightenReset.disabled=!selected||Math.abs(angle)<.05;
   }
   function updateButtons(){
     const has = items.length > 0;
@@ -906,6 +966,9 @@
     els.photoActions.hidden=!has;
     els.leftBtn.disabled = !selected;
     els.rightBtn.disabled = !selected;
+    els.straightenBtn.disabled = !selected;
+    els.straightenSlider.disabled = !selected;
+    els.straightenReset.disabled = !selected || Math.abs(items[current]?.straighten||0)<.05;
     els.zoomOutBtn.disabled = !selected || previewZoom<=.5;
     els.zoomResetBtn.disabled = !selected || previewZoom===1;
     els.zoomInBtn.disabled = !selected || previewZoom>=4;
@@ -915,6 +978,7 @@
     els.zipBtn.disabled = !has;
     els.removePhotoBtn.disabled = !selected;
     els.clearPhotosBtn.disabled = !has;
+    updateStraightenUI();
   }
 
   document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
@@ -1202,7 +1266,7 @@
     return (deg===90||deg===270) ? [h,w] : [w,h];
   }
 
-  function drawRotated(img, deg, maxDim=0){
+  function drawRotated(img, deg, maxDim=0,straighten=0){
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const [rw,rh]=rotatedSize(iw,ih,deg);
     let scale=1;
@@ -1215,13 +1279,24 @@
     ctx.imageSmoothingQuality="high";
     ctx.save();
     ctx.translate(c.width/2,c.height/2);
-    ctx.rotate(deg*Math.PI/180);
+    const fineAngle=Math.max(-15,Math.min(15,+straighten||0));
+    ctx.rotate((deg+fineAngle)*Math.PI/180);
     // Fill the integer-sized canvas exactly. Scaling around the source centre
     // with a fractional factor can leave a partially transparent edge row on
     // Android after the destination dimensions are rounded.
     const normalized=((deg%360)+360)%360;
-    const drawWidth=(normalized===90||normalized===270)?c.height:c.width;
-    const drawHeight=(normalized===90||normalized===270)?c.width:c.height;
+    let cover=1;
+    if(Math.abs(fineAngle)>.001){
+      const radians=Math.abs(fineAngle)*Math.PI/180;
+      const cosine=Math.cos(radians),sine=Math.sin(radians);
+      const neededWidth=c.width*cosine+c.height*sine;
+      const neededHeight=c.width*sine+c.height*cosine;
+      // Scale just enough to crop away the empty corner triangles created by
+      // fine rotation. A tiny safety margin prevents antialiased edge seams.
+      cover=Math.max(neededWidth/c.width,neededHeight/c.height)+2/Math.min(c.width,c.height);
+    }
+    const drawWidth=((normalized===90||normalized===270)?c.height:c.width)*cover;
+    const drawHeight=((normalized===90||normalized===270)?c.width:c.height)*cover;
     ctx.drawImage(img,-drawWidth/2,-drawHeight/2,drawWidth,drawHeight);
     ctx.restore();
     return c;
@@ -1908,7 +1983,7 @@
       if(token!==previewToken) { img.close?.(); return; }
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
-      const original=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax));
+      const original=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax,it.straighten||0));
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
@@ -2108,7 +2183,10 @@
   }
 
   function select(i){
-    if(i!==current) previewZoom=1;
+    if(i!==current){
+      previewZoom=1;
+      showStraightenGrid(false);
+    }
     current=i;
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
@@ -2121,13 +2199,16 @@
     const node=els.thumbs.children[i];
     const item=items[i];
     if(!node||!item) return;
-    const rotation=item.rotation;
-    node.querySelector(".rot").textContent=rotation ? `${rotation}°` : "";
+    const rotation=item.rotation,straighten=item.straighten||0;
+    const transformLabels=[];
+    if(rotation)transformLabels.push(`${rotation}°`);
+    if(Math.abs(straighten)>.05)transformLabels.push(`${straighten>0?"+":""}${straighten.toFixed(1)}°`);
+    node.querySelector(".rot").textContent=transformLabels.join(" · ");
     try{
       const image=await decode(item.file);
-      const canvas=drawRotated(image,rotation,420);
+      const canvas=drawRotated(image,rotation,420,straighten);
       image.close?.();
-      if(item.rotation!==rotation||!node.isConnected) return;
+      if(item.rotation!==rotation||(item.straighten||0)!==straighten||!node.isConnected) return;
       node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);
     }catch(e){
       console.error(e);
@@ -2144,7 +2225,7 @@
       if(known.has(key)) continue;
       known.add(key);
       const captureDate=await getCaptureDate(f);
-      const it={file:f,rotation:0,thumbUrl:URL.createObjectURL(f),captureDate};
+      const it={file:f,rotation:0,straighten:0,thumbUrl:URL.createObjectURL(f),captureDate};
       items.push(it); added.push(it);
       const row=document.createElement("div"); row.className="thumb";
       const im=document.createElement("img"); im.src=it.thumbUrl;
@@ -2166,6 +2247,8 @@
     previewToken++;
     current=-1;
     previewZoom=1;
+    straightenOpen=false;
+    showStraightenGrid(false);
     els.viewer.classList.remove("hasPreview");
     els.viewer.innerHTML='<div class="empty"><b>Add some photos</b><span>Choose photos from the menu to begin editing.</span></div>';
     els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span>';
@@ -2217,6 +2300,45 @@
   }
   els.leftBtn.onclick=()=>rotate(-90);
   els.rightBtn.onclick=()=>rotate(90);
+  const renderStraighten=debounce(index=>{
+    if(index<0||index!==current)return;
+    refreshThumb(index);
+    makePreview(index);
+  },90);
+  els.straightenBtn.onclick=()=>{
+    if(current<0)return;
+    straightenOpen=!straightenOpen;
+    if(!straightenOpen)showStraightenGrid(false);
+    updateStraightenUI();
+    requestAnimationFrame(()=>applyPreviewZoom(true));
+  };
+  els.straightenSlider.addEventListener("pointerdown",()=>{
+    straightenDragging=true;
+    showStraightenGrid(true);
+  });
+  els.straightenSlider.addEventListener("input",()=>{
+    if(current<0)return;
+    items[current].straighten=+els.straightenSlider.value/10;
+    showStraightenGrid(true,!straightenDragging);
+    updateStraightenUI();
+    renderStraighten(current);
+  });
+  const finishStraightening=()=>{
+    if(!straightenDragging)return;
+    straightenDragging=false;
+    showStraightenGrid(false);
+  };
+  window.addEventListener("pointerup",finishStraightening);
+  window.addEventListener("pointercancel",finishStraightening);
+  els.straightenSlider.addEventListener("blur",()=>showStraightenGrid(false));
+  els.straightenReset.onclick=()=>{
+    if(current<0)return;
+    items[current].straighten=0;
+    showStraightenGrid(false);
+    updateStraightenUI();
+    refreshThumb(current);
+    makePreview(current);
+  };
   els.zoomOutBtn.onclick=()=>setPreviewZoom(previewZoom-.25);
   els.zoomResetBtn.onclick=()=>setPreviewZoom(1);
   els.zoomInBtn.onclick=()=>setPreviewZoom(previewZoom+.25);
@@ -2443,7 +2565,7 @@
 
   async function processItem(it){
     const img=await decodeForProcessing(it.file);
-    const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0));
+    const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));
     img.close?.();
     const out=processCanvas(src);
     applyChromaNoiseReduction(out,1);
