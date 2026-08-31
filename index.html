@@ -116,6 +116,17 @@
   .check{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--muted);cursor:pointer}
   .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
+  .editScopeBar{
+    padding:11px;border:1px solid #40516a;border-radius:14px;background:#141b27
+  }
+  .editScopeTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:11px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+  .editScopeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .editScopeSwitch button{padding:8px 7px;font-size:11px}
+  .editScopeSwitch button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
+  .editScopeHint{display:block;min-height:31px;margin-top:7px;color:var(--muted);font-size:10px;line-height:1.4}
+  .editScopeActions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+  .editScopeActions button{min-width:0;padding:7px 5px;font-size:10px;line-height:1.25}
+  .editScopeActions button:last-child{grid-column:1/-1}
   .main{position:relative;min-height:760px;display:flex;flex-direction:column}
   .toolbar{
     padding:7px 9px;
@@ -301,6 +312,7 @@
     scroll-behavior:smooth
   }
   .thumb{
+    position:relative;
     display:grid;
     grid-template-rows:auto auto auto;
     align-content:start;
@@ -332,6 +344,12 @@
     font-weight:600
   }
   .thumb .meta{font-size:9px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .customBadge{
+    position:absolute;top:9px;right:9px;z-index:2;padding:3px 6px;border-radius:999px;
+    background:#78a9ddeb;color:#101824;font-size:8px;font-weight:850;line-height:1;text-transform:uppercase;letter-spacing:.06em;
+    box-shadow:0 2px 8px #0008;pointer-events:none
+  }
+  .customBadge[hidden]{display:none}
   .rot{font-size:9px;line-height:1.15;color:var(--accent)}
   .rot:empty{display:none}
   .visuallyHidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
@@ -486,11 +504,16 @@
     .sidebar.mobileOpen .settingsGroup>h3{display:none}
     .sidebar.mobileOpen .sidebarIntro,
     .sidebar.mobileOpen .photoPicker,
+    .sidebar.mobileOpen .editScopeBar,
     .sidebar.mobileOpen .settingsGroup,
     .sidebar.mobileOpen .tip{display:none}
     .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
+    .sidebar.mobileOpen[data-mobile-panel="softening"] #editScopeBar,
+    .sidebar.mobileOpen[data-mobile-panel="film"] #editScopeBar,
+    .sidebar.mobileOpen[data-mobile-panel="grain"] #editScopeBar,
+    .sidebar.mobileOpen[data-mobile-panel="stamp"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
     .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
     .sidebar.mobileOpen[data-mobile-panel="grain"] #grainGroup,
@@ -611,7 +634,21 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.1.8</div>
+        <div class="appVersion">Version 1.2.1</div>
+      </div>
+
+      <div id="editScopeBar" class="editScopeBar">
+        <div class="editScopeTitle"><span>Apply edits to</span><span id="editScopeState">All photos</span></div>
+        <div class="editScopeSwitch" role="group" aria-label="Choose which photos receive slider changes">
+          <button id="scopeAllBtn" type="button" aria-pressed="true">All photos</button>
+          <button id="scopePhotoBtn" type="button" aria-pressed="false" disabled>This photo</button>
+        </div>
+        <span id="editScopeHint" class="editScopeHint">Slider changes affect every imported photo. Rotation and straightening always stay individual.</span>
+        <div class="editScopeActions">
+          <button id="copyEditsBtn" type="button" disabled>Copy edits</button>
+          <button id="pasteEditsBtn" type="button" disabled>Paste edits</button>
+          <button id="resetPhotoEditsBtn" type="button" disabled>Reset edits on this photo</button>
+        </div>
       </div>
 
       <div id="editSection" class="section">
@@ -890,6 +927,9 @@
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
+    scopeAllBtn: $("#scopeAllBtn"), scopePhotoBtn: $("#scopePhotoBtn"), editScopeState: $("#editScopeState"),
+    editScopeHint: $("#editScopeHint"), copyEditsBtn: $("#copyEditsBtn"), pasteEditsBtn: $("#pasteEditsBtn"),
+    resetPhotoEditsBtn: $("#resetPhotoEditsBtn"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
@@ -907,6 +947,49 @@
   let straightenOpen = false;
   let straightenDragging = false;
   let straightenGridTimer = 0;
+  let editScope = "all";
+  let copiedPhotoSettings = null;
+  let batchSettings = {};
+
+  const photoSettingControls=[
+    els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
+    els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
+    els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
+  ];
+  const globalSettingControls=[els.quality,els.dateRename];
+
+  function controlValue(control){
+    return control.type==="checkbox" ? control.checked : control.value;
+  }
+  function cloneSettings(settings){return {...settings}}
+  function capturePhotoSettings(){
+    const settings={};
+    for(const control of photoSettingControls)settings[control.id]=controlValue(control);
+    return settings;
+  }
+  function loadPhotoSettings(settings){
+    if(!settings)return;
+    for(const control of photoSettingControls){
+      if(!(control.id in settings))continue;
+      if(control.type==="checkbox")control.checked=!!settings[control.id];
+      else control.value=String(settings[control.id]);
+    }
+    updateSliderLabels();
+    updateGrainUI();
+    updateStampUI();
+  }
+  function settingValue(settings,id){
+    if(settings&&Object.prototype.hasOwnProperty.call(settings,id))return settings[id];
+    const control=els[id];
+    return control ? controlValue(control) : undefined;
+  }
+  function settingNumber(settings,id){return +settingValue(settings,id)}
+  function settingsMatch(a,b){
+    return photoSettingControls.every(control=>a?.[control.id]===b?.[control.id]);
+  }
+  function itemHasCustomEdits(item){
+    return !!item&&(item.rotation!==0||Math.abs(item.straighten||0)>.05||!settingsMatch(item.settings,batchSettings));
+  }
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
@@ -944,7 +1027,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -959,6 +1042,28 @@
     els.straightenBtn.classList.toggle("active",selected&&straightenOpen);
     els.straightenBtn.classList.toggle("hasAdjustment",selected&&Math.abs(angle)>.05);
     els.straightenReset.disabled=!selected||Math.abs(angle)<.05;
+  }
+  function updateThumbCustomBadge(index){
+    const badge=els.thumbs.children[index]?.querySelector(".customBadge");
+    if(badge)badge.hidden=!itemHasCustomEdits(items[index]);
+  }
+  function updateAllCustomBadges(){
+    for(let index=0;index<items.length;index++)updateThumbCustomBadge(index);
+  }
+  function updateEditScopeUI(){
+    const selected=current>=0&&!!items[current];
+    const all=editScope==="all";
+    els.scopeAllBtn.disabled=false;
+    els.scopeAllBtn.setAttribute("aria-pressed",String(all));
+    els.scopePhotoBtn.setAttribute("aria-pressed",String(!all));
+    els.scopePhotoBtn.disabled=!selected;
+    els.copyEditsBtn.disabled=!selected;
+    els.pasteEditsBtn.disabled=!selected||!copiedPhotoSettings;
+    els.resetPhotoEditsBtn.disabled=!selected||!itemHasCustomEdits(items[current]);
+    els.editScopeState.textContent=all?"All photos":"This photo";
+    els.editScopeHint.textContent=all
+      ? "Slider changes affect every imported photo. Rotation and straightening always stay individual."
+      : "Slider changes affect only the selected photo. A Custom badge will appear in the filmstrip.";
   }
   function updateButtons(){
     const has = items.length > 0;
@@ -979,6 +1084,7 @@
     els.removePhotoBtn.disabled = !selected;
     els.clearPhotosBtn.disabled = !has;
     updateStraightenUI();
+    updateEditScopeUI();
   }
 
   document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
@@ -1075,13 +1181,14 @@
   }
 
   function pad2(n){ return String(n).padStart(2,"0"); }
-  function stampDateText(d){
+  function stampDateText(d,settings){
     const day=pad2(d.getDate());
     const month=pad2(d.getMonth()+1);
     const year=String(d.getFullYear());
-    if(els.stampFormat.value==="dmy4") return `${day} ${month} ${year}`;
-    if(els.stampFormat.value==="dmy2") return `${day} ${month} '${year.slice(-2)}`;
-    if(els.stampFormat.value==="mdy2") return `${month} ${day} '${year.slice(-2)}`;
+    const format=settingValue(settings,"stampFormat");
+    if(format==="dmy4") return `${day} ${month} ${year}`;
+    if(format==="dmy2") return `${day} ${month} '${year.slice(-2)}`;
+    if(format==="mdy2") return `${month} ${day} '${year.slice(-2)}`;
     return `${month} ${day} ${year}`;
   }
   function smartphoneBaseName(d){
@@ -1302,10 +1409,10 @@
     return c;
   }
 
-  function processCanvas(src,radiusScale=1){
+  function processCanvas(src,radiusScale=1,settings=null){
     // The new 50% position exactly matches the former 72% strength.
     // The remaining half of the slider extends the available softening range.
-    const amount=(+els.amount.value/100)*1.44;
+    const amount=(settingNumber(settings,"amount")/100)*1.44;
     if(amount<=0) {
       const out=document.createElement("canvas");
       out.width=src.width; out.height=src.height;
@@ -1314,8 +1421,8 @@
     }
     // Preview canvases are reduced for speed. Scale pixel-radius with them so
     // the preview matches the full-resolution JPEG when both are displayed.
-    const radius=(+els.radius.value/10)*radiusScale;
-    const threshold=+els.threshold.value;
+    const radius=(settingNumber(settings,"radius")/10)*radiusScale;
+    const threshold=settingNumber(settings,"threshold");
 
     const blur=document.createElement("canvas");
     blur.width=src.width; blur.height=src.height;
@@ -1348,8 +1455,8 @@
     return out;
   }
 
-  function applyChromaNoiseReduction(canvas,radiusScale=1){
-    const strength=+els.chromaNoise.value/100;
+  function applyChromaNoiseReduction(canvas,radiusScale=1,settings=null){
+    const strength=settingNumber(settings,"chromaNoise")/100;
     if(strength<=0)return canvas;
 
     // Smooth a local colour reference, then restore the original luminance.
@@ -1416,9 +1523,9 @@
     };
   }
 
-  function applyFade(canvas){
-    const strength=+els.fade.value/100;
-    const vignetteStrength=+els.vignette.value/100;
+  function applyFade(canvas,settings=null){
+    const strength=settingNumber(settings,"fade")/100;
+    const vignetteStrength=settingNumber(settings,"vignette")/100;
     if(strength<=0&&vignetteStrength<=0) return canvas;
 
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
@@ -1478,8 +1585,8 @@
     return canvas;
   }
 
-  function applyLightLeaks(canvas,file){
-    const strength=+els.lightLeaks.value/100;
+  function applyLightLeaks(canvas,file,settings=null){
+    const strength=settingNumber(settings,"lightLeaks")/100;
     if(strength<=0)return canvas;
 
     // Build the leak on a smaller surface: the shapes are intentionally soft,
@@ -1534,8 +1641,8 @@
     return canvas;
   }
 
-  function applyChromaticAberration(canvas){
-    const strength=+els.chromatic.value/100;
+  function applyChromaticAberration(canvas,settings=null){
+    const strength=settingNumber(settings,"chromatic")/100;
     if(strength<=0) return canvas;
 
     // Lateral chromatic aberration is a wavelength-dependent magnification
@@ -1580,8 +1687,8 @@
     return canvas;
   }
 
-  function applyBloom(canvas){
-    const strength=+els.bloom.value/100;
+  function applyBloom(canvas,settings=null){
+    const strength=settingNumber(settings,"bloom")/100;
     if(strength<=0) return canvas;
 
     const highlights=document.createElement("canvas");
@@ -1622,8 +1729,8 @@
     return canvas;
   }
 
-  function applyHalation(canvas){
-    const strength=+els.halation.value/100;
+  function applyHalation(canvas,settings=null){
+    const strength=settingNumber(settings,"halation")/100;
     if(strength<=0) return canvas;
 
     const highlights=document.createElement("canvas");
@@ -1676,19 +1783,19 @@
     return canvas;
   }
 
-  function applyGrain(canvas,file,previewScale=1){
-    if(!els.grainEnabled.checked) return canvas;
-    const strength=+els.grainStrength.value/100;
+  function applyGrain(canvas,file,previewScale=1,settings=null){
+    if(!settingValue(settings,"grainEnabled")) return canvas;
+    const strength=settingNumber(settings,"grainStrength")/100;
     if(strength<=0) return canvas;
 
     // The grain field is generated at its selected physical pixel size and
     // then scaled to the photo. This is faster and lighter than another full
     // RGB processing pass, especially during batch export on mobile devices.
     // Very large photos cap the noise field at roughly eight million cells.
-    const selectedSize=(+els.grainSize.value/10)*previewScale;
+    const selectedSize=(settingNumber(settings,"grainSize")/10)*previewScale;
     const memoryFloor=Math.sqrt((canvas.width*canvas.height)/8000000);
     const grainSize=Math.max(1,selectedSize,memoryFloor);
-    const roughness=+els.grainRoughness.value/100;
+    const roughness=settingNumber(settings,"grainRoughness")/100;
     const field=document.createElement("canvas");
     field.width=Math.max(1,Math.ceil(canvas.width/grainSize));
     field.height=Math.max(1,Math.ceil(canvas.height/grainSize));
@@ -1802,20 +1909,20 @@
     ctx.restore();
   }
 
-  async function applyDateStamp(canvas, file){
-    if(!els.dateStamp.checked) return canvas;
+  async function applyDateStamp(canvas,file,settings=null){
+    if(!settingValue(settings,"dateStamp")) return canvas;
     const d=await getCaptureDate(file);
-    const text=stampDateText(d);
+    const text=stampDateText(d,settings);
     const ctx=canvas.getContext("2d");
-    const pct=+els.stampSize.value/1000; // 18 => 1.8% of long edge
+    const pct=settingNumber(settings,"stampSize")/1000; // 18 => 1.8% of long edge
     const fontPx=Math.max(16, Math.round(Math.max(canvas.width,canvas.height)*pct));
     ctx.save();
     const insetX=Math.max(22,Math.round(fontPx*1.35));
     const insetY=Math.max(22,Math.round(fontPx*1.25));
-    const align=els.stampPosition.value==="left" ? "left" : "right";
+    const align=settingValue(settings,"stampPosition")==="left" ? "left" : "right";
     const x=align==="left" ? insetX : canvas.width-insetX;
     const y=canvas.height-insetY;
-    drawSegmentedStamp(ctx,text,x,y,fontPx,align,els.stampColor.value);
+    drawSegmentedStamp(ctx,text,x,y,fontPx,align,settingValue(settings,"stampColor"));
     ctx.restore();
     return canvas;
   }
@@ -1966,6 +2073,7 @@
     if(index<0||!items[index]) return;
     const token=++previewToken;
     const it=items[index];
+    const settings=it.settings||batchSettings;
     const previousStage=els.viewer.querySelector(".compareStage");
     const previousCenter=previousStage ? {
       x:(previousStage.scrollLeft+previousStage.clientWidth/2)/Math.max(1,previousStage.scrollWidth),
@@ -1987,18 +2095,18 @@
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
-      const editedBase=processCanvas(cloneCanvas(original),previewScale);
-      applyChromaNoiseReduction(editedBase,previewScale);
-      applyChromaticAberration(editedBase);
-      applyFade(editedBase);
-      applyLightLeaks(editedBase,it.file);
-      applyHalation(editedBase);
-      applyBloom(editedBase);
-      applyGrain(editedBase,it.file,previewScale);
-      await applyDateStamp(editedBase,it.file);
+      const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
+      applyChromaNoiseReduction(editedBase,previewScale,settings);
+      applyChromaticAberration(editedBase,settings);
+      applyFade(editedBase,settings);
+      applyLightLeaks(editedBase,it.file,settings);
+      applyHalation(editedBase,settings);
+      applyBloom(editedBase,settings);
+      applyGrain(editedBase,it.file,previewScale,settings);
+      await applyDateStamp(editedBase,it.file,settings);
 
       const originalShown=cloneCanvas(original);
-      await applyDateStamp(originalShown,it.file);
+      await applyDateStamp(originalShown,it.file,settings);
 
       if(token!==previewToken) return;
 
@@ -2063,12 +2171,7 @@
   const rerender=debounce(()=>{if(current>=0)makePreview(current)},160);
 
   const SETTINGS_STORAGE_KEY="ondevice-film-lab-settings-v1";
-  const settingsControls=[
-    els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
-    els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
-    els.quality,els.stampSize,els.grainEnabled,els.dateRename,els.dateStamp,
-    els.stampPosition,els.stampFormat,els.stampColor
-  ];
+  const settingsControls=[...photoSettingControls,...globalSettingControls];
 
   function restoreSettings(){
     try{
@@ -2097,20 +2200,14 @@
   function saveSettings(){
     try{
       const saved={};
-      for(const control of settingsControls){
-        if(!control)continue;
-        saved[control.id]=control.type==="checkbox" ? control.checked : control.value;
+      for(const control of photoSettingControls){
+        if(control) saved[control.id]=batchSettings[control.id];
+      }
+      for(const control of globalSettingControls){
+        if(control) saved[control.id]=controlValue(control);
       }
       localStorage.setItem(SETTINGS_STORAGE_KEY,JSON.stringify(saved));
     }catch(error){console.warn("Settings could not be saved",error)}
-  }
-
-  restoreSettings();
-  const persistSettings=debounce(saveSettings,120);
-  for(const control of settingsControls){
-    if(!control)continue;
-    if(control.type==="range"||control.type==="color")control.addEventListener("input",persistSettings);
-    control.addEventListener("change",saveSettings);
   }
 
   function updateSliderLabels(){
@@ -2129,10 +2226,6 @@
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
     els.qualityVal.textContent=`${els.quality.value}%`;
   }
-  [els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,els.vignette,els.lightLeaks].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
-  [els.grainStrength,els.grainSize,els.grainRoughness].forEach(x=>x.addEventListener("input",()=>{updateSliderLabels();rerender()}));
-  els.quality.addEventListener("input",updateSliderLabels);
-
   function updateGrainUI(){
     const on=els.grainEnabled.checked;
     els.grainOptions.style.opacity=on?"1":".5";
@@ -2146,16 +2239,85 @@
     els.stampColorText.textContent=els.stampColor.value.toUpperCase();
     els.stampSizeVal.textContent=(+els.stampSize.value/10).toFixed(1)+"%";
   }
-  els.dateRename.addEventListener("change",()=>{ if(current>=0) makePreview(current); });
-  els.grainEnabled.addEventListener("change",()=>{updateGrainUI();rerender()});
-  els.dateStamp.addEventListener("change",()=>{updateStampUI();rerender()});
-  els.stampPosition.addEventListener("change",rerender);
-  els.stampFormat.addEventListener("change",rerender);
-  els.stampColor.addEventListener("input",()=>{updateStampUI();rerender()});
-  els.stampSize.addEventListener("input",()=>{updateStampUI();rerender()});
+  function refreshSettingUI(){
+    updateSliderLabels();
+    updateGrainUI();
+    updateStampUI();
+  }
+
+  function commitPhotoControl(control){
+    const value=controlValue(control);
+    if(editScope==="photo"&&current>=0&&items[current]){
+      items[current].settings=items[current].settings||cloneSettings(batchSettings);
+      items[current].settings[control.id]=value;
+      updateThumbCustomBadge(current);
+    }else{
+      batchSettings[control.id]=value;
+      for(const item of items){
+        item.settings=item.settings||cloneSettings(batchSettings);
+        item.settings[control.id]=value;
+      }
+      updateAllCustomBadges();
+    }
+    refreshSettingUI();
+    updateEditScopeUI();
+    saveSettings();
+    rerender();
+  }
+
+  restoreSettings();
+  batchSettings=capturePhotoSettings();
+  for(const control of photoSettingControls){
+    if(!control)continue;
+    if(control.type==="range"||control.type==="color")control.addEventListener("input",()=>commitPhotoControl(control));
+    else control.addEventListener("change",()=>commitPhotoControl(control));
+  }
+  els.quality.addEventListener("input",()=>{updateSliderLabels();saveSettings()});
+  els.quality.addEventListener("change",saveSettings);
+  els.dateRename.addEventListener("change",saveSettings);
   updateSliderLabels();
   updateGrainUI();
   updateStampUI();
+
+  els.scopeAllBtn.addEventListener("click",()=>{
+    editScope="all";
+    updateEditScopeUI();
+  });
+  els.scopePhotoBtn.addEventListener("click",()=>{
+    if(current<0)return;
+    editScope="photo";
+    updateEditScopeUI();
+  });
+  els.copyEditsBtn.addEventListener("click",()=>{
+    if(current<0||!items[current])return;
+    copiedPhotoSettings=cloneSettings(items[current].settings||batchSettings);
+    updateEditScopeUI();
+    setStatus("Copied this photo's edits");
+  });
+  els.pasteEditsBtn.addEventListener("click",()=>{
+    if(current<0||!items[current]||!copiedPhotoSettings)return;
+    items[current].settings=cloneSettings(copiedPhotoSettings);
+    editScope="photo";
+    loadPhotoSettings(items[current].settings);
+    updateThumbCustomBadge(current);
+    updateEditScopeUI();
+    makePreview(current);
+    setStatus("Pasted edits onto this photo");
+  });
+  els.resetPhotoEditsBtn.addEventListener("click",()=>{
+    if(current<0||!items[current])return;
+    const item=items[current];
+    item.settings=cloneSettings(batchSettings);
+    item.rotation=0;
+    item.straighten=0;
+    loadPhotoSettings(item.settings);
+    updateStraightenUI();
+    updateThumbCustomBadge(current);
+    updateEditScopeUI();
+    refreshThumb(current);
+    makePreview(current);
+    setStatus("Reset this photo to the shared settings");
+  });
 
   const mobileToolButtons=[...document.querySelectorAll(".mobileTools [data-panel]")];
   function openMobilePanel(panel,title){
@@ -2191,6 +2353,7 @@
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
     els.filename.textContent=it?.file.name || "No photo selected";
+    if(it)loadPhotoSettings(it.settings||batchSettings);
     updateButtons();
     makePreview(i);
   }
@@ -2225,7 +2388,7 @@
       if(known.has(key)) continue;
       known.add(key);
       const captureDate=await getCaptureDate(f);
-      const it={file:f,rotation:0,straighten:0,thumbUrl:URL.createObjectURL(f),captureDate};
+      const it={file:f,rotation:0,straighten:0,settings:cloneSettings(batchSettings),thumbUrl:URL.createObjectURL(f),captureDate};
       items.push(it); added.push(it);
       const row=document.createElement("div"); row.className="thumb";
       const im=document.createElement("img"); im.src=it.thumbUrl;
@@ -2233,7 +2396,8 @@
       const m=document.createElement("div"); m.className="meta";
       m.textContent=`${captureDate.getFullYear()}-${pad2(captureDate.getMonth()+1)}-${pad2(captureDate.getDate())} ${pad2(captureDate.getHours())}:${pad2(captureDate.getMinutes())} • ${(f.size/1024/1024).toFixed(1)} MB`;
       const r=document.createElement("div"); r.className="rot";
-      row.append(im,n,m,r);
+      const badge=document.createElement("span"); badge.className="customBadge"; badge.textContent="Custom"; badge.hidden=true;
+      row.append(im,n,m,r,badge);
       row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
       els.thumbs.appendChild(row);
     }
@@ -2254,6 +2418,8 @@
     els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span>';
     els.count.textContent="Photos (0)";
     els.dims.textContent="—";
+    editScope="all";
+    loadPhotoSettings(batchSettings);
     setStatus("Ready");
     updateButtons();
   }
@@ -2296,6 +2462,8 @@
   function rotate(delta){
     if(current<0)return;
     items[current].rotation=(items[current].rotation+delta+360)%360;
+    updateThumbCustomBadge(current);
+    updateEditScopeUI();
     refreshThumb(current); makePreview(current);
   }
   els.leftBtn.onclick=()=>rotate(-90);
@@ -2319,6 +2487,8 @@
   els.straightenSlider.addEventListener("input",()=>{
     if(current<0)return;
     items[current].straighten=+els.straightenSlider.value/10;
+    updateThumbCustomBadge(current);
+    updateEditScopeUI();
     showStraightenGrid(true,!straightenDragging);
     updateStraightenUI();
     renderStraighten(current);
@@ -2334,6 +2504,8 @@
   els.straightenReset.onclick=()=>{
     if(current<0)return;
     items[current].straighten=0;
+    updateThumbCustomBadge(current);
+    updateEditScopeUI();
     showStraightenGrid(false);
     updateStraightenUI();
     refreshThumb(current);
@@ -2564,18 +2736,19 @@
   }
 
   async function processItem(it){
+    const settings=it.settings||batchSettings;
     const img=await decodeForProcessing(it.file);
     const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));
     img.close?.();
-    const out=processCanvas(src);
-    applyChromaNoiseReduction(out,1);
-    applyChromaticAberration(out);
-    applyFade(out);
-    applyLightLeaks(out,it.file);
-    applyHalation(out);
-    applyBloom(out);
-    applyGrain(out,it.file,1);
-    await applyDateStamp(out,it.file);
+    const out=processCanvas(src,1,settings);
+    applyChromaNoiseReduction(out,1,settings);
+    applyChromaticAberration(out,settings);
+    applyFade(out,settings);
+    applyLightLeaks(out,it.file,settings);
+    applyHalation(out,settings);
+    applyBloom(out,settings);
+    applyGrain(out,it.file,1,settings);
+    await applyDateStamp(out,it.file,settings);
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
     const encoded=await canvasToBlob(out,mime,quality);

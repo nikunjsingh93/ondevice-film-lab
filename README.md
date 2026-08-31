@@ -52,6 +52,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Radial red/cyan chromatic aberration, set to 30% by default
 - Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
+- Batch-first editing with optional per-photo overrides, Custom filmstrip badges, copy/paste edits, and one-click reset
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
 - Manual 90° rotation plus fine ±15° straightening with an adjustment grid and automatic edge cropping, baked into exports
 - Preserves the original JPEG EXIF metadata, including camera, capture time, exposure, ISO, focal length, technical comments, and GPS data when present, while removing CampSnap's generic `My favorite picture` description
