@@ -4,7 +4,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 
 ## [Open OnDevice Film Lab](https://nikunjsingh93.github.io/ondevice-film-lab/)
 
-## Screenshots
+## Screenshots Desktop and Mobile
 
 <p align="center">
   <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="70%">&nbsp;&nbsp;&nbsp;&nbsp;<img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="23%">
