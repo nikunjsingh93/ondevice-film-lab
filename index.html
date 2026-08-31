@@ -510,16 +510,24 @@
     .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="film"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="grain"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="stamp"] #editScopeBar,
+    .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
     .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
     .sidebar.mobileOpen[data-mobile-panel="grain"] #grainGroup,
     .sidebar.mobileOpen[data-mobile-panel="stamp"] #stampGroup,
     .sidebar.mobileOpen[data-mobile-panel="output"] #outputGroup{display:block}
     .sidebar.mobileOpen .settingsGroup{border-top:0;margin-top:0;padding-top:2px}
+    .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+    .sidebar.mobileOpen .editScopeActions{display:none}
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeTitle,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeSwitch,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeHint{display:none}
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar .editScopeActions{display:grid;margin:0;padding:0;border-top:0}
     .mobileBackdrop{
       position:fixed;
       z-index:1001;
@@ -634,7 +642,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.1</div>
+        <div class="appVersion">Version 1.2.3</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -677,6 +685,33 @@
           <div class="control">
             <label><span>Chroma noise reduction</span><span id="chromaNoiseVal" class="value">50%</span></label>
             <input id="chromaNoise" type="range" min="0" max="100" value="50">
+          </div>
+        </div>
+
+        <div id="basicGroup" class="editBlock settingsGroup">
+          <button class="groupCollapseToggle" type="button" aria-expanded="true">
+            <span>Basic adjustments</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
+          <div class="control">
+            <label><span>Exposure</span><span id="exposureVal" class="value">0.0 EV</span></label>
+            <input id="exposure" type="range" min="-100" max="100" value="0" aria-label="Exposure">
+          </div>
+          <div class="control">
+            <label><span>Highlights</span><span id="highlightsVal" class="value">0%</span></label>
+            <input id="highlights" type="range" min="-100" max="100" value="0" aria-label="Highlights">
+          </div>
+          <div class="control">
+            <label><span>Shadows</span><span id="shadowsVal" class="value">0%</span></label>
+            <input id="shadows" type="range" min="-100" max="100" value="0" aria-label="Shadows">
+          </div>
+          <div class="control">
+            <label><span>Contrast</span><span id="contrastVal" class="value">0%</span></label>
+            <input id="contrast" type="range" min="-100" max="100" value="0" aria-label="Contrast">
+          </div>
+          <div class="control">
+            <label><span>Saturation</span><span id="saturationVal" class="value">0%</span></label>
+            <input id="saturation" type="range" min="-100" max="100" value="0" aria-label="Saturation">
           </div>
         </div>
 
@@ -908,12 +943,16 @@
     sidebar: $(".sidebar"), mobileMenuBtn: $("#mobileMenuBtn"),
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
     mobileBackdrop: $("#mobileBackdrop"),
+    exposure: $("#exposure"), highlights: $("#highlights"), shadows: $("#shadows"),
+    contrast: $("#contrast"), saturation: $("#saturation"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
+    exposureVal: $("#exposureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
+    contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
     vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
@@ -952,6 +991,7 @@
   let batchSettings = {};
 
   const photoSettingControls=[
+    els.exposure,els.highlights,els.shadows,els.contrast,els.saturation,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
@@ -1503,6 +1543,100 @@
       pixels[i+2]=Math.max(0,Math.min(255,Math.round(newB)));
     }
     context.putImageData(original,0,0);
+    return canvas;
+  }
+
+  const srgbToLinear=(()=>{
+    const table=new Float32Array(256);
+    for(let value=0;value<256;value++){
+      const normalized=value/255;
+      table[value]=normalized<=.04045 ? normalized/12.92 : Math.pow((normalized+.055)/1.055,2.4);
+    }
+    return table;
+  })();
+  const linearToSrgb=(()=>{
+    const table=new Float32Array(4097);
+    for(let index=0;index<table.length;index++){
+      const value=index/(table.length-1);
+      table[index]=value<=.0031308 ? value*12.92 : 1.055*Math.pow(value,1/2.4)-.055;
+    }
+    return table;
+  })();
+  const clamp01=value=>Math.max(0,Math.min(1,value));
+  function smoothStep(edge0,edge1,value){
+    const amount=clamp01((value-edge0)/(edge1-edge0));
+    return amount*amount*(3-2*amount);
+  }
+
+  function applyBasicAdjustments(canvas,settings=null){
+    const exposureStops=settingNumber(settings,"exposure")/50;
+    const highlights=settingNumber(settings,"highlights")/100;
+    const shadows=settingNumber(settings,"shadows")/100;
+    const contrast=settingNumber(settings,"contrast")/100;
+    const saturation=settingNumber(settings,"saturation")/100;
+    if(!exposureStops&&!highlights&&!shadows&&!contrast&&!saturation)return canvas;
+
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const image=context.getImageData(0,0,canvas.width,canvas.height);
+    const pixels=image.data;
+    const exposureMultiplier=Math.pow(2,exposureStops);
+    const saturationFactor=1+saturation;
+    const encodeLinear=value=>linearToSrgb[Math.round(clamp01(value)*4096)];
+
+    for(let index=0;index<pixels.length;index+=4){
+      // Exposure is applied in linear light, so each 1 EV step doubles or
+      // halves scene brightness instead of merely adding gray to the JPEG.
+      let red,green,blue;
+      if(exposureStops){
+        red=encodeLinear(srgbToLinear[pixels[index]]*exposureMultiplier);
+        green=encodeLinear(srgbToLinear[pixels[index+1]]*exposureMultiplier);
+        blue=encodeLinear(srgbToLinear[pixels[index+2]]*exposureMultiplier);
+      }else{
+        red=pixels[index]/255;
+        green=pixels[index+1]/255;
+        blue=pixels[index+2]/255;
+      }
+
+      const originalLuma=.2126*red+.7152*green+.0722*blue;
+      let adjustedLuma=originalLuma;
+
+      // Smooth luminance masks keep Highlights focused on the bright end and
+      // Shadows focused on the dark end without creating hard tonal bands.
+      if(highlights){
+        const mask=smoothStep(.45,.95,originalLuma);
+        adjustedLuma+=highlights*mask*(highlights>0 ? (1-originalLuma)*.55 : originalLuma*.46);
+      }
+      if(shadows){
+        const mask=1-smoothStep(.05,.55,originalLuma);
+        const lift=(1-originalLuma)*(.08+.55*Math.sqrt(originalLuma));
+        adjustedLuma+=shadows*mask*(shadows>0 ? lift : originalLuma*.70);
+      }
+      adjustedLuma=clamp01(adjustedLuma);
+
+      // This S-curve changes midtone separation while anchoring true black
+      // and white. Negative values flatten the midtones; positive values
+      // make light tones lighter and dark tones darker.
+      if(contrast){
+        adjustedLuma=clamp01(adjustedLuma+contrast*4*(adjustedLuma-.5)*adjustedLuma*(1-adjustedLuma));
+      }
+
+      const toneShift=adjustedLuma-originalLuma;
+      red=clamp01(red+toneShift);
+      green=clamp01(green+toneShift);
+      blue=clamp01(blue+toneShift);
+
+      // Saturation -100 becomes monochrome and +100 doubles each channel's
+      // distance from luminance, matching the conventional editor scale.
+      const luma=.2126*red+.7152*green+.0722*blue;
+      red=clamp01(luma+(red-luma)*saturationFactor);
+      green=clamp01(luma+(green-luma)*saturationFactor);
+      blue=clamp01(luma+(blue-luma)*saturationFactor);
+
+      pixels[index]=Math.round(red*255);
+      pixels[index+1]=Math.round(green*255);
+      pixels[index+2]=Math.round(blue*255);
+    }
+    context.putImageData(image,0,0);
     return canvas;
   }
 
@@ -2097,6 +2231,7 @@
 
       const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
       applyChromaNoiseReduction(editedBase,previewScale,settings);
+      applyBasicAdjustments(editedBase,settings);
       applyChromaticAberration(editedBase,settings);
       applyFade(editedBase,settings);
       applyLightLeaks(editedBase,it.file,settings);
@@ -2211,6 +2346,13 @@
   }
 
   function updateSliderLabels(){
+    const signedPercent=value=>`${value>0?"+":""}${value}%`;
+    const exposureStops=+els.exposure.value/50;
+    els.exposureVal.textContent=`${exposureStops>0?"+":""}${exposureStops.toFixed(1)} EV`;
+    els.highlightsVal.textContent=signedPercent(+els.highlights.value);
+    els.shadowsVal.textContent=signedPercent(+els.shadows.value);
+    els.contrastVal.textContent=signedPercent(+els.contrast.value);
+    els.saturationVal.textContent=signedPercent(+els.saturation.value);
     els.amountVal.textContent=`${els.amount.value}%`;
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
     els.thresholdVal.textContent=els.threshold.value;
@@ -2742,6 +2884,7 @@
     img.close?.();
     const out=processCanvas(src,1,settings);
     applyChromaNoiseReduction(out,1,settings);
+    applyBasicAdjustments(out,settings);
     applyChromaticAberration(out,settings);
     applyFade(out,settings);
     applyLightLeaks(out,it.file,settings);

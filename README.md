@@ -45,6 +45,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Processes photos locally on your device
 - Imports individual photos or an entire DCIM folder
 - Supports JPEG, PNG, and WebP input
+- Basic exposure, highlights, shadows, contrast, and saturation adjustments
 - Adjustable de-sharpen strength, halo radius, and edge threshold
 - Old-film fade with adjustable strength, set to 30% by default
 - Diffusion-style highlight bloom inspired by black-mist filters, set to 30% by default
