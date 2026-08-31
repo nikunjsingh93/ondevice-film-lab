@@ -140,7 +140,7 @@
   .toolbar .iconButton{width:38px;min-width:38px;padding:7px;border-radius:12px}
   .toolbarIcon{display:block;width:21px;height:21px;margin:auto;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
   .toolbar .iconButton:hover .toolbarIcon{stroke:var(--accent)}
-  .toolbar .straightenButton.active,.toolbar .straightenButton.hasAdjustment{color:var(--accent);border-color:#79afe28c;background:#253750}
+  .toolbar .straightenButton.active,.toolbar .straightenButton.hasAdjustment,#cropBtn.active,#cropBtn.hasAdjustment{color:var(--accent);border-color:#79afe28c;background:#253750}
   .zoomControls{display:flex;align-items:center;gap:5px}
   .zoomControls button{min-width:36px;padding:7px;font-size:17px;font-weight:800}
   .zoomControls .zoomReset{width:56px;min-width:56px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums}
@@ -170,6 +170,9 @@
   .straightenPanel input{flex:1 1 auto;min-width:90px;margin:0}
   .straightenValue{width:48px;color:var(--accent);font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
   .straightenReset{padding:6px 9px;font-size:11px}
+  .cropPanel{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-height:42px;padding:6px 12px;border-top:1px solid var(--line);background:#171e29}
+  .cropPanel[hidden]{display:none}
+  .cropPanel strong{font-size:12px}.cropHint{flex:1;color:var(--muted);font-size:10px;line-height:1.25}.cropPanel button{padding:6px 10px;font-size:11px}.cropPanel .cropApply{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
   .viewer{
     position:relative;
     flex:1 1 auto;
@@ -227,6 +230,15 @@
     max-height:none;
     box-shadow:none
   }
+  .viewer.cropping .compareBox{overflow:hidden}
+  .viewer.cropping .divider,.viewer.cropping .compareLabel,.viewer.cropping .softLayer{display:none}
+  .cropOverlay{position:absolute;z-index:8;box-sizing:border-box;touch-action:none;cursor:move;border:2px solid #fff;box-shadow:0 0 0 9999px #05070baa,0 0 0 1px #0008;line-height:normal}
+  .cropOverlay::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to right,transparent calc(33.333% - .5px),#ffffff9c calc(33.333% - .5px),#ffffff9c calc(33.333% + .5px),transparent calc(33.333% + .5px),transparent calc(66.666% - .5px),#ffffff9c calc(66.666% - .5px),#ffffff9c calc(66.666% + .5px),transparent calc(66.666% + .5px)),linear-gradient(to bottom,transparent calc(33.333% - .5px),#ffffff9c calc(33.333% - .5px),#ffffff9c calc(33.333% + .5px),transparent calc(33.333% + .5px),transparent calc(66.666% - .5px),#ffffff9c calc(66.666% - .5px),#ffffff9c calc(66.666% + .5px),transparent calc(66.666% + .5px))}
+  .cropHandle{position:absolute;width:24px;height:24px;touch-action:none}.cropHandle::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px #0008}
+  .cropHandle[data-dir="nw"]{left:-12px;top:-12px;cursor:nwse-resize}.cropHandle[data-dir="ne"]{right:-12px;top:-12px;cursor:nesw-resize}.cropHandle[data-dir="sw"]{left:-12px;bottom:-12px;cursor:nesw-resize}.cropHandle[data-dir="se"]{right:-12px;bottom:-12px;cursor:nwse-resize}
+  .cropHandle[data-dir="nw"]::after,.cropHandle[data-dir="ne"]::after,.cropHandle[data-dir="sw"]::after,.cropHandle[data-dir="se"]::after{width:14px;height:14px;border-radius:3px;left:5px;top:5px}
+  .cropHandle[data-dir="n"]{left:50%;top:-12px;transform:translateX(-50%);cursor:ns-resize}.cropHandle[data-dir="s"]{left:50%;bottom:-12px;transform:translateX(-50%);cursor:ns-resize}.cropHandle[data-dir="w"]{top:50%;left:-12px;transform:translateY(-50%);cursor:ew-resize}.cropHandle[data-dir="e"]{top:50%;right:-12px;transform:translateY(-50%);cursor:ew-resize}
+  .cropHandle[data-dir="n"]::after,.cropHandle[data-dir="s"]::after{width:16px;height:5px;border-radius:3px;left:4px;top:10px}.cropHandle[data-dir="w"]::after,.cropHandle[data-dir="e"]::after{width:5px;height:16px;border-radius:3px;left:10px;top:4px}
   .softLayer{
     position:absolute;
     inset:0;
@@ -408,7 +420,8 @@
   .main.chromeHidden .toolbar>:not(.chromeToggle){display:none}
   .main.chromeHidden .filmstripWrap,
   .main.chromeHidden .mobileTools,
-  .main.chromeHidden .straightenPanel{display:none}
+  .main.chromeHidden .straightenPanel,
+  .main.chromeHidden .cropPanel{display:none}
   .chromeToggle .chevronUp{display:none}
   .chromeToggle[aria-pressed="true"] .chevronDown{display:none}
   .chromeToggle[aria-pressed="true"] .chevronUp{display:block}
@@ -532,7 +545,8 @@
     .toolbarGroup+.toolbarGroup{margin-left:2px;padding-left:6px}
     .toolbar .iconButton,.zoomControls button{min-height:44px}
     .toolbar .iconButton{width:44px;min-width:44px}
-    .straightenPanel{gap:8px;padding:6px 9px;min-height:44px}
+    .straightenPanel,.cropPanel{gap:8px;padding:6px 9px;min-height:44px}
+    .cropPanel .cropHint{display:none}
     .straightenPanel label{font-size:11px}
     .straightenValue{width:44px}
     .filename{flex-basis:calc(100% - 42px)}
@@ -633,7 +647,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.5</div>
+        <div class="appVersion">Version 1.2.7</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -853,6 +867,9 @@
           <button id="rightBtn" class="iconButton" title="Rotate right" aria-label="Rotate right" disabled>
             <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 9V4.5M19.5 9H15"/><path d="M19.2 8.5a8 8 0 1 0 .7 7.3"/></svg>
           </button>
+          <button id="cropBtn" class="iconButton" title="Crop photo" aria-label="Crop photo" aria-expanded="false" disabled>
+            <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2.5v13A1.5 1.5 0 0 0 8.5 17H21.5"/><path d="M2.5 7H15.5A1.5 1.5 0 0 1 17 8.5V21.5"/></svg>
+          </button>
         </div>
         <div class="toolbarGroup viewControls" aria-label="Preview view controls">
           <div class="zoomControls" aria-label="Preview zoom controls">
@@ -889,6 +906,13 @@
           <input id="straightenSlider" type="range" min="-150" max="150" step="1" value="0" aria-label="Straighten angle">
           <output id="straightenValue" class="straightenValue" for="straightenSlider">0.0°</output>
           <button id="straightenReset" class="straightenReset" type="button">Reset</button>
+        </div>
+        <div id="cropPanel" class="cropPanel" hidden>
+          <strong>Crop</strong>
+          <span class="cropHint">Drag the frame or its handles to choose the area to keep.</span>
+          <button id="cropResetBtn" type="button">Reset</button>
+          <button id="cropCancelBtn" type="button">Cancel</button>
+          <button id="cropApplyBtn" class="cropApply" type="button">Apply</button>
         </div>
 
         <div class="mobileTools" aria-label="Editing tools">
@@ -951,9 +975,10 @@
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
-    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"),
+    leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"), cropBtn: $("#cropBtn"),
     straightenPanel: $("#straightenPanel"), straightenSlider: $("#straightenSlider"),
     straightenValue: $("#straightenValue"), straightenReset: $("#straightenReset"),
+    cropPanel: $("#cropPanel"), cropResetBtn: $("#cropResetBtn"), cropCancelBtn: $("#cropCancelBtn"), cropApplyBtn: $("#cropApplyBtn"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
@@ -977,6 +1002,8 @@
   let straightenOpen = false;
   let straightenDragging = false;
   let straightenGridTimer = 0;
+  let cropOpen = false;
+  let cropDraft = null;
   let editScope = "all";
   let copiedPhotoSettings = null;
   let batchSettings = {};
@@ -1019,7 +1046,7 @@
     return photoSettingControls.every(control=>a?.[control.id]===b?.[control.id]);
   }
   function itemHasCustomEdits(item){
-    return !!item&&(item.rotation!==0||Math.abs(item.straighten||0)>.05||!settingsMatch(item.settings,batchSettings));
+    return !!item&&(item.rotation!==0||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||!settingsMatch(item.settings,batchSettings));
   }
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
@@ -1058,7 +1085,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -1073,6 +1100,17 @@
     els.straightenBtn.classList.toggle("active",selected&&straightenOpen);
     els.straightenBtn.classList.toggle("hasAdjustment",selected&&Math.abs(angle)>.05);
     els.straightenReset.disabled=!selected||Math.abs(angle)<.05;
+  }
+  function updateCropUI(){
+    const selected=current>=0&&!!items[current];
+    const open=selected&&cropOpen;
+    els.cropPanel.hidden=!selected||!cropOpen;
+    els.cropBtn.setAttribute("aria-expanded",String(selected&&cropOpen));
+    els.cropBtn.classList.toggle("active",selected&&cropOpen);
+    els.cropBtn.classList.toggle("hasAdjustment",selected&&!cropIsFull(items[current]?.crop));
+    els.cropResetBtn.disabled=busy||!open||cropIsFull(cropDraft);
+    els.cropCancelBtn.disabled=busy||!open;
+    els.cropApplyBtn.disabled=busy||!open||cropsEqual(cropDraft,items[current]?.crop);
   }
   function updateThumbCustomBadge(index){
     const badge=els.thumbs.children[index]?.querySelector(".customBadge");
@@ -1103,6 +1141,7 @@
     els.leftBtn.disabled = !selected;
     els.rightBtn.disabled = !selected;
     els.straightenBtn.disabled = !selected;
+    els.cropBtn.disabled = !selected;
     els.straightenSlider.disabled = !selected;
     els.straightenReset.disabled = !selected || Math.abs(items[current]?.straighten||0)<.05;
     els.zoomOutBtn.disabled = !selected || previewZoom<=.5;
@@ -1115,6 +1154,7 @@
     els.removePhotoBtn.disabled = !selected;
     els.clearPhotosBtn.disabled = !has;
     updateStraightenUI();
+    updateCropUI();
     updateEditScopeUI();
   }
 
@@ -1959,6 +1999,37 @@
     return n;
   }
 
+  function normalizedCrop(crop){
+    if(!crop)return {x:0,y:0,w:1,h:1};
+    const x=Math.max(0,Math.min(1,+crop.x||0));
+    const y=Math.max(0,Math.min(1,+crop.y||0));
+    const w=Math.max(.01,Math.min(1-x,+crop.w||1));
+    const h=Math.max(.01,Math.min(1-y,+crop.h||1));
+    return {x,y,w,h};
+  }
+  function cropIsFull(crop){
+    const area=normalizedCrop(crop);
+    return area.x<.0005&&area.y<.0005&&area.w>.999&&area.h>.999;
+  }
+  function cropsEqual(a,b){
+    const first=normalizedCrop(a),second=normalizedCrop(b);
+    return Math.abs(first.x-second.x)<.00001&&Math.abs(first.y-second.y)<.00001&&
+      Math.abs(first.w-second.w)<.00001&&Math.abs(first.h-second.h)<.00001;
+  }
+  function cropCanvas(canvas,crop){
+    if(cropIsFull(crop))return canvas;
+    const area=normalizedCrop(crop);
+    const left=Math.max(0,Math.min(canvas.width-1,Math.round(area.x*canvas.width)));
+    const top=Math.max(0,Math.min(canvas.height-1,Math.round(area.y*canvas.height)));
+    const right=Math.max(left+1,Math.min(canvas.width,Math.round((area.x+area.w)*canvas.width)));
+    const bottom=Math.max(top+1,Math.min(canvas.height,Math.round((area.y+area.h)*canvas.height)));
+    const cropped=document.createElement("canvas");
+    cropped.width=right-left;cropped.height=bottom-top;
+    const context=cropped.getContext("2d",{alpha:false});
+    context.drawImage(canvas,left,top,cropped.width,cropped.height,0,0,cropped.width,cropped.height);
+    return cropped;
+  }
+
 
   const digitSegments={
     "0":"abcdef", "1":"bc", "2":"abdeg", "3":"abcdg", "4":"bcfg",
@@ -2155,6 +2226,61 @@
     stage.addEventListener("pointerdown",down);
   }
 
+  function updateCropOverlay(overlay){
+    if(!overlay)return;
+    const area=normalizedCrop(cropDraft);
+    overlay.style.left=`${area.x*100}%`;
+    overlay.style.top=`${area.y*100}%`;
+    overlay.style.width=`${area.w*100}%`;
+    overlay.style.height=`${area.h*100}%`;
+  }
+  function createCropOverlay(box){
+    const overlay=document.createElement("div");
+    overlay.className="cropOverlay";
+    for(const direction of ["nw","n","ne","e","se","s","sw","w"]){
+      const handle=document.createElement("span");
+      handle.className="cropHandle";handle.dataset.dir=direction;
+      overlay.appendChild(handle);
+    }
+    updateCropOverlay(overlay);
+    overlay.addEventListener("pointerdown",event=>{
+      if(event.pointerType==="mouse"&&event.button!==0)return;
+      event.preventDefault();event.stopPropagation();
+      overlay.setPointerCapture?.(event.pointerId);
+      const rect=box.getBoundingClientRect();
+      const start=normalizedCrop(cropDraft);
+      const startX=event.clientX,startY=event.clientY;
+      const direction=event.target.closest(".cropHandle")?.dataset.dir||"move";
+      const minWidth=Math.min(.5,48/Math.max(1,rect.width));
+      const minHeight=Math.min(.5,48/Math.max(1,rect.height));
+      const move=pointer=>{
+        const dx=(pointer.clientX-startX)/Math.max(1,rect.width);
+        const dy=(pointer.clientY-startY)/Math.max(1,rect.height);
+        if(direction==="move"){
+          cropDraft={...start,x:Math.max(0,Math.min(1-start.w,start.x+dx)),y:Math.max(0,Math.min(1-start.h,start.y+dy))};
+        }else{
+          let left=start.x,top=start.y,right=start.x+start.w,bottom=start.y+start.h;
+          if(direction.includes("w"))left=Math.max(0,Math.min(right-minWidth,start.x+dx));
+          if(direction.includes("e"))right=Math.min(1,Math.max(left+minWidth,start.x+start.w+dx));
+          if(direction.includes("n"))top=Math.max(0,Math.min(bottom-minHeight,start.y+dy));
+          if(direction.includes("s"))bottom=Math.min(1,Math.max(top+minHeight,start.y+start.h+dy));
+          cropDraft={x:left,y:top,w:right-left,h:bottom-top};
+        }
+        updateCropOverlay(overlay);updateCropUI();
+      };
+      const finish=pointer=>{
+        overlay.releasePointerCapture?.(pointer.pointerId);
+        overlay.removeEventListener("pointermove",move);
+        overlay.removeEventListener("pointerup",finish);
+        overlay.removeEventListener("pointercancel",finish);
+      };
+      overlay.addEventListener("pointermove",move);
+      overlay.addEventListener("pointerup",finish);
+      overlay.addEventListener("pointercancel",finish);
+    });
+    return overlay;
+  }
+
   function normalizeDecodedBottomPadding(canvas,maxRows=64){
     const width=canvas.width,height=canvas.height;
     if(width<2||height<2)return canvas;
@@ -2216,7 +2342,9 @@
       if(token!==previewToken) { img.close?.(); return; }
       // Keep mobile preview buffers lighter so several default film effects
       // can render reliably on memory-constrained phones. Export remains full resolution.
-      const original=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax,it.straighten||0));
+      const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax,it.straighten||0));
+      const editingCrop=cropOpen&&index===current;
+      const original=editingCrop ? rotated : cropCanvas(rotated,it.crop);
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
@@ -2259,9 +2387,11 @@
       const before=document.createElement("div"); before.className="compareLabel before"; before.textContent="Original";
       const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Edited";
       box.append(before,after);
+      if(editingCrop)box.appendChild(createCropOverlay(box));
       surface.appendChild(box);
       stage.appendChild(surface);
       els.viewer.classList.add("hasPreview");
+      els.viewer.classList.toggle("cropping",editingCrop);
       els.viewer.appendChild(stage);
 
       wireCompare(box,divider);
@@ -2284,7 +2414,7 @@
     }catch(e){
       console.error(e);
       if(token===previewToken){
-        els.viewer.classList.remove("hasPreview");
+        els.viewer.classList.remove("hasPreview","cropping");
         els.viewer.innerHTML='<div class="empty"><b>Could not preview this photo</b><span>Please try selecting it again.</span></div>';
       }
       setStatus("Could not decode this image");
@@ -2486,8 +2616,11 @@
     item.settings=cloneSettings(batchSettings);
     item.rotation=0;
     item.straighten=0;
+    item.crop=null;
+    cropOpen=false;cropDraft=null;
     loadPhotoSettings(item.settings);
     updateStraightenUI();
+    updateCropUI();
     updateThumbCustomBadge(current);
     updateEditScopeUI();
     refreshThumb(current);
@@ -2524,6 +2657,7 @@
     if(i!==current){
       previewZoom=1;
       showStraightenGrid(false);
+      cropOpen=false;cropDraft=null;
     }
     current=i;
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
@@ -2538,16 +2672,17 @@
     const node=els.thumbs.children[i];
     const item=items[i];
     if(!node||!item) return;
-    const rotation=item.rotation,straighten=item.straighten||0;
+    const rotation=item.rotation,straighten=item.straighten||0,crop=normalizedCrop(item.crop);
     const transformLabels=[];
     if(rotation)transformLabels.push(`${rotation}°`);
     if(Math.abs(straighten)>.05)transformLabels.push(`${straighten>0?"+":""}${straighten.toFixed(1)}°`);
+    if(!cropIsFull(crop))transformLabels.push("Crop");
     node.querySelector(".rot").textContent=transformLabels.join(" · ");
     try{
       const image=await decode(item.file);
-      const canvas=drawRotated(image,rotation,420,straighten);
+      const canvas=cropCanvas(drawRotated(image,rotation,420,straighten),crop);
       image.close?.();
-      if(item.rotation!==rotation||(item.straighten||0)!==straighten||!node.isConnected) return;
+      if(item.rotation!==rotation||(item.straighten||0)!==straighten||JSON.stringify(normalizedCrop(item.crop))!==JSON.stringify(crop)||!node.isConnected) return;
       node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);
     }catch(e){
       console.error(e);
@@ -2564,7 +2699,7 @@
       if(known.has(key)) continue;
       known.add(key);
       const captureDate=await getCaptureDate(f);
-      const it={file:f,rotation:0,straighten:0,settings:cloneSettings(batchSettings),thumbUrl:URL.createObjectURL(f),captureDate};
+      const it={file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),thumbUrl:URL.createObjectURL(f),captureDate};
       items.push(it); added.push(it);
       const row=document.createElement("div"); row.className="thumb";
       const im=document.createElement("img"); im.src=it.thumbUrl;
@@ -2588,8 +2723,9 @@
     current=-1;
     previewZoom=1;
     straightenOpen=false;
+    cropOpen=false;cropDraft=null;
     showStraightenGrid(false);
-    els.viewer.classList.remove("hasPreview");
+    els.viewer.classList.remove("hasPreview","cropping");
     els.viewer.innerHTML='<div class="empty"><b>Add some photos</b><span>Choose photos from the menu to begin editing.</span></div>';
     els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span>';
     els.count.textContent="Photos (0)";
@@ -2635,8 +2771,17 @@
   els.removePhotoBtn.addEventListener("click",removeCurrentPhoto);
   els.clearPhotosBtn.addEventListener("click",clearAllPhotos);
 
+  function rotatedCrop(crop,delta){
+    if(cropIsFull(crop))return null;
+    const area=normalizedCrop(crop);
+    return delta>0
+      ? {x:1-area.y-area.h,y:area.x,w:area.h,h:area.w}
+      : {x:area.y,y:1-area.x-area.w,w:area.h,h:area.w};
+  }
   function rotate(delta){
     if(current<0)return;
+    if(cropOpen){cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping")}
+    items[current].crop=rotatedCrop(items[current].crop,delta);
     items[current].rotation=(items[current].rotation+delta+360)%360;
     updateThumbCustomBadge(current);
     updateEditScopeUI();
@@ -2644,6 +2789,34 @@
   }
   els.leftBtn.onclick=()=>rotate(-90);
   els.rightBtn.onclick=()=>rotate(90);
+  els.cropBtn.onclick=()=>{
+    if(current<0)return;
+    cropOpen=!cropOpen;
+    if(cropOpen){
+      straightenOpen=false;showStraightenGrid(false);
+      cropDraft=normalizedCrop(items[current].crop);
+      previewZoom=1;
+    }else cropDraft=null;
+    updateStraightenUI();updateCropUI();makePreview(current);
+  };
+  els.cropResetBtn.onclick=()=>{
+    if(current<0||!cropOpen)return;
+    cropDraft={x:0,y:0,w:1,h:1};
+    updateCropOverlay(els.viewer.querySelector(".cropOverlay"));updateCropUI();
+  };
+  els.cropCancelBtn.onclick=()=>{
+    if(current<0)return;
+    cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
+    updateCropUI();makePreview(current);
+  };
+  els.cropApplyBtn.onclick=()=>{
+    if(current<0||!cropOpen)return;
+    items[current].crop=cropIsFull(cropDraft)?null:normalizedCrop(cropDraft);
+    cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
+    updateCropUI();updateThumbCustomBadge(current);updateEditScopeUI();
+    refreshThumb(current);makePreview(current);
+    setStatus(cropIsFull(items[current].crop)?"Crop reset":"Crop applied");
+  };
   const renderStraighten=debounce(index=>{
     if(index<0||index!==current)return;
     refreshThumb(index);
@@ -2651,6 +2824,7 @@
   },90);
   els.straightenBtn.onclick=()=>{
     if(current<0)return;
+    if(cropOpen){cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping")}
     straightenOpen=!straightenOpen;
     if(!straightenOpen)showStraightenGrid(false);
     updateStraightenUI();
@@ -2701,6 +2875,12 @@
   els.chromeToggleBtn.onclick=()=>setChromeHidden(!document.querySelector(".main").classList.contains("chromeHidden"));
 
   document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"&&cropOpen){
+      e.preventDefault();
+      cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
+      updateCropUI();makePreview(current);
+      return;
+    }
     if(e.key==="Escape"&&els.sidebar.classList.contains("mobileOpen")){
       e.preventDefault();
       closeMobilePanel();
@@ -2914,7 +3094,8 @@
   async function processItem(it){
     const settings=it.settings||batchSettings;
     const img=await decodeForProcessing(it.file);
-    const src=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));
+    const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));
+    const src=cropCanvas(rotated,it.crop);
     img.close?.();
     const out=processCanvas(src,1,settings);
     applyChromaNoiseReduction(out,1,settings);
