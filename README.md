@@ -1,5 +1,7 @@
 <h1><img src="branding/ondevice-film-lab-logo-v4.png" alt="OnDevice Film Lab logo" width="48" height="48" align="absmiddle"> OnDevice Film Lab</h1>
 
+OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom, halation, chromatic aberration and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
+
 ## [Open OnDevice Film Lab](https://nikunjsingh93.github.io/ondevice-film-lab/)
 
 ## Install the app
@@ -31,8 +33,6 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 **Microsoft Edge:** open the app link, click the app-available icon in the address bar. Alternatively, choose **Settings and more → More tools → Apps → Install this site as an app**.
 
 **Chrome:** open the app link, click the install icon in the address bar. If it is not shown, choose **More → Cast, save, and share → Install page as app**, then confirm.
-
-OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom, halation, chromatic aberration and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
 
 ## Features
 
