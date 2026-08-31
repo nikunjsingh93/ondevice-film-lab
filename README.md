@@ -7,8 +7,7 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="72%">
-  <img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="24%">
+  <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="70%">&nbsp;&nbsp;&nbsp;&nbsp;<img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="23%">
 </p>
 
 ## Install the app
