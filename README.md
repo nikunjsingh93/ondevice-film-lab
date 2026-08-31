@@ -10,6 +10,14 @@ OnDevice Film Lab is a private, browser-based photo processor. It softens harsh 
   <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="70%">&nbsp;&nbsp;&nbsp;&nbsp;<img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="23%">
 </p>
 
+### Before and after
+
+<p align="center">
+  <img src="screenshots/before-after-comparison.png" alt="OnDevice Film Lab before and after comparison, with the original photo on the left and edited photo on the right" width="94%">
+</p>
+
+<p align="center"><em>Original on the left · Edited on the right</em></p>
+
 ## Install the app
 
 Install OnDevice Film Lab from the live link above. Once it has loaded successfully, the installed app can open and process photos without an internet connection.
