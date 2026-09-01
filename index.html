@@ -311,6 +311,11 @@
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     margin-bottom:4px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em
   }
+  .filmstripHeadLeft{display:flex;align-items:center;gap:9px;min-width:0}
+  .openGalleryBtn{
+    min-height:25px;padding:4px 9px;border-radius:8px;font-size:9px;line-height:1;
+    color:var(--accent);background:#202b3b;border-color:#405572;letter-spacing:.06em
+  }
   .thumbs{
     display:flex;
     align-items:flex-start;
@@ -404,6 +409,52 @@
   .processingProgress{height:8px;margin-top:17px;background:#0d131d;border-radius:99px;overflow:hidden}
   .processingProgress>div{height:100%;width:0;background:linear-gradient(90deg,#679bd2,var(--accent));border-radius:inherit;transition:width .18s ease}
   .processingPercent{display:block;margin-top:8px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  body.galleryOpen{overflow:hidden}
+  .galleryOverlay{
+    position:fixed;z-index:2900;inset:0;display:grid;place-items:center;padding:22px;
+    background:#060911b8;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s ease
+  }
+  .galleryOverlay.open{opacity:1;visibility:visible}
+  .galleryCard{
+    display:flex;flex-direction:column;width:min(1120px,100%);height:min(78vh,760px);min-height:360px;
+    overflow:hidden;border:1px solid #465875;border-radius:20px;background:#171f2cf7;box-shadow:0 24px 80px #000c
+  }
+  .galleryHeader,.galleryActions{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .galleryHeader strong{font-size:17px}.galleryHeader .spacer{flex:1}
+  .galleryPhotoCount{color:var(--muted);font-size:11px}
+  #galleryCloseBtn{width:40px;height:40px;min-width:40px;padding:9px;display:grid;place-items:center}
+  #galleryCloseBtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+  .galleryActions{padding-top:9px;padding-bottom:9px;background:#141b27}
+  .gallerySelectedCount{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .galleryActions .spacer{flex:1}
+  .galleryRemoveBtn{color:#ffd9dc;border-color:#824953;background:#492b32}
+  .galleryRemoveBtn:not(:disabled):hover{background:#61323d}
+  .galleryScroller{
+    flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:14px;
+    overscroll-behavior-y:contain;touch-action:pan-y;background:#101620
+  }
+  .galleryGrid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    grid-auto-flow:row;align-content:start;gap:12px;width:100%
+  }
+  .galleryItem{
+    position:relative;display:grid;grid-template-rows:auto auto auto;gap:5px;min-width:0;
+    padding:7px;border:2px solid transparent;border-radius:14px;background:#1d2634;color:var(--text);
+    text-align:left;overflow:hidden;cursor:pointer;touch-action:manipulation
+  }
+  .galleryItem:hover{background:#263244}.galleryItem[aria-selected="true"]{border-color:var(--accent);background:#293952}
+  .galleryItem img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:9px;background:#0b1018;display:block}
+  .galleryItemName{font-size:11px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .galleryItemMeta{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .galleryCheck{
+    position:absolute;z-index:2;top:13px;left:13px;display:grid;place-items:center;width:27px;height:27px;
+    border:2px solid #e8eef9;border-radius:8px;background:#101722c7;color:#101824;box-shadow:0 2px 10px #0009
+  }
+  .galleryCheck svg{display:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  .galleryItem[aria-selected="true"] .galleryCheck{background:var(--accent);border-color:var(--accent)}
+  .galleryItem[aria-selected="true"] .galleryCheck svg{display:block}
+  .galleryHint{padding:9px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;text-align:center}
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
   .tip{font-size:12px;color:var(--muted)}
@@ -571,6 +622,14 @@
     .mobileTools button.active{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:750}
     .thumb{width:150px;min-width:150px}
     .thumb img{height:64px}
+    .openGalleryBtn{min-height:28px;padding:5px 9px}
+    .galleryOverlay{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
+    .galleryCard{width:100%;height:100%;min-height:0;border-radius:16px}
+    .galleryHeader,.galleryActions{padding-left:12px;padding-right:12px}
+    .galleryGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .galleryScroller{padding:10px}
+    .galleryItem{padding:5px;border-radius:12px}
+    .galleryCheck{top:10px;left:10px;width:30px;height:30px}
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
@@ -613,6 +672,7 @@
     .viewer,.compareStage{height:100%;min-height:0}
     .thumb{width:145px;min-width:145px}
     .thumb img{height:58px}
+    .galleryGrid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}
   }
 </style>
 </head>
@@ -647,7 +707,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.9</div>
+        <div class="appVersion">Version 1.3.1</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -925,7 +985,10 @@
 
         <div class="filmstripWrap">
           <div class="filmstripHead">
-            <span id="count">Photos (0)</span>
+            <div class="filmstripHeadLeft">
+              <span id="count">Photos (0)</span>
+              <button id="openGalleryBtn" class="openGalleryBtn" type="button" disabled>Open Gallery</button>
+            </div>
             <span>Filmstrip</span>
           </div>
           <div id="thumbs" class="thumbs"></div>
@@ -944,6 +1007,29 @@
       <span id="processingDetail" class="processingDetail">Preparing your export</span>
       <div id="processingProgress" class="processingProgress" role="progressbar" aria-label="ZIP export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
       <span id="processingPercent" class="processingPercent">0%</span>
+    </div>
+  </div>
+
+  <div id="galleryOverlay" class="galleryOverlay" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" aria-describedby="galleryHint" aria-hidden="true">
+    <div class="galleryCard">
+      <div class="galleryHeader">
+        <strong id="galleryTitle">Photo Gallery</strong>
+        <span id="galleryPhotoCount" class="galleryPhotoCount">0 photos</span>
+        <span class="spacer"></span>
+        <button id="galleryCloseBtn" class="iconButton" type="button" aria-label="Close gallery">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
+        </button>
+      </div>
+      <div class="galleryActions">
+        <button id="gallerySelectAllBtn" type="button">Select all</button>
+        <span id="gallerySelectedCount" class="gallerySelectedCount" aria-live="polite">0 selected</span>
+        <span class="spacer"></span>
+        <button id="galleryRemoveBtn" class="galleryRemoveBtn" type="button" disabled>Remove selected</button>
+      </div>
+      <div id="galleryScroller" class="galleryScroller" tabindex="0">
+        <div id="galleryGrid" class="galleryGrid" role="listbox" aria-label="Imported photos" aria-multiselectable="true"></div>
+      </div>
+      <div id="galleryHint" class="galleryHint">Tap photos to select more than one, then remove the selected photos.</div>
     </div>
   </div>
 </div>
@@ -973,7 +1059,7 @@
     vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
-    qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"),
+    qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"), openGalleryBtn: $("#openGalleryBtn"),
     filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"), cropBtn: $("#cropBtn"),
     straightenPanel: $("#straightenPanel"), straightenSlider: $("#straightenSlider"),
@@ -990,7 +1076,10 @@
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
     processingOverlay: $("#processingOverlay"), processingTitle: $("#processingTitle"),
     processingDetail: $("#processingDetail"), processingProgress: $("#processingProgress"),
-    processingBar: $("#processingProgress > div"), processingPercent: $("#processingPercent")
+    processingBar: $("#processingProgress > div"), processingPercent: $("#processingPercent"),
+    galleryOverlay: $("#galleryOverlay"), galleryGrid: $("#galleryGrid"), galleryScroller: $("#galleryScroller"),
+    galleryPhotoCount: $("#galleryPhotoCount"), gallerySelectedCount: $("#gallerySelectedCount"),
+    gallerySelectAllBtn: $("#gallerySelectAllBtn"), galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn")
   };
 
   const items = [];
@@ -1007,6 +1096,10 @@
   let editScope = "all";
   let copiedPhotoSettings = null;
   let batchSettings = {};
+  let galleryOpen=false;
+  let galleryRemoving=false;
+  let galleryPreviousFocus=null;
+  const gallerySelection=new Set();
   const acceptedMobileRangeValues=new WeakMap();
   function rememberRangeValue(range){
     if(range instanceof HTMLInputElement&&range.type==="range")acceptedMobileRangeValues.set(range,range.value);
@@ -1113,16 +1206,18 @@
     clearTimeout(libraryStateTimer);
     libraryStateTimer=setTimeout(flushLibraryStates,350);
   }
-  async function deleteStoredItem(id){
-    if(!id)return;
-    pendingLibraryStates.delete(id);
+  async function deleteStoredItems(ids){
+    const uniqueIds=[...new Set(ids.filter(Boolean))];
+    if(!uniqueIds.length)return;
+    for(const id of uniqueIds)pendingLibraryStates.delete(id);
     const db=await openLibraryDB();
     const transaction=db.transaction(["photos","states"],"readwrite");
     const complete=transactionComplete(transaction);
-    transaction.objectStore("photos").delete(id);
-    transaction.objectStore("states").delete(id);
+    const photos=transaction.objectStore("photos"),states=transaction.objectStore("states");
+    for(const id of uniqueIds){photos.delete(id);states.delete(id)}
     await complete;
   }
+  async function deleteStoredItem(id){return deleteStoredItems([id])}
   async function clearStoredLibrary(){
     pendingLibraryStates.clear();
     clearTimeout(libraryStateTimer);libraryStateTimer=0;
@@ -1218,7 +1313,7 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -1287,6 +1382,7 @@
     els.zipBtn.disabled = !has;
     els.removePhotoBtn.disabled = !selected;
     els.clearPhotosBtn.disabled = !has;
+    els.openGalleryBtn.disabled = busy||!has;
     updateStraightenUI();
     updateCropUI();
     updateEditScopeUI();
@@ -2968,6 +3064,129 @@
       : `Added ${added.length} photo${added.length===1?"":"s"} • could not keep after refresh`);
   }
 
+  function updateGalleryActions(){
+    const selected=gallerySelection.size;
+    const allSelected=items.length>0&&selected===items.length;
+    els.galleryPhotoCount.textContent=`${items.length} photo${items.length===1?"":"s"}`;
+    els.gallerySelectedCount.textContent=`${selected} selected`;
+    els.gallerySelectAllBtn.textContent=allSelected?"Deselect all":"Select all";
+    els.gallerySelectAllBtn.disabled=galleryRemoving||!items.length;
+    els.galleryRemoveBtn.disabled=galleryRemoving||!selected;
+    els.galleryRemoveBtn.textContent=galleryRemoving
+      ? "Removing…"
+      : selected?`Remove selected (${selected})`:"Remove selected";
+  }
+  function renderGallery(){
+    gallerySelection.forEach(id=>{
+      if(!items.some(item=>item.libraryId===id))gallerySelection.delete(id);
+    });
+    const fragment=document.createDocumentFragment();
+    items.forEach((item,index)=>{
+      const selected=gallerySelection.has(item.libraryId);
+      const button=document.createElement("button");
+      button.type="button";button.className="galleryItem";button.setAttribute("role","option");
+      button.setAttribute("aria-selected",String(selected));button.dataset.libraryId=item.libraryId;
+      const image=document.createElement("img");
+      image.src=els.thumbs.children[index]?.querySelector("img")?.src||item.thumbUrl;
+      image.alt="";image.loading="lazy";image.decoding="async";
+      const check=document.createElement("span");check.className="galleryCheck";check.setAttribute("aria-hidden","true");
+      check.innerHTML='<svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></svg>';
+      const name=document.createElement("span");name.className="galleryItemName";name.textContent=item.file.name;
+      const meta=document.createElement("span");meta.className="galleryItemMeta";
+      const date=item.captureDate;
+      meta.textContent=`${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())} • ${(item.file.size/1024/1024).toFixed(1)} MB`;
+      button.append(image,check,name,meta);
+      button.addEventListener("click",()=>{
+        if(galleryRemoving)return;
+        if(gallerySelection.has(item.libraryId))gallerySelection.delete(item.libraryId);
+        else gallerySelection.add(item.libraryId);
+        button.setAttribute("aria-selected",String(gallerySelection.has(item.libraryId)));
+        updateGalleryActions();
+      });
+      fragment.appendChild(button);
+    });
+    els.galleryGrid.replaceChildren(fragment);
+    updateGalleryActions();
+  }
+  function openGallery(){
+    if(!items.length||busy)return;
+    closeMobilePanel();
+    galleryPreviousFocus=document.activeElement;
+    gallerySelection.clear();
+    renderGallery();
+    galleryOpen=true;
+    document.body.classList.add("galleryOpen");
+    els.galleryOverlay.setAttribute("aria-hidden","false");
+    requestAnimationFrame(()=>{
+      els.galleryOverlay.classList.add("open");
+      els.galleryCloseBtn.focus({preventScroll:true});
+    });
+  }
+  function closeGallery(){
+    if(!galleryOpen||galleryRemoving)return;
+    galleryOpen=false;gallerySelection.clear();
+    document.body.classList.remove("galleryOpen");
+    els.galleryOverlay.classList.remove("open");
+    els.galleryOverlay.setAttribute("aria-hidden","true");
+    const focusTarget=galleryPreviousFocus;
+    galleryPreviousFocus=null;
+    if(focusTarget?.isConnected)requestAnimationFrame(()=>focusTarget.focus({preventScroll:true}));
+  }
+  async function removeGallerySelection(){
+    const selectedIds=[...gallerySelection].filter(id=>items.some(item=>item.libraryId===id));
+    const count=selectedIds.length;
+    if(!count||galleryRemoving)return;
+    const noun=count===1?"photo":"photos";
+    if(!window.confirm(`Remove ${count} selected ${noun} from the app? ${count===1?"It":"They"} will also be deleted from this device's saved local library. Your original source ${noun} will remain on your device.`))return;
+    galleryRemoving=true;updateGalleryActions();
+    try{
+      await deleteStoredItems(selectedIds);
+      previewToken++;
+      const selectedSet=new Set(selectedIds);
+      const currentId=items[current]?.libraryId;
+      const removedIndices=[];
+      items.forEach((item,index)=>{if(selectedSet.has(item.libraryId))removedIndices.push(index)});
+      const firstRemoved=removedIndices[0]??0;
+      for(let position=removedIndices.length-1;position>=0;position--){
+        const index=removedIndices[position];
+        URL.revokeObjectURL(items[index].thumbUrl);
+        items.splice(index,1);
+        els.thumbs.children[index]?.remove();
+      }
+      gallerySelection.clear();
+      els.fileInput.value="";els.folderInput.value="";
+      els.count.textContent=`Photos (${items.length})`;
+      current=-1;
+      if(items.length){
+        const retainedCurrent=items.findIndex(item=>item.libraryId===currentId);
+        select(retainedCurrent>=0?retainedCurrent:Math.min(firstRemoved,items.length-1));
+        galleryRemoving=false;
+        renderGallery();
+      }else{
+        galleryRemoving=false;
+        closeGallery();
+        showEmptyLibrary();
+      }
+      updateButtons();
+      setStatus(`Removed ${count} ${noun}`);
+    }catch(error){
+      console.warn("Selected photos could not be removed",error);
+      galleryRemoving=false;updateGalleryActions();
+      setStatus(`Could not remove ${count} selected ${noun}`);
+    }
+  }
+
+  els.openGalleryBtn.addEventListener("click",openGallery);
+  els.galleryCloseBtn.addEventListener("click",closeGallery);
+  els.galleryOverlay.addEventListener("click",event=>{if(event.target===els.galleryOverlay)closeGallery()});
+  els.gallerySelectAllBtn.addEventListener("click",()=>{
+    if(galleryRemoving)return;
+    if(gallerySelection.size===items.length)gallerySelection.clear();
+    else for(const item of items)gallerySelection.add(item.libraryId);
+    renderGallery();
+  });
+  els.galleryRemoveBtn.addEventListener("click",removeGallerySelection);
+
   function showEmptyLibrary(){
     previewToken++;
     current=-1;
@@ -3134,6 +3353,10 @@
   els.chromeToggleBtn.onclick=()=>setChromeHidden(!document.querySelector(".main").classList.contains("chromeHidden"));
 
   document.addEventListener("keydown",e=>{
+    if(galleryOpen){
+      if(e.key==="Escape"){e.preventDefault();closeGallery()}
+      return;
+    }
     if(e.key==="Escape"&&cropOpen){
       e.preventDefault();
       cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
