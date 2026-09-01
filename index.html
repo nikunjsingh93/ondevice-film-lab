@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>OnDevice Film Lab</title>
-<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, adding film fade, bloom, halation, chromatic aberration, grain and date stamps, and exporting locally." />
+<meta name="description" content="A private, on-device photo processor for softening harsh digital sharpening, applying custom LUTs, adding film fade, bloom, halation, chromatic aberration, grain and date stamps, and exporting locally." />
 <meta name="theme-color" content="#1b2230" />
 <meta name="application-name" content="OnDevice Film Lab" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -141,6 +141,10 @@
   .profileBar.menuOpen .profileActions{display:grid;gap:5px}
   .profileActions button{width:100%;min-width:0;padding:8px 9px;font-size:10px;line-height:1.25;text-align:left}
   .profileDeleteBtn{color:#ffd9dc}
+  .lutPickerRow{display:flex;align-items:center;gap:7px}
+  .lutPickerRow select{min-width:0;flex:1}
+  .lutAddBtn{flex:0 0 auto;padding:9px 10px;white-space:nowrap}
+  .lutInfo{min-height:16px;margin-top:5px;color:var(--muted);font-size:9px;line-height:1.35}
   .editScopeBar{
     position:sticky;z-index:35;top:-14px;padding:7px;border:1px solid #40516a;border-radius:12px;background:#141b27f5;
     box-shadow:0 8px 22px #080b1266;backdrop-filter:blur(12px)
@@ -753,8 +757,8 @@
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
         </div>
-        <div class="sub">Soften hard digital sharpening and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.4.0</div>
+        <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.1</div>
       </div>
 
       <div class="photoPicker">
@@ -770,7 +774,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.4.0</div>
+        <div class="appVersion">Version 1.5.1</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -869,6 +873,21 @@
             <span>Film look</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
           </button>
+          <div class="control">
+            <label for="lutSelect"><span>Color LUT</span></label>
+            <div class="lutPickerRow">
+              <select id="lutSelect" aria-label="Color LUT">
+                <option value="none" selected>No LUT</option>
+              </select>
+              <button id="lutAddBtn" class="lutAddBtn" type="button">Add LUT</button>
+            </div>
+            <input id="lutFileInput" type="file" accept=".cube,text/plain">
+            <div id="lutInfo" class="lutInfo">Import a creative .cube LUT made for standard RGB/Rec.709 photos.</div>
+          </div>
+          <div id="lutStrengthControl" class="control">
+            <label><span>LUT strength</span><span id="lutStrengthVal" class="value">100%</span></label>
+            <input id="lutStrength" type="range" min="0" max="100" value="100" aria-label="LUT strength">
+          </div>
           <div class="control">
             <label><span>Fade</span><span id="fadeVal" class="value">30%</span></label>
             <input id="fade" type="range" min="0" max="100" value="30">
@@ -1049,7 +1068,7 @@
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
-            <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, chromatic aberration, grain, and date-stamp effects are previewed before export.</span>
+            <span>Drag the divider after importing to compare Original and Edited. Softening, custom LUTs, fade, bloom, halation, chromatic aberration, grain, and date-stamp effects are previewed before export.</span>
             <button class="emptyAddPhotosBtn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add Photos</button>
           </div>
         </div>
@@ -1145,6 +1164,8 @@
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
+    lutSelect: $("#lutSelect"), lutAddBtn: $("#lutAddBtn"), lutFileInput: $("#lutFileInput"), lutInfo: $("#lutInfo"),
+    lutStrengthControl: $("#lutStrengthControl"), lutStrength: $("#lutStrength"), lutStrengthVal: $("#lutStrengthVal"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
@@ -1197,6 +1218,7 @@
   let batchSettings = {};
   let cameraProfiles=[];
   let activeCameraProfileId="cam1-default";
+  const customLuts=new Map();
   let galleryOpen=false;
   let galleryRemoving=false;
   let galleryPreviousFocus=null;
@@ -1207,9 +1229,10 @@
   }
 
   const LIBRARY_DB_NAME="ondevice-film-lab-library";
-  const LIBRARY_DB_VERSION=1;
+  const LIBRARY_DB_VERSION=2;
   let libraryDBPromise=null;
   let libraryRestorePromise=Promise.resolve();
+  let lutRestorePromise=Promise.resolve();
   const pendingLibraryStates=new Set();
   let libraryStateTimer=0;
 
@@ -1222,6 +1245,7 @@
         const db=request.result;
         if(!db.objectStoreNames.contains("photos"))db.createObjectStore("photos",{keyPath:"id"});
         if(!db.objectStoreNames.contains("states"))db.createObjectStore("states",{keyPath:"id"});
+        if(!db.objectStoreNames.contains("luts"))db.createObjectStore("luts",{keyPath:"id"});
       };
       request.onsuccess=()=>resolve(request.result);
       request.onerror=()=>reject(request.error||new Error("Photo library could not be opened"));
@@ -1336,10 +1360,157 @@
     }).catch(error=>console.warn("Persistent storage could not be requested",error));
   }
 
+  function cubeLutId(text){
+    let hash=2166136261;
+    for(let index=0;index<text.length;index++)hash=Math.imul(hash^text.charCodeAt(index),16777619);
+    return `lut-${(hash>>>0).toString(36)}-${text.length.toString(36)}`;
+  }
+  function parseCubeLut(text,fileName="Custom LUT.cube"){
+    if(typeof text!=="string"||!text.trim())throw new Error("The LUT file is empty.");
+    if(text.length>20*1024*1024)throw new Error("This LUT is larger than the 20 MB safety limit.");
+    let title="";
+    let oneDSize=0,threeDSize=0,dataStarted=false;
+    const domainMin=[0,0,0],domainMax=[1,1,1];
+    let oneDRange=null,threeDRange=null;
+    const rows=[];
+    const seen=new Set();
+    const numberPattern=/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+    const parseNumbers=(tokens,count,label)=>{
+      if(tokens.length!==count+1)throw new Error(`${label} needs ${count} numeric value${count===1?"":"s"}.`);
+      const values=tokens.slice(1).map(Number);
+      if(values.some(value=>!Number.isFinite(value)||Math.abs(value)>1e37))throw new Error(`${label} contains an invalid number.`);
+      return values;
+    };
+    const lines=text.replace(/\r\n?/g,"\n").split("\n");
+    for(let lineNumber=0;lineNumber<lines.length;lineNumber++){
+      let line=lines[lineNumber].trim();
+      if(!line||line.startsWith("#"))continue;
+      if(line.length>4096)throw new Error(`Line ${lineNumber+1} is too long.`);
+      const comment=line.indexOf("#");
+      if(comment>=0)line=line.slice(0,comment).trim();
+      if(!line)continue;
+      const tokens=line.split(/\s+/);
+      const keyword=tokens[0].toUpperCase();
+      if(numberPattern.test(tokens[0])){
+        dataStarted=true;
+        if(tokens.length!==3)throw new Error(`Line ${lineNumber+1} must contain three RGB values.`);
+        const values=tokens.map(Number);
+        if(values.some(value=>!Number.isFinite(value)||Math.abs(value)>1e37))throw new Error(`Line ${lineNumber+1} contains invalid RGB values.`);
+        rows.push(values);
+        continue;
+      }
+      if(dataStarted)throw new Error(`LUT keywords must appear before color data (line ${lineNumber+1}).`);
+      if(seen.has(keyword))throw new Error(`${keyword} appears more than once.`);
+      seen.add(keyword);
+      if(keyword==="TITLE"){
+        const match=line.match(/^TITLE\s+"([^"]*)"\s*$/i);
+        if(!match)throw new Error("TITLE must be enclosed in quotation marks.");
+        title=match[1].trim();
+      }else if(keyword==="DOMAIN_MIN")domainMin.splice(0,3,...parseNumbers(tokens,3,"DOMAIN_MIN"));
+      else if(keyword==="DOMAIN_MAX")domainMax.splice(0,3,...parseNumbers(tokens,3,"DOMAIN_MAX"));
+      else if(keyword==="LUT_1D_SIZE"){
+        oneDSize=parseNumbers(tokens,1,"LUT_1D_SIZE")[0];
+        if(!Number.isInteger(oneDSize)||oneDSize<2||oneDSize>65536)throw new Error("LUT_1D_SIZE must be between 2 and 65536.");
+      }else if(keyword==="LUT_3D_SIZE"){
+        threeDSize=parseNumbers(tokens,1,"LUT_3D_SIZE")[0];
+        // The format permits larger cubes, but 65-point cubes are already
+        // more than sufficient for browser photo work and remain phone-safe.
+        if(!Number.isInteger(threeDSize)||threeDSize<2||threeDSize>65)throw new Error("LUT_3D_SIZE must be between 2 and 65 for this app.");
+      }else if(keyword==="LUT_1D_INPUT_RANGE"){
+        oneDRange=parseNumbers(tokens,2,"LUT_1D_INPUT_RANGE");
+      }else if(keyword==="LUT_3D_INPUT_RANGE"){
+        threeDRange=parseNumbers(tokens,2,"LUT_3D_INPUT_RANGE");
+      }else throw new Error(`Unsupported .cube keyword: ${tokens[0]}`);
+    }
+    if(!oneDSize&&!threeDSize)throw new Error("The file does not define LUT_1D_SIZE or LUT_3D_SIZE.");
+    for(let channel=0;channel<3;channel++){
+      if(!(domainMin[channel]<domainMax[channel]))throw new Error("DOMAIN_MIN values must be lower than DOMAIN_MAX values.");
+    }
+    if(oneDRange&&!(oneDRange[0]<oneDRange[1]))throw new Error("LUT_1D_INPUT_RANGE is invalid.");
+    if(threeDRange&&!(threeDRange[0]<threeDRange[1]))throw new Error("LUT_3D_INPUT_RANGE is invalid.");
+    const oneDCount=oneDSize;
+    const threeDCount=threeDSize?threeDSize**3:0;
+    if(rows.length!==oneDCount+threeDCount){
+      throw new Error(`Expected ${oneDCount+threeDCount} color rows but found ${rows.length}.`);
+    }
+    const flatten=source=>{
+      const table=new Float32Array(source.length*3);
+      for(let row=0;row<source.length;row++)table.set(source[row],row*3);
+      return table;
+    };
+    const baseName=fileName.replace(/\.cube$/i,"").trim()||"Custom LUT";
+    const oneMin=oneDRange?[oneDRange[0],oneDRange[0],oneDRange[0]]:[...domainMin];
+    const oneMax=oneDRange?[oneDRange[1],oneDRange[1],oneDRange[1]]:[...domainMax];
+    const threeMin=threeDRange?[threeDRange[0],threeDRange[0],threeDRange[0]]:[...domainMin];
+    const threeMax=threeDRange?[threeDRange[1],threeDRange[1],threeDRange[1]]:[...domainMax];
+    return {
+      id:cubeLutId(text),name:(title||baseName).slice(0,80),fileName,
+      oneDSize,threeDSize,
+      oneDData:flatten(rows.slice(0,oneDCount)),
+      threeDData:flatten(rows.slice(oneDCount)),
+      oneDomainMin:oneMin,oneDomainMax:oneMax,
+      threeDomainMin:threeMin,threeDomainMax:threeMax
+    };
+  }
+  function hydrateStoredLut(record){
+    if(!record||typeof record.id!=="string"||typeof record.name!=="string")return null;
+    const oneDSize=Number(record.oneDSize)||0,threeDSize=Number(record.threeDSize)||0;
+    if(oneDSize&&(oneDSize<2||oneDSize>65536))return null;
+    if(threeDSize&&(threeDSize<2||threeDSize>65))return null;
+    const oneDData=record.oneDData instanceof Float32Array?record.oneDData:new Float32Array(record.oneDData||[]);
+    const threeDData=record.threeDData instanceof Float32Array?record.threeDData:new Float32Array(record.threeDData||[]);
+    if(oneDData.length!==oneDSize*3||threeDData.length!==(threeDSize?threeDSize**3*3:0))return null;
+    const validDomain=value=>Array.isArray(value)&&value.length===3&&value.every(Number.isFinite);
+    if(!validDomain(record.oneDomainMin)||!validDomain(record.oneDomainMax)||!validDomain(record.threeDomainMin)||!validDomain(record.threeDomainMax))return null;
+    return {...record,oneDSize,threeDSize,oneDData,threeDData};
+  }
+  async function persistCustomLut(lut){
+    const db=await openLibraryDB();
+    const transaction=db.transaction("luts","readwrite");
+    const complete=transactionComplete(transaction);
+    transaction.objectStore("luts").put(lut);
+    await complete;
+  }
+  function addLutOption(lut){
+    els.lutSelect.querySelector(`option[value="${CSS.escape(lut.id)}"]`)?.remove();
+    const option=document.createElement("option");
+    option.value=lut.id;option.textContent=lut.name;option.title=lut.fileName||lut.name;
+    els.lutSelect.appendChild(option);
+  }
+  async function restoreCustomLuts(){
+    try{
+      const db=await openLibraryDB();
+      const transaction=db.transaction("luts","readonly");
+      const complete=transactionComplete(transaction);
+      const records=await requestResult(transaction.objectStore("luts").getAll());
+      await complete;
+      customLuts.clear();
+      els.lutSelect.querySelectorAll('option:not([value="none"])').forEach(option=>option.remove());
+      for(const record of records){
+        const lut=hydrateStoredLut(record);
+        if(!lut)continue;
+        customLuts.set(lut.id,lut);addLutOption(lut);
+      }
+      const selected=batchSettings.lutSelect;
+      if(selected!=="none"&&customLuts.has(selected))els.lutSelect.value=selected;
+      else{
+        els.lutSelect.value="none";batchSettings.lutSelect="none";
+        for(const profile of cameraProfiles){
+          if(profile.settings?.lutSelect!=="none"&&!customLuts.has(profile.settings?.lutSelect))profile.settings.lutSelect="none";
+        }
+        saveSettings();saveCameraProfiles();
+      }
+      updateLutUI();updateProfileUI();
+    }catch(error){
+      console.warn("Custom LUTs could not be restored",error);
+      els.lutSelect.value="none";batchSettings.lutSelect="none";updateLutUI();updateProfileUI();
+    }
+  }
+
   const photoSettingControls=[
     els.exposure,els.highlights,els.shadows,els.contrast,els.saturation,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
-    els.vignette,els.lightLeaks,els.grainStrength,els.grainSize,els.grainRoughness,
+    els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
   ];
   const globalSettingControls=[els.quality,els.dateRename];
@@ -1364,6 +1535,7 @@
     updateSliderLabels();
     updateGrainUI();
     updateStampUI();
+    updateLutUI();
     updateProfileUI();
   }
   function settingValue(settings,id){
@@ -1420,7 +1592,7 @@
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
-    else updateProfileUI();
+    else{updateProfileUI();updateLutUI()}
   }
   function updateStraightenUI(){
     const selected=current>=0&&!!items[current];
@@ -1498,6 +1670,7 @@
     updateCropUI();
     updateEditScopeUI();
     updateProfileUI();
+    updateLutUI();
   }
 
   document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
@@ -2008,6 +2181,76 @@
       pixels[index]=Math.round(red*255);
       pixels[index+1]=Math.round(green*255);
       pixels[index+2]=Math.round(blue*255);
+    }
+    context.putImageData(image,0,0);
+    return canvas;
+  }
+
+  function applyColorLut(canvas,settings=null){
+    const lut=customLuts.get(String(settingValue(settings,"lutSelect")||"none"));
+    const strength=settingNumber(settings,"lutStrength")/100;
+    if(!lut||strength<=0)return canvas;
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const image=context.getImageData(0,0,canvas.width,canvas.height);
+    const pixels=image.data;
+    const oneSize=lut.oneDSize,threeSize=lut.threeDSize;
+    const oneData=lut.oneDData,threeData=lut.threeDData;
+    const oneMin=lut.oneDomainMin,oneMax=lut.oneDomainMax;
+    const threeMin=lut.threeDomainMin,threeMax=lut.threeDomainMax;
+    const redStride=3,greenStride=threeSize*3,blueStride=threeSize*threeSize*3;
+
+    const sampleOne=(value,channel)=>{
+      const position=clamp01((value-oneMin[channel])/(oneMax[channel]-oneMin[channel]))*(oneSize-1);
+      const lower=Math.floor(position),upper=Math.min(oneSize-1,lower+1),fraction=position-lower;
+      const first=oneData[lower*3+channel],second=oneData[upper*3+channel];
+      return first+(second-first)*fraction;
+    };
+
+    for(let offset=0;offset<pixels.length;offset+=4){
+      const sourceRed=pixels[offset]/255,sourceGreen=pixels[offset+1]/255,sourceBlue=pixels[offset+2]/255;
+      let red=sourceRed,green=sourceGreen,blue=sourceBlue;
+      if(oneSize){
+        red=sampleOne(red,0);green=sampleOne(green,1);blue=sampleOne(blue,2);
+      }
+      if(threeSize){
+        const maxIndex=threeSize-1;
+        const redPosition=clamp01((red-threeMin[0])/(threeMax[0]-threeMin[0]))*maxIndex;
+        const greenPosition=clamp01((green-threeMin[1])/(threeMax[1]-threeMin[1]))*maxIndex;
+        const bluePosition=clamp01((blue-threeMin[2])/(threeMax[2]-threeMin[2]))*maxIndex;
+        const r0=Math.floor(redPosition),g0=Math.floor(greenPosition),b0=Math.floor(bluePosition);
+        const r1=Math.min(maxIndex,r0+1),g1=Math.min(maxIndex,g0+1),b1=Math.min(maxIndex,b0+1);
+        const fr=redPosition-r0,fg=greenPosition-g0,fb=bluePosition-b0;
+        const i000=r0*redStride+g0*greenStride+b0*blueStride;
+        const i100=r1*redStride+g0*greenStride+b0*blueStride;
+        const i010=r0*redStride+g1*greenStride+b0*blueStride;
+        const i001=r0*redStride+g0*greenStride+b1*blueStride;
+        const i110=r1*redStride+g1*greenStride+b0*blueStride;
+        const i101=r1*redStride+g0*greenStride+b1*blueStride;
+        const i011=r0*redStride+g1*greenStride+b1*blueStride;
+        const i111=r1*redStride+g1*greenStride+b1*blueStride;
+        let a,b,c,d,wa,wb,wc,wd;
+        // The Adobe Cube specification recommends tetrahedral interpolation.
+        // Pick the tetrahedron containing this RGB point, then blend its four
+        // vertices. Cube rows are indexed with Red changing fastest.
+        if(fr>=fg){
+          if(fg>=fb){a=i000;b=i100;c=i110;d=i111;wa=1-fr;wb=fr-fg;wc=fg-fb;wd=fb}
+          else if(fr>=fb){a=i000;b=i100;c=i101;d=i111;wa=1-fr;wb=fr-fb;wc=fb-fg;wd=fg}
+          else{a=i000;b=i001;c=i101;d=i111;wa=1-fb;wb=fb-fr;wc=fr-fg;wd=fg}
+        }else{
+          if(fb>=fg){a=i000;b=i001;c=i011;d=i111;wa=1-fb;wb=fb-fg;wc=fg-fr;wd=fr}
+          else if(fb>=fr){a=i000;b=i010;c=i011;d=i111;wa=1-fg;wb=fg-fb;wc=fb-fr;wd=fr}
+          else{a=i000;b=i010;c=i110;d=i111;wa=1-fg;wb=fg-fr;wc=fr-fb;wd=fb}
+        }
+        red=threeData[a]*wa+threeData[b]*wb+threeData[c]*wc+threeData[d]*wd;
+        green=threeData[a+1]*wa+threeData[b+1]*wb+threeData[c+1]*wc+threeData[d+1]*wd;
+        blue=threeData[a+2]*wa+threeData[b+2]*wb+threeData[c+2]*wc+threeData[d+2]*wd;
+      }
+      red=sourceRed+(red-sourceRed)*strength;
+      green=sourceGreen+(green-sourceGreen)*strength;
+      blue=sourceBlue+(blue-sourceBlue)*strength;
+      pixels[offset]=Math.round(clamp01(red)*255);
+      pixels[offset+1]=Math.round(clamp01(green)*255);
+      pixels[offset+2]=Math.round(clamp01(blue)*255);
     }
     context.putImageData(image,0,0);
     return canvas;
@@ -2693,6 +2936,7 @@
       const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
       applyChromaNoiseReduction(editedBase,previewScale,settings);
       applyBasicAdjustments(editedBase,settings);
+      applyColorLut(editedBase,settings);
       applyChromaticAberration(editedBase,settings);
       applyFade(editedBase,settings);
       applyLightLeaks(editedBase,it.file,settings);
@@ -2789,7 +3033,14 @@
         }else if(control.type==="color"){
           if(/^#[0-9a-f]{6}$/i.test(String(value)))control.value=String(value);
         }else if(control.tagName==="SELECT"){
-          if([...control.options].some(option=>option.value===value))control.value=value;
+          if(control===els.lutSelect&&typeof value==="string"&&value){
+            if(![...control.options].some(option=>option.value===value)){
+              const option=document.createElement("option");
+              option.value=value;option.textContent="Loading LUT…";
+              control.appendChild(option);
+            }
+            control.value=value;
+          }else if([...control.options].some(option=>option.value===value))control.value=value;
         }
       }
     }catch(error){console.warn("Saved settings could not be restored",error)}
@@ -2825,7 +3076,9 @@
       }else if(control.type==="color"){
         normalized[control.id]=/^#[0-9a-f]{6}$/i.test(String(value))?String(value):control.value;
       }else if(control.tagName==="SELECT"){
-        normalized[control.id]=[...control.options].some(option=>option.value===String(value))?String(value):control.value;
+        normalized[control.id]=control===els.lutSelect
+          ? String(value||"none")
+          : ([...control.options].some(option=>option.value===String(value))?String(value):control.value);
       }else normalized[control.id]=value;
     }
     return normalized;
@@ -2938,6 +3191,7 @@
     els.chromaticVal.textContent=`${els.chromatic.value}%`;
     els.vignetteVal.textContent=`${els.vignette.value}%`;
     els.lightLeaksVal.textContent=`${els.lightLeaks.value}%`;
+    els.lutStrengthVal.textContent=`${els.lutStrength.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
     els.grainSizeVal.textContent=`${(+els.grainSize.value/10).toFixed(1)} px`;
     els.grainRoughnessVal.textContent=`${els.grainRoughness.value}%`;
@@ -2956,10 +3210,27 @@
     els.stampColorText.textContent=els.stampColor.value.toUpperCase();
     els.stampSizeVal.textContent=(+els.stampSize.value/10).toFixed(1)+"%";
   }
+  function updateLutUI(){
+    const id=els.lutSelect.value;
+    const lut=customLuts.get(id);
+    const available=!!lut;
+    if(id==="none")els.lutInfo.textContent="Import a creative .cube LUT made for standard RGB/Rec.709 photos.";
+    else if(!lut)els.lutInfo.textContent="This LUT is not available on this device.";
+    else{
+      const parts=[];
+      if(lut.oneDSize)parts.push(`${lut.oneDSize}-point 1D`);
+      if(lut.threeDSize)parts.push(`${lut.threeDSize}×${lut.threeDSize}×${lut.threeDSize} 3D · tetrahedral`);
+      els.lutInfo.textContent=`${parts.join(" + ")} · Stored on this device`;
+    }
+    els.lutAddBtn.disabled=busy;
+    els.lutStrength.disabled=busy||!available;
+    els.lutStrengthControl.style.opacity=available?"1":".5";
+  }
   function refreshSettingUI(){
     updateSliderLabels();
     updateGrainUI();
     updateStampUI();
+    updateLutUI();
   }
 
   function commitPhotoControl(control){
@@ -2996,9 +3267,39 @@
   els.quality.addEventListener("input",()=>{updateSliderLabels();saveSettings()});
   els.quality.addEventListener("change",saveSettings);
   els.dateRename.addEventListener("change",saveSettings);
+  els.lutAddBtn.addEventListener("click",()=>els.lutFileInput.click());
+  els.lutFileInput.addEventListener("change",async()=>{
+    const file=els.lutFileInput.files?.[0];
+    els.lutFileInput.value="";
+    if(!file)return;
+    if(!/\.cube$/i.test(file.name)){
+      window.alert("Please choose a LUT file ending in .cube.");return;
+    }
+    if(file.size>20*1024*1024){
+      window.alert("This LUT is larger than the 20 MB safety limit.");return;
+    }
+    setBusy(true);setStatus(`Reading ${file.name}…`);
+    try{
+      await new Promise(resolve=>setTimeout(resolve,0));
+      const lut=parseCubeLut(await file.text(),file.name);
+      let persisted=true;
+      try{await persistCustomLut(lut);requestPersistentStorage()}
+      catch(error){persisted=false;console.warn("Custom LUT could not be stored",error)}
+      customLuts.set(lut.id,lut);
+      addLutOption(lut);
+      els.lutSelect.value=lut.id;
+      commitPhotoControl(els.lutSelect);
+      setStatus(`${lut.name} applied${persisted?" and saved on this device":" for this session"}`);
+    }catch(error){
+      console.warn("LUT import failed",error);
+      window.alert(`Could not add this LUT. ${error.message||"Please check that it is a valid .cube file."}`);
+      setStatus("Could not add LUT");
+    }finally{setBusy(false)}
+  });
   updateSliderLabels();
   updateGrainUI();
   updateStampUI();
+  updateLutUI();
 
   // Touch range inputs normally jump when any point on the track is tapped.
   // On every touch-capable layout, only let a touch/pen gesture reach the
@@ -3343,6 +3644,8 @@
           : new File([stored.file],stored.name||"Photo.jpg",{type:stored.type||stored.file.type||"image/jpeg",lastModified:stored.lastModified||Date.now()});
         const state=stateById.get(stored.id)||{};
         const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
+        const restoredSettings={...cloneSettings(batchSettings),...(state.settings||{})};
+        if(restoredSettings.lutSelect!=="none"&&!customLuts.has(restoredSettings.lutSelect))restoredSettings.lutSelect="none";
         const item={
           libraryId:stored.id,
           libraryOrder:stored.order||Date.now(),
@@ -3350,7 +3653,7 @@
           rotation:state.rotation||0,
           straighten:state.straighten||0,
           crop:state.crop||null,
-          settings:{...cloneSettings(batchSettings),...(state.settings||{})},
+          settings:restoredSettings,
           thumbUrl:URL.createObjectURL(file),
           captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate
         };
@@ -3938,6 +4241,7 @@
     const out=processCanvas(src,1,settings);
     applyChromaNoiseReduction(out,1,settings);
     applyBasicAdjustments(out,settings);
+    applyColorLut(out,settings);
     applyChromaticAberration(out,settings);
     applyFade(out,settings);
     applyLightLeaks(out,it.file,settings);
@@ -4047,7 +4351,8 @@
 
   window.addEventListener("pagehide",()=>{if(pendingLibraryStates.size)flushLibraryStates()});
   updateButtons();
-  libraryRestorePromise=restoreStoredLibrary();
+  lutRestorePromise=restoreCustomLuts();
+  libraryRestorePromise=lutRestorePromise.then(()=>restoreStoredLibrary());
 })();
 </script>
 <script>
