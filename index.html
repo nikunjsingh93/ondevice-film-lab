@@ -65,6 +65,7 @@
   .photoPicker strong{display:block;font-size:16px;margin-bottom:5px}
   .photoPicker small{color:var(--muted)}
   .appVersion{margin-top:10px;color:#7f8da2;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+  .desktopAppVersion{display:none;margin-top:6px;text-align:left}
   .btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   .photoActions{margin-top:8px}
   .photoActions[hidden]{display:none}
@@ -117,16 +118,33 @@
   .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
   .editScopeBar{
-    padding:11px;border:1px solid #40516a;border-radius:14px;background:#141b27
+    position:sticky;z-index:35;top:-14px;padding:7px;border:1px solid #40516a;border-radius:12px;background:#141b27f5;
+    box-shadow:0 8px 22px #080b1266;backdrop-filter:blur(12px)
   }
-  .editScopeTitle{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:11px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
-  .editScopeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  .editScopeSwitch button{padding:8px 7px;font-size:11px}
+  .editScopeCompact{display:flex;align-items:center;gap:6px}
+  .editScopeTitle{display:flex;align-items:center;gap:5px;flex:0 0 auto;font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  #editScopeState{display:none}
+  .editScopeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:4px;flex:1;min-width:0}
+  .editScopeSwitch button{min-width:0;padding:6px 5px;font-size:10px;border-radius:8px}
   .editScopeSwitch button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
-  .editScopeHint{display:block;min-height:31px;margin-top:7px;color:var(--muted);font-size:10px;line-height:1.4}
-  .editScopeActions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
-  .editScopeActions button{min-width:0;padding:7px 5px;font-size:10px;line-height:1.25}
-  .editScopeActions button:last-child{grid-column:1/-1}
+  .editScopeHint{display:none;color:var(--muted);font-size:10px;line-height:1.4}
+  .editScopeMenuBtn{width:31px;height:31px;min-width:31px;padding:3px;border-radius:8px;font-size:18px;font-weight:800;line-height:1;letter-spacing:1px}
+  .editScopeActions{
+    display:none;position:absolute;z-index:50;top:calc(100% + 6px);right:0;width:205px;padding:7px;
+    border:1px solid #465875;border-radius:11px;background:#182130f8;box-shadow:0 16px 44px #000b
+  }
+  .editScopeBar.menuOpen .editScopeActions{display:grid;gap:5px}
+  .editScopeActions button{width:100%;min-width:0;padding:8px 9px;font-size:10px;line-height:1.25;text-align:left}
+  .libraryMenuPopover{
+    position:fixed;z-index:2200;width:220px;padding:8px;border:1px solid #465875;border-radius:13px;
+    background:#182130f8;box-shadow:0 18px 55px #000c;backdrop-filter:blur(12px)
+  }
+  .libraryMenuPopover[hidden]{display:none}
+  .libraryMenuPopover .button,.libraryMenuPopover button{display:flex;width:100%;align-items:center;padding:9px 10px;margin:0 0 5px;text-align:left;font-size:11px}
+  .libraryMenuPopover>*:last-child{margin-bottom:0}
+  .libraryMenuDivider{height:1px;margin:5px 2px 8px;background:var(--line)}
+  .filmstripAddBtn[hidden]{display:none}
+  .emptyAddPhotosBtn{margin-top:4px;padding:10px 16px;background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
   .main{position:relative;min-height:760px;display:flex;flex-direction:column}
   .toolbar{
     padding:7px 9px;
@@ -157,7 +175,8 @@
   }
   .mobileTitleRow{display:contents}
   .mobileEmptyLabel{display:none;font-weight:750}
-  .addPhotosArrow{display:block;width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
+  .mobileEmptyBrandLogo{display:block;width:27px;height:27px;flex:0 0 auto;border-radius:7px}
+  .mobileEmptyBrandName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mobileMenuIcon{width:27px;height:27px;stroke-width:2.5}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
   .straightenPanel{
@@ -633,12 +652,25 @@
   }
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
+    .sidebar.mobileOpen #editScopeBar{position:static;padding:11px;border-radius:14px;box-shadow:none;backdrop-filter:none}
+    .sidebar.mobileOpen .editScopeCompact{display:block}
+    .sidebar.mobileOpen .editScopeTitle{justify-content:space-between;margin-bottom:8px;font-size:11px}
+    .sidebar.mobileOpen #editScopeState{display:inline}
+    .sidebar.mobileOpen .editScopeSwitch{gap:6px}
+    .sidebar.mobileOpen .editScopeSwitch button{padding:8px 7px;font-size:11px}
+    .sidebar.mobileOpen .editScopeMenuBtn{display:none}
+    .sidebar.mobileOpen .editScopeHint{display:block;min-height:31px;margin-top:7px}
+    .sidebar.mobileOpen .editScopeActions{display:grid;position:static;width:auto;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;padding:8px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
+    .sidebar.mobileOpen .editScopeActions button{padding:7px 5px;text-align:center}
+    .sidebar.mobileOpen .editScopeActions button:last-child{grid-column:1/-1}
     .sectionCollapseToggle,.groupCollapseToggle{display:none}
     .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
     .mobileTitleRow .filename{flex:1 1 0;max-width:none;min-width:0;font-size:14px}
     #mobileMenuBtn{flex:0 0 44px}
   }
   @media(min-width:901px), (max-width:900px) and (orientation:landscape){
+    .photoPicker{display:none}
+    .desktopAppVersion{display:block}
     .collapsibleContent.isCollapsed{display:none}
     .settingsGroup.groupCollapsed>:not(.groupCollapseToggle){display:none}
   }
@@ -692,6 +724,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
+        <div class="appVersion desktopAppVersion">Version 1.3.3</div>
       </div>
 
       <div class="photoPicker">
@@ -707,14 +740,17 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.3.1</div>
+        <div class="appVersion">Version 1.3.3</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
-        <div class="editScopeTitle"><span>Apply edits to</span><span id="editScopeState">All photos</span></div>
-        <div class="editScopeSwitch" role="group" aria-label="Choose which photos receive slider changes">
-          <button id="scopeAllBtn" type="button" aria-pressed="true">All photos</button>
-          <button id="scopePhotoBtn" type="button" aria-pressed="false" disabled>This photo</button>
+        <div class="editScopeCompact">
+          <div class="editScopeTitle"><span>Editing</span><span id="editScopeState">All photos</span></div>
+          <div class="editScopeSwitch" role="group" aria-label="Choose which photos receive slider changes">
+            <button id="scopeAllBtn" type="button" aria-pressed="true">All photos</button>
+            <button id="scopePhotoBtn" type="button" aria-pressed="false" disabled>This photo</button>
+          </div>
+          <button id="editScopeMenuBtn" class="editScopeMenuBtn" type="button" aria-label="More edit actions" aria-expanded="false">•••</button>
         </div>
         <span id="editScopeHint" class="editScopeHint">Slider changes affect every imported photo. Rotation and straightening always stay individual.</span>
         <div class="editScopeActions">
@@ -905,13 +941,21 @@
 
     <div id="mobileBackdrop" class="mobileBackdrop"></div>
 
+    <div id="desktopLibraryMenu" class="libraryMenuPopover" role="menu" aria-label="Photo library actions" hidden>
+      <button id="libraryChoosePhotosBtn" type="button" role="menuitem">Choose photos</button>
+      <button id="libraryChooseFolderBtn" type="button" role="menuitem">Choose folder or camera</button>
+      <div class="libraryMenuDivider" aria-hidden="true"></div>
+      <button id="libraryRemoveBtn" type="button" role="menuitem" disabled>Remove current photo</button>
+      <button id="libraryClearBtn" type="button" role="menuitem" disabled>Clear all photos</button>
+    </div>
+
     <main class="card main">
       <div class="toolbar">
         <div class="mobileTitleRow">
           <button id="mobileMenuBtn" class="iconButton mobileOnly" type="button" title="Menu" aria-label="Open menu" aria-expanded="false">
             <svg class="toolbarIcon mobileMenuIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
           </button>
-          <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span></div>
+          <div id="filename" class="filename"><span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><img class="mobileEmptyBrandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true"><span class="mobileEmptyBrandName">OnDevice Film Lab</span></span></div>
         </div>
         <div class="spacer"></div>
         <div class="toolbarGroup rotationControls" aria-label="Rotation controls">
@@ -958,6 +1002,7 @@
           <div class="empty">
             <b>Add some photos</b>
             <span>Drag the divider after importing to compare Original and Edited. Softening, fade, bloom, halation, chromatic aberration, grain, and date-stamp effects are previewed before export.</span>
+            <button class="emptyAddPhotosBtn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add Photos</button>
           </div>
         </div>
 
@@ -987,6 +1032,7 @@
           <div class="filmstripHead">
             <div class="filmstripHeadLeft">
               <span id="count">Photos (0)</span>
+              <button id="filmstripAddBtn" class="openGalleryBtn filmstripAddBtn" type="button" aria-haspopup="menu" aria-expanded="false" hidden>+ Add Photos</button>
               <button id="openGalleryBtn" class="openGalleryBtn" type="button" disabled>Open Gallery</button>
             </div>
             <span>Filmstrip</span>
@@ -1043,7 +1089,9 @@
     appRoot: $("#appRoot"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
     sidebar: $(".sidebar"), mobileMenuBtn: $("#mobileMenuBtn"),
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
-    mobileBackdrop: $("#mobileBackdrop"),
+    mobileBackdrop: $("#mobileBackdrop"), desktopLibraryMenu: $("#desktopLibraryMenu"),
+    filmstripAddBtn: $("#filmstripAddBtn"), libraryRemoveBtn: $("#libraryRemoveBtn"), libraryClearBtn: $("#libraryClearBtn"),
+    libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
     exposure: $("#exposure"), highlights: $("#highlights"), shadows: $("#shadows"),
     contrast: $("#contrast"), saturation: $("#saturation"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
@@ -1070,7 +1118,7 @@
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
     scopeAllBtn: $("#scopeAllBtn"), scopePhotoBtn: $("#scopePhotoBtn"), editScopeState: $("#editScopeState"),
     editScopeHint: $("#editScopeHint"), copyEditsBtn: $("#copyEditsBtn"), pasteEditsBtn: $("#pasteEditsBtn"),
-    resetPhotoEditsBtn: $("#resetPhotoEditsBtn"),
+    resetPhotoEditsBtn: $("#resetPhotoEditsBtn"), editScopeMenuBtn: $("#editScopeMenuBtn"), editScopeBar: $("#editScopeBar"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
@@ -1313,7 +1361,8 @@
   }
   function setBusy(v){
     busy = v;
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
+    if(v){closeDesktopLibraryMenu();closeEditScopeMenu()}
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.filmstripAddBtn,els.libraryRemoveBtn,els.libraryClearBtn,els.editScopeMenuBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -1383,6 +1432,13 @@
     els.removePhotoBtn.disabled = !selected;
     els.clearPhotosBtn.disabled = !has;
     els.openGalleryBtn.disabled = busy||!has;
+    els.filmstripAddBtn.hidden=!has;
+    els.filmstripAddBtn.disabled=busy||!has;
+    els.libraryRemoveBtn.disabled=busy||!selected;
+    els.libraryClearBtn.disabled=busy||!has;
+    els.editScopeMenuBtn.disabled=busy;
+    const emptyAddButton=els.viewer.querySelector(".emptyAddPhotosBtn");
+    if(emptyAddButton)emptyAddButton.disabled=busy;
     updateStraightenUI();
     updateCropUI();
     updateEditScopeUI();
@@ -2857,6 +2913,7 @@
     if(current<0||!items[current])return;
     copiedPhotoSettings=cloneSettings(items[current].settings||batchSettings);
     updateEditScopeUI();
+    closeEditScopeMenu();
     setStatus("Copied this photo's edits");
   });
   els.pasteEditsBtn.addEventListener("click",()=>{
@@ -2868,6 +2925,7 @@
     updateEditScopeUI();
     makePreview(current);
     scheduleLibraryState(items[current]);
+    closeEditScopeMenu();
     setStatus("Pasted edits onto this photo");
   });
   els.resetPhotoEditsBtn.addEventListener("click",()=>{
@@ -2886,11 +2944,25 @@
     refreshThumb(current);
     makePreview(current);
     scheduleLibraryState(item);
+    closeEditScopeMenu();
     setStatus("Reset this photo to the shared settings");
+  });
+
+  function closeEditScopeMenu(){
+    els.editScopeBar.classList.remove("menuOpen");
+    els.editScopeMenuBtn.setAttribute("aria-expanded","false");
+  }
+  els.editScopeMenuBtn.addEventListener("click",event=>{
+    event.stopPropagation();
+    const open=!els.editScopeBar.classList.contains("menuOpen");
+    els.editScopeBar.classList.toggle("menuOpen",open);
+    els.editScopeMenuBtn.setAttribute("aria-expanded",String(open));
   });
 
   const mobileToolButtons=[...document.querySelectorAll(".mobileTools [data-panel]")];
   function openMobilePanel(panel,title){
+    closeDesktopLibraryMenu();
+    closeEditScopeMenu();
     els.sidebar.dataset.mobilePanel=panel;
     els.mobilePanelTitle.textContent=title;
     els.sidebar.classList.add("mobileOpen");
@@ -2906,10 +2978,55 @@
     els.mobileMenuBtn.setAttribute("aria-expanded","false");
     mobileToolButtons.forEach(button=>button.classList.remove("active"));
   }
+  const portraitMobileLayout=()=>window.matchMedia("(max-width:900px) and (orientation:portrait)").matches;
+  function closeDesktopLibraryMenu(){
+    els.desktopLibraryMenu.hidden=true;
+    els.filmstripAddBtn.setAttribute("aria-expanded","false");
+    document.querySelectorAll(".emptyAddPhotosBtn").forEach(button=>button.setAttribute("aria-expanded","false"));
+  }
+  function positionDesktopLibraryMenu(trigger){
+    const triggerRect=trigger.getBoundingClientRect();
+    const menuRect=els.desktopLibraryMenu.getBoundingClientRect();
+    const gutter=10;
+    const left=Math.max(gutter,Math.min(innerWidth-menuRect.width-gutter,triggerRect.left));
+    const below=triggerRect.bottom+8;
+    const top=below+menuRect.height<=innerHeight-gutter
+      ? below : Math.max(gutter,triggerRect.top-menuRect.height-8);
+    els.desktopLibraryMenu.style.left=`${left}px`;
+    els.desktopLibraryMenu.style.top=`${top}px`;
+  }
+  function openPhotoLibraryMenu(trigger){
+    if(portraitMobileLayout()){
+      closeDesktopLibraryMenu();
+      openMobilePanel("menu","Add Photos");
+      return;
+    }
+    const opening=els.desktopLibraryMenu.hidden;
+    closeDesktopLibraryMenu();
+    if(!opening)return;
+    els.desktopLibraryMenu.hidden=false;
+    trigger.setAttribute("aria-expanded","true");
+    requestAnimationFrame(()=>positionDesktopLibraryMenu(trigger));
+  }
   els.mobileMenuBtn.addEventListener("click",()=>openMobilePanel("menu","OnDevice Film Lab"));
   els.mobilePanelClose.addEventListener("click",closeMobilePanel);
   els.mobileBackdrop.addEventListener("click",closeMobilePanel);
   mobileToolButtons.forEach(button=>button.addEventListener("click",()=>openMobilePanel(button.dataset.panel,button.dataset.title)));
+  els.filmstripAddBtn.addEventListener("click",event=>openPhotoLibraryMenu(event.currentTarget));
+  els.viewer.addEventListener("click",event=>{
+    const button=event.target.closest(".emptyAddPhotosBtn");
+    if(button)openPhotoLibraryMenu(button);
+  });
+  els.libraryRemoveBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();removeCurrentPhoto()});
+  els.libraryClearBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();clearAllPhotos()});
+  els.libraryChoosePhotosBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();els.fileInput.click()});
+  els.libraryChooseFolderBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();els.folderInput.click()});
+  document.addEventListener("pointerdown",event=>{
+    if(!els.desktopLibraryMenu.hidden&&!els.desktopLibraryMenu.contains(event.target)&&!event.target.closest("#filmstripAddBtn,.emptyAddPhotosBtn"))closeDesktopLibraryMenu();
+    if(els.editScopeBar.classList.contains("menuOpen")&&!els.editScopeBar.contains(event.target))closeEditScopeMenu();
+  });
+  window.addEventListener("resize",closeDesktopLibraryMenu);
+  window.addEventListener("scroll",closeDesktopLibraryMenu,true);
   if(!items.length&&window.matchMedia("(max-width:900px) and (orientation:portrait)").matches){
     requestAnimationFrame(()=>openMobilePanel("menu","Add Photos"));
   }
@@ -3195,8 +3312,8 @@
     cropOpen=false;cropDraft=null;
     showStraightenGrid(false);
     els.viewer.classList.remove("hasPreview","cropping");
-    els.viewer.innerHTML='<div class="empty"><b>Add some photos</b><span>Choose photos from the menu to begin editing.</span></div>';
-    els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><svg class="addPhotosArrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H5M10 7l-5 5 5 5"/></svg>Add Photos</span>';
+    els.viewer.innerHTML='<div class="empty"><b>Add some photos</b><span>Choose photos or a directly connected camera folder to begin editing.</span><button class="emptyAddPhotosBtn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add Photos</button></div>';
+    els.filename.innerHTML='<span class="desktopEmptyLabel">No photo selected</span><span class="mobileEmptyLabel"><img class="mobileEmptyBrandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true"><span class="mobileEmptyBrandName">OnDevice Film Lab</span></span>';
     els.count.textContent="Photos (0)";
     els.dims.textContent="—";
     editScope="all";
@@ -3240,8 +3357,8 @@
     closeMobilePanel();
   }
 
-  els.fileInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
-  els.folderInput.addEventListener("change",async e=>{await addFiles(e.target.files);closeMobilePanel()});
+  els.fileInput.addEventListener("change",async e=>{closeDesktopLibraryMenu();await addFiles(e.target.files);closeMobilePanel()});
+  els.folderInput.addEventListener("change",async e=>{closeDesktopLibraryMenu();await addFiles(e.target.files);closeMobilePanel()});
   els.removePhotoBtn.addEventListener("click",removeCurrentPhoto);
   els.clearPhotosBtn.addEventListener("click",clearAllPhotos);
 
@@ -3355,6 +3472,12 @@
   document.addEventListener("keydown",e=>{
     if(galleryOpen){
       if(e.key==="Escape"){e.preventDefault();closeGallery()}
+      return;
+    }
+    if(!els.desktopLibraryMenu.hidden||els.editScopeBar.classList.contains("menuOpen")){
+      if(e.key==="Escape"){
+        e.preventDefault();closeDesktopLibraryMenu();closeEditScopeMenu();
+      }
       return;
     }
     if(e.key==="Escape"&&cropOpen){
