@@ -163,6 +163,7 @@
   }
   .editScopeBar.menuOpen .editScopeActions{display:grid;gap:5px}
   .editScopeActions button{width:100%;min-width:0;padding:8px 9px;font-size:10px;line-height:1.25;text-align:left}
+  .editScopeDivider{height:1px;margin:2px;background:var(--line)}
   .libraryMenuPopover{
     position:fixed;z-index:2200;width:220px;padding:8px;border:1px solid #465875;border-radius:13px;
     background:#182130f8;box-shadow:0 18px 55px #000c;backdrop-filter:blur(12px)
@@ -456,6 +457,25 @@
   .processingProgress{height:8px;margin-top:17px;background:#0d131d;border-radius:99px;overflow:hidden}
   .processingProgress>div{height:100%;width:0;background:linear-gradient(90deg,#679bd2,var(--accent));border-radius:inherit;transition:width .18s ease}
   .processingPercent{display:block;margin-top:8px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .processingCancel{margin-top:15px;min-width:110px}
+  .appDialogOverlay{
+    position:fixed;z-index:3200;inset:0;display:grid;place-items:center;padding:max(20px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
+    background:#060911b8;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    opacity:0;visibility:hidden;transition:opacity .16s ease,visibility .16s ease
+  }
+  .appDialogOverlay.open{opacity:1;visibility:visible}
+  .appDialogCard{width:min(410px,100%);padding:21px;border:1px solid #465875;border-radius:18px;background:#182130fa;box-shadow:0 24px 80px #000c}
+  .appDialogTitle{display:block;margin:0 0 7px;font-size:18px;line-height:1.25}
+  .appDialogMessage{display:block;color:var(--muted);font-size:12px;line-height:1.5;white-space:pre-line}
+  .appDialogField{display:grid;gap:6px;margin-top:16px;color:var(--text);font-size:11px;font-weight:700}
+  .appDialogField[hidden]{display:none}
+  .appDialogField input{width:100%;padding:11px 12px;border:1px solid #465875;border-radius:10px;background:#101722;color:var(--text);font:inherit;font-size:14px;outline:none}
+  .appDialogField input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #76ace329}
+  .appDialogError{display:block;min-height:16px;margin-top:7px;color:#ffb7bd;font-size:10px}
+  .appDialogActions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+  .appDialogActions button{min-width:90px}
+  .appDialogConfirm{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
+  .appDialogConfirm.destructive{background:#8f4652;border-color:#a95865;color:#fff}
   body.galleryOpen{overflow:hidden}
   .galleryOverlay{
     position:fixed;z-index:2900;inset:0;display:grid;place-items:center;padding:22px;
@@ -758,7 +778,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.2</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.3</div>
       </div>
 
       <div class="photoPicker">
@@ -774,7 +794,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.2</div>
+        <div class="appVersion">Version 1.5.3</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -806,6 +826,9 @@
         </div>
         <span id="editScopeHint" class="editScopeHint">Slider changes affect every imported photo. Rotation and straightening always stay individual.</span>
         <div class="editScopeActions">
+          <button id="undoEditsBtn" type="button" disabled>Undo</button>
+          <button id="redoEditsBtn" type="button" disabled>Redo</button>
+          <div class="editScopeDivider" aria-hidden="true"></div>
           <button id="copyEditsBtn" type="button" disabled>Copy edits</button>
           <button id="pasteEditsBtn" type="button" disabled>Paste edits</button>
           <button id="resetPhotoEditsBtn" type="button" disabled>Reset edits on this photo</button>
@@ -1120,6 +1143,23 @@
       <span id="processingDetail" class="processingDetail">Preparing your export</span>
       <div id="processingProgress" class="processingProgress" role="progressbar" aria-label="ZIP export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
       <span id="processingPercent" class="processingPercent">0%</span>
+      <button id="processingCancelBtn" class="processingCancel" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <div id="appDialogOverlay" class="appDialogOverlay" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage" aria-hidden="true">
+    <div class="appDialogCard">
+      <strong id="appDialogTitle" class="appDialogTitle">Confirm</strong>
+      <span id="appDialogMessage" class="appDialogMessage"></span>
+      <label id="appDialogField" class="appDialogField" hidden>
+        <span id="appDialogInputLabel">Name</span>
+        <input id="appDialogInput" type="text" maxlength="40" autocomplete="off">
+      </label>
+      <span id="appDialogError" class="appDialogError" aria-live="polite"></span>
+      <div class="appDialogActions">
+        <button id="appDialogCancelBtn" type="button">Cancel</button>
+        <button id="appDialogConfirmBtn" class="appDialogConfirm" type="button">Confirm</button>
+      </div>
     </div>
   </div>
 
@@ -1190,13 +1230,17 @@
     profileSaveBtn: $("#profileSaveBtn"), profileRenameBtn: $("#profileRenameBtn"), profileDeleteBtn: $("#profileDeleteBtn"),
     scopeAllBtn: $("#scopeAllBtn"), scopePhotoBtn: $("#scopePhotoBtn"), editScopeState: $("#editScopeState"),
     editScopeHint: $("#editScopeHint"), copyEditsBtn: $("#copyEditsBtn"), pasteEditsBtn: $("#pasteEditsBtn"),
-    resetPhotoEditsBtn: $("#resetPhotoEditsBtn"), editScopeMenuBtn: $("#editScopeMenuBtn"), editScopeBar: $("#editScopeBar"),
+    resetPhotoEditsBtn: $("#resetPhotoEditsBtn"), undoEditsBtn: $("#undoEditsBtn"), redoEditsBtn: $("#redoEditsBtn"),
+    editScopeMenuBtn: $("#editScopeMenuBtn"), editScopeBar: $("#editScopeBar"),
     dateRename: $("#dateRename"), dateStamp: $("#dateStamp"), stampOptions: $("#stampOptions"),
     stampPosition: $("#stampPosition"), stampFormat: $("#stampFormat"), stampColor: $("#stampColor"),
     stampColorText: $("#stampColorText"), stampSize: $("#stampSize"), stampSizeVal: $("#stampSizeVal"),
     processingOverlay: $("#processingOverlay"), processingTitle: $("#processingTitle"),
     processingDetail: $("#processingDetail"), processingProgress: $("#processingProgress"),
-    processingBar: $("#processingProgress > div"), processingPercent: $("#processingPercent"),
+    processingBar: $("#processingProgress > div"), processingPercent: $("#processingPercent"), processingCancelBtn: $("#processingCancelBtn"),
+    appDialogOverlay: $("#appDialogOverlay"), appDialogTitle: $("#appDialogTitle"), appDialogMessage: $("#appDialogMessage"),
+    appDialogField: $("#appDialogField"), appDialogInputLabel: $("#appDialogInputLabel"), appDialogInput: $("#appDialogInput"),
+    appDialogError: $("#appDialogError"), appDialogCancelBtn: $("#appDialogCancelBtn"), appDialogConfirmBtn: $("#appDialogConfirmBtn"),
     galleryOverlay: $("#galleryOverlay"), galleryGrid: $("#galleryGrid"), galleryScroller: $("#galleryScroller"),
     galleryPhotoCount: $("#galleryPhotoCount"), gallerySelectedCount: $("#gallerySelectedCount"),
     gallerySelectAllBtn: $("#gallerySelectAllBtn"), galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn")
@@ -1223,6 +1267,12 @@
   let galleryRemoving=false;
   let galleryPreviousFocus=null;
   const gallerySelection=new Set();
+  const undoStack=[];
+  const redoStack=[];
+  const HISTORY_LIMIT=50;
+  const activeHistoryControls=new Set();
+  let processingCancelRequested=false;
+  let appDialogState=null;
   const acceptedMobileRangeValues=new WeakMap();
   function rememberRangeValue(range){
     if(range instanceof HTMLInputElement&&range.type==="range")acceptedMobileRangeValues.set(range,range.value);
@@ -1587,6 +1637,70 @@
   function itemHasCustomEdits(item){
     return !!item&&(item.rotation!==0||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||!settingsMatch(item.settings,batchSettings));
   }
+  function captureEditHistoryState(){
+    return {
+      batchSettings:cloneSettings(batchSettings),
+      photos:items.map(item=>({
+        id:item.libraryId,
+        settings:cloneSettings(item.settings||batchSettings),
+        rotation:item.rotation||0,
+        straighten:item.straighten||0,
+        crop:cropIsFull(item.crop)?null:{...normalizedCrop(item.crop)}
+      }))
+    };
+  }
+  function historyStateKey(state){return JSON.stringify(state)}
+  function updateHistoryButtons(){
+    els.undoEditsBtn.disabled=busy||!undoStack.length;
+    els.redoEditsBtn.disabled=busy||!redoStack.length;
+  }
+  function rememberEditState(){
+    const state=captureEditHistoryState();
+    if(historyStateKey(undoStack[undoStack.length-1])===historyStateKey(state))return;
+    undoStack.push(state);
+    if(undoStack.length>HISTORY_LIMIT)undoStack.shift();
+    redoStack.length=0;
+    updateHistoryButtons();
+  }
+  function clearEditHistory(){
+    undoStack.length=0;redoStack.length=0;activeHistoryControls.clear();updateHistoryButtons();
+  }
+  function restoreEditHistoryState(state,label){
+    if(!state)return;
+    const stateById=new Map(state.photos.map(photo=>[photo.id,photo]));
+    const transformed=[];
+    batchSettings=cloneSettings(state.batchSettings);
+    for(const item of items){
+      const saved=stateById.get(item.libraryId);
+      if(!saved)continue;
+      if(item.rotation!==saved.rotation||Math.abs((item.straighten||0)-saved.straighten)>.001||!cropsEqual(item.crop,saved.crop))transformed.push(item);
+      item.settings=cloneSettings(saved.settings);
+      item.rotation=saved.rotation;
+      item.straighten=saved.straighten;
+      item.crop=saved.crop?{...saved.crop}:null;
+    }
+    cropOpen=false;cropDraft=null;straightenOpen=false;showStraightenGrid(false);
+    loadPhotoSettings(editScope==="photo"&&current>=0?items[current]?.settings:batchSettings);
+    updateAllCustomBadges();updateButtons();scheduleAllLibraryStates();saveSettings();
+    for(const item of transformed){const index=items.indexOf(item);if(index>=0)refreshThumb(index)}
+    if(current>=0)makePreview(current);
+    closeEditScopeMenu();
+    setStatus(label);
+  }
+  function undoEdits(){
+    if(!undoStack.length||busy)return;
+    redoStack.push(captureEditHistoryState());
+    if(redoStack.length>HISTORY_LIMIT)redoStack.shift();
+    restoreEditHistoryState(undoStack.pop(),"Undid last edit");
+    updateHistoryButtons();
+  }
+  function redoEdits(){
+    if(!redoStack.length||busy)return;
+    undoStack.push(captureEditHistoryState());
+    if(undoStack.length>HISTORY_LIMIT)undoStack.shift();
+    restoreEditHistoryState(redoStack.pop(),"Redid edit");
+    updateHistoryButtons();
+  }
 
   const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
@@ -1594,6 +1708,60 @@
   const isAndroid=/Android/i.test(navigator.userAgent);
 
   function setStatus(s){ els.status.textContent = s; }
+  function closeAppDialog(result){
+    if(!appDialogState)return;
+    const {resolve,previousFocus}=appDialogState;
+    appDialogState=null;
+    els.appDialogOverlay.classList.remove("open");
+    els.appDialogOverlay.setAttribute("aria-hidden","true");
+    setTimeout(()=>{
+      resolve(result);
+      if(previousFocus?.isConnected)previousFocus.focus({preventScroll:true});
+    },120);
+  }
+  function showAppDialog({
+    title="Notice",message="",confirmText="OK",cancelText="",destructive=false,
+    inputLabel="",inputValue="",validate=null
+  }={}){
+    if(appDialogState)closeAppDialog(null);
+    return new Promise(resolve=>{
+      const hasInput=!!inputLabel;
+      appDialogState={resolve,previousFocus:document.activeElement,hasInput,validate};
+      els.appDialogTitle.textContent=title;
+      els.appDialogMessage.textContent=message;
+      els.appDialogField.hidden=!hasInput;
+      els.appDialogInputLabel.textContent=inputLabel||"Name";
+      els.appDialogInput.value=hasInput?inputValue:"";
+      els.appDialogError.textContent="";
+      els.appDialogCancelBtn.hidden=!cancelText;
+      els.appDialogCancelBtn.textContent=cancelText||"Cancel";
+      els.appDialogConfirmBtn.textContent=confirmText;
+      els.appDialogConfirmBtn.classList.toggle("destructive",destructive);
+      els.appDialogOverlay.setAttribute("aria-hidden","false");
+      requestAnimationFrame(()=>{
+        els.appDialogOverlay.classList.add("open");
+        (hasInput?els.appDialogInput:els.appDialogConfirmBtn).focus({preventScroll:true});
+        if(hasInput)els.appDialogInput.select();
+      });
+    });
+  }
+  function confirmAppDialog(){
+    if(!appDialogState)return;
+    const value=appDialogState.hasInput?els.appDialogInput.value:true;
+    const error=appDialogState.validate?.(value)||"";
+    if(error){els.appDialogError.textContent=error;els.appDialogInput.focus();return}
+    closeAppDialog(value);
+  }
+  els.appDialogConfirmBtn.addEventListener("click",confirmAppDialog);
+  els.appDialogCancelBtn.addEventListener("click",()=>closeAppDialog(null));
+  els.appDialogInput.addEventListener("input",()=>{els.appDialogError.textContent=""});
+  els.appDialogInput.addEventListener("keydown",event=>{
+    if(event.key==="Enter"){event.preventDefault();confirmAppDialog()}
+  });
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&appDialogState){event.preventDefault();event.stopImmediatePropagation();closeAppDialog(null)}
+  },true);
+
   function showStraightenGrid(show,autoHide=false){
     clearTimeout(straightenGridTimer);
     els.viewer.classList.toggle("straightening",show&&current>=0);
@@ -1608,6 +1776,9 @@
     els.processingPercent.textContent=`${Math.round(percent)}%`;
   }
   function showProcessing(total){
+    processingCancelRequested=false;
+    els.processingCancelBtn.disabled=false;
+    els.processingCancelBtn.textContent="Cancel";
     els.processingTitle.textContent="Processing photos…";
     els.processingDetail.textContent=`Preparing 0 of ${total}`;
     setProgress(0,total);
@@ -1621,11 +1792,24 @@
   function hideProcessing(){
     els.processingOverlay.classList.remove("open");
     els.processingOverlay.setAttribute("aria-hidden","true");
+    processingCancelRequested=false;
+    els.processingCancelBtn.disabled=false;
+    els.processingCancelBtn.textContent="Cancel";
   }
+  function throwIfProcessingCancelled(){
+    if(processingCancelRequested)throw new DOMException("Export cancelled","AbortError");
+  }
+  els.processingCancelBtn.addEventListener("click",()=>{
+    if(processingCancelRequested)return;
+    processingCancelRequested=true;
+    els.processingCancelBtn.disabled=true;
+    els.processingCancelBtn.textContent="Cancelling…";
+    setProcessingStage("Cancelling export…","Finishing the current step safely");
+  });
   function setBusy(v){
     busy = v;
     if(v){closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu()}
-    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.filmstripAddBtn,els.libraryRemoveBtn,els.libraryClearBtn,els.editScopeMenuBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
+    [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.filmstripAddBtn,els.libraryRemoveBtn,els.libraryClearBtn,els.editScopeMenuBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn,els.undoEditsBtn,els.redoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
@@ -1671,6 +1855,7 @@
     els.copyEditsBtn.disabled=!selected;
     els.pasteEditsBtn.disabled=!selected||!copiedPhotoSettings;
     els.resetPhotoEditsBtn.disabled=!selected||!itemHasCustomEdits(items[current]);
+    updateHistoryButtons();
     els.editScopeState.textContent=all?"All photos":"This photo";
     els.editScopeHint.textContent=all
       ? "Slider changes affect every imported photo. Rotation and straightening always stay individual."
@@ -3176,18 +3361,26 @@
     els.profileBar.classList.remove("menuOpen");
     els.profileMenuBtn.setAttribute("aria-expanded","false");
   }
-  function profileNameFromUser(message,suggested,ignoreId=""){
-    const response=window.prompt(message,suggested);
-    if(response===null)return null;
-    const name=response.trim().replace(/\s+/g," ").slice(0,40);
-    if(!name){window.alert("Please enter a profile name.");return null}
-    if(cameraProfiles.some(profile=>profile.id!==ignoreId&&profile.name.toLocaleLowerCase()===name.toLocaleLowerCase())){
-      window.alert("A profile with that name already exists.");return null;
-    }
-    return name;
+  async function profileNameFromUser(title,suggested,ignoreId=""){
+    const response=await showAppDialog({
+      title,
+      message:"Profiles save all edit slider values for quick reuse.",
+      inputLabel:"Profile name",
+      inputValue:suggested,
+      confirmText:ignoreId?"Rename profile":"Create profile",
+      cancelText:"Cancel",
+      validate:value=>{
+        const name=String(value).trim().replace(/\s+/g," ").slice(0,40);
+        if(!name)return "Please enter a profile name.";
+        if(cameraProfiles.some(profile=>profile.id!==ignoreId&&profile.name.toLocaleLowerCase()===name.toLocaleLowerCase()))return "A profile with that name already exists.";
+        return "";
+      }
+    });
+    return response===null?null:String(response).trim().replace(/\s+/g," ").slice(0,40);
   }
   function applyCameraProfile(profile){
     if(!profile)return;
+    rememberEditState();
     const settings=normalizeProfileSettings(profile.settings);
     profile.settings=cloneSettings(settings);
     if(editScope==="photo"&&current>=0&&items[current]){
@@ -3296,11 +3489,27 @@
   restoreSettings();
   batchSettings=capturePhotoSettings();
   restoreCameraProfiles();
+  const beginControlHistory=control=>{
+    if(activeHistoryControls.has(control))return;
+    rememberEditState();activeHistoryControls.add(control);
+  };
   for(const control of photoSettingControls){
     if(!control)continue;
-    if(control.type==="range"||control.type==="color")control.addEventListener("input",()=>commitPhotoControl(control));
-    else control.addEventListener("change",()=>commitPhotoControl(control));
+    if(control.type==="range"||control.type==="color"){
+      control.addEventListener("pointerdown",()=>beginControlHistory(control));
+      control.addEventListener("keydown",event=>{
+        if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(event.key))beginControlHistory(control);
+      });
+      control.addEventListener("keyup",()=>activeHistoryControls.delete(control));
+      control.addEventListener("input",()=>{
+        if(!activeHistoryControls.has(control))rememberEditState();
+        commitPhotoControl(control);
+      });
+      control.addEventListener("change",()=>activeHistoryControls.delete(control));
+    }else control.addEventListener("change",()=>{rememberEditState();commitPhotoControl(control)});
   }
+  window.addEventListener("pointerup",()=>activeHistoryControls.clear());
+  window.addEventListener("pointercancel",()=>activeHistoryControls.clear());
   els.quality.addEventListener("input",()=>{updateSliderLabels();saveSettings()});
   els.quality.addEventListener("change",saveSettings);
   els.dateRename.addEventListener("change",saveSettings);
@@ -3310,10 +3519,10 @@
     els.lutFileInput.value="";
     if(!file)return;
     if(!/\.cube$/i.test(file.name)){
-      window.alert("Please choose a LUT file ending in .cube.");return;
+      await showAppDialog({title:"Unsupported LUT file",message:"Please choose a LUT file ending in .cube.",confirmText:"OK"});return;
     }
     if(file.size>20*1024*1024){
-      window.alert("This LUT is larger than the 20 MB safety limit.");return;
+      await showAppDialog({title:"LUT is too large",message:"Please choose a .cube LUT smaller than 20 MB.",confirmText:"OK"});return;
     }
     setBusy(true);setStatus(`Reading ${file.name}…`);
     try{
@@ -3324,12 +3533,13 @@
       catch(error){persisted=false;console.warn("Custom LUT could not be stored",error)}
       customLuts.set(lut.id,lut);
       addLutOption(lut);
+      rememberEditState();
       els.lutSelect.value=lut.id;
       commitPhotoControl(els.lutSelect);
       setStatus(`${lut.name} applied${persisted?" and saved on this device":" for this session"}`);
     }catch(error){
       console.warn("LUT import failed",error);
-      window.alert(`Could not add this LUT. ${error.message||"Please check that it is a valid .cube file."}`);
+      await showAppDialog({title:"Could not add LUT",message:error.message||"Please check that it is a valid .cube file.",confirmText:"OK"});
       setStatus("Could not add LUT");
     }finally{setBusy(false)}
   });
@@ -3417,9 +3627,9 @@
     closeProfileMenu();
     applyCameraProfile(profile);
   });
-  els.profileAddBtn.addEventListener("click",()=>{
+  els.profileAddBtn.addEventListener("click",async()=>{
     closeProfileMenu();
-    const name=profileNameFromUser("Name the new camera profile:",`Camera ${cameraProfiles.length+1} Profile`);
+    const name=await profileNameFromUser("Create camera profile",`Camera ${cameraProfiles.length+1} Profile`);
     if(!name)return;
     const id=`camera-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
     cameraProfiles.push({id,name,settings:normalizeProfileSettings(capturePhotoSettings())});
@@ -3434,32 +3644,32 @@
     els.profileBar.classList.toggle("menuOpen",open);
     els.profileMenuBtn.setAttribute("aria-expanded",String(open));
   });
-  els.profileSaveBtn.addEventListener("click",()=>{
+  els.profileSaveBtn.addEventListener("click",async()=>{
     const profile=currentCameraProfile();
     if(!profile)return;
     closeProfileMenu();
-    if(!window.confirm(`Replace the saved edits in “${profile.name}” with the current slider settings?`))return;
+    if(!await showAppDialog({title:"Update camera profile?",message:`Replace the saved edits in “${profile.name}” with the current slider settings?`,confirmText:"Update profile",cancelText:"Cancel"}))return;
     profile.settings=normalizeProfileSettings(capturePhotoSettings());
     saveCameraProfiles();
     updateProfileUI();
     setStatus(`Saved current edits to ${profile.name}`);
   });
-  els.profileRenameBtn.addEventListener("click",()=>{
+  els.profileRenameBtn.addEventListener("click",async()=>{
     const profile=currentCameraProfile();
     if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
     closeProfileMenu();
-    const name=profileNameFromUser("Rename this camera profile:",profile.name,profile.id);
+    const name=await profileNameFromUser("Rename camera profile",profile.name,profile.id);
     if(!name)return;
     profile.name=name;
     renderCameraProfiles();
     saveCameraProfiles();
     setStatus(`Renamed profile to ${name}`);
   });
-  els.profileDeleteBtn.addEventListener("click",()=>{
+  els.profileDeleteBtn.addEventListener("click",async()=>{
     const profile=currentCameraProfile();
     if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
     closeProfileMenu();
-    if(!window.confirm(`Delete the “${profile.name}” profile? Your photos will not be removed.`))return;
+    if(!await showAppDialog({title:"Delete camera profile?",message:`Delete “${profile.name}”? Your photos and their edits will not be removed.`,confirmText:"Delete profile",cancelText:"Cancel",destructive:true}))return;
     cameraProfiles=cameraProfiles.filter(candidate=>candidate.id!==profile.id);
     activeCameraProfileId=DEFAULT_CAMERA_PROFILE_ID;
     renderCameraProfiles();
@@ -3486,6 +3696,7 @@
   });
   els.pasteEditsBtn.addEventListener("click",()=>{
     if(current<0||!items[current]||!copiedPhotoSettings)return;
+    rememberEditState();
     items[current].settings=cloneSettings(copiedPhotoSettings);
     editScope="photo";
     loadPhotoSettings(items[current].settings);
@@ -3498,6 +3709,7 @@
   });
   els.resetPhotoEditsBtn.addEventListener("click",()=>{
     if(current<0||!items[current])return;
+    rememberEditState();
     const item=items[current];
     item.settings=cloneSettings(batchSettings);
     item.rotation=0;
@@ -3515,6 +3727,8 @@
     closeEditScopeMenu();
     setStatus("Reset this photo to the shared settings");
   });
+  els.undoEditsBtn.addEventListener("click",undoEdits);
+  els.redoEditsBtn.addEventListener("click",redoEdits);
 
   function closeEditScopeMenu(){
     els.editScopeBar.classList.remove("menuOpen");
@@ -3745,6 +3959,7 @@
     updateButtons();
     if(current<0 && items.length) select(0);
     if(!added.length){setStatus("Those photos are already added");return}
+    clearEditHistory();
     setStatus(`Saving ${added.length} photo${added.length===1?"":"s"} on this device…`);
     const persisted=await persistImportedItems(added);
     setStatus(persisted
@@ -3825,10 +4040,17 @@
     const count=selectedIds.length;
     if(!count||galleryRemoving)return;
     const noun=count===1?"photo":"photos";
-    if(!window.confirm(`Remove ${count} selected ${noun} from the app? ${count===1?"It":"They"} will also be deleted from this device's saved local library. Your original source ${noun} will remain on your device.`))return;
+    if(!await showAppDialog({
+      title:`Remove ${count} selected ${noun}?`,
+      message:`${count===1?"It":"They"} will be removed from the app and its saved local library. Your original source ${noun} will remain on your device.`,
+      confirmText:`Remove ${count}`,
+      cancelText:"Cancel",
+      destructive:true
+    }))return;
     galleryRemoving=true;updateGalleryActions();
     try{
       await deleteStoredItems(selectedIds);
+      clearEditHistory();
       previewToken++;
       const selectedSet=new Set(selectedIds);
       const currentId=items[current]?.libraryId;
@@ -3895,12 +4117,13 @@
 
   async function removeCurrentPhoto(){
     if(current<0||!items[current])return;
-    if(!window.confirm("Remove the current photo from the app? Your original photo will remain on your device."))return;
+    if(!await showAppDialog({title:"Remove current photo?",message:"This photo will be removed from the app and its saved local library. Your original photo will remain on your device.",confirmText:"Remove photo",cancelText:"Cancel",destructive:true}))return;
     previewToken++;
     const index=current;
     const removed=items[index];
     try{await deleteStoredItem(removed.libraryId)}
     catch(error){console.warn("Stored photo could not be removed",error);setStatus("Could not remove the stored photo");return}
+    clearEditHistory();
     URL.revokeObjectURL(items[index].thumbUrl);
     items.splice(index,1);
     els.thumbs.children[index]?.remove();
@@ -3915,10 +4138,11 @@
 
   async function clearAllPhotos(){
     if(!items.length)return;
-    if(!window.confirm("Remove all photos from the app? Your original photos will remain on your device."))return;
+    if(!await showAppDialog({title:`Remove all ${items.length} photos?`,message:"All photos will be removed from the app and its saved local library. Your original photos will remain on your device.",confirmText:"Remove all",cancelText:"Cancel",destructive:true}))return;
     previewToken++;
     try{await clearStoredLibrary()}
     catch(error){console.warn("Stored photos could not be cleared",error);setStatus("Could not clear stored photos");return}
+    clearEditHistory();
     for(const item of items)URL.revokeObjectURL(item.thumbUrl);
     items.length=0;
     els.thumbs.replaceChildren();
@@ -3942,6 +4166,7 @@
   }
   function rotate(delta){
     if(current<0)return;
+    rememberEditState();
     if(cropOpen){cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping")}
     items[current].crop=rotatedCrop(items[current].crop,delta);
     items[current].rotation=(items[current].rotation+delta+360)%360;
@@ -3974,6 +4199,7 @@
   };
   els.cropApplyBtn.onclick=()=>{
     if(current<0||!cropOpen)return;
+    rememberEditState();
     items[current].crop=cropIsFull(cropDraft)?null:normalizedCrop(cropDraft);
     cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
     updateCropUI();updateThumbCustomBadge(current);updateEditScopeUI();
@@ -3995,11 +4221,19 @@
     requestAnimationFrame(()=>applyPreviewZoom(true));
   };
   els.straightenSlider.addEventListener("pointerdown",()=>{
+    rememberEditState();
+    activeHistoryControls.add(els.straightenSlider);
     straightenDragging=true;
     showStraightenGrid(true);
   });
+  els.straightenSlider.addEventListener("keydown",event=>{
+    if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End","PageUp","PageDown"].includes(event.key))return;
+    if(!activeHistoryControls.has(els.straightenSlider)){rememberEditState();activeHistoryControls.add(els.straightenSlider)}
+  });
+  els.straightenSlider.addEventListener("keyup",()=>activeHistoryControls.delete(els.straightenSlider));
   els.straightenSlider.addEventListener("input",()=>{
     if(current<0)return;
+    if(!activeHistoryControls.has(els.straightenSlider))rememberEditState();
     items[current].straighten=+els.straightenSlider.value/10;
     scheduleLibraryState(items[current]);
     updateThumbCustomBadge(current);
@@ -4011,6 +4245,7 @@
   const finishStraightening=()=>{
     if(!straightenDragging)return;
     straightenDragging=false;
+    activeHistoryControls.delete(els.straightenSlider);
     showStraightenGrid(false);
   };
   window.addEventListener("pointerup",finishStraightening);
@@ -4018,6 +4253,7 @@
   els.straightenSlider.addEventListener("blur",()=>showStraightenGrid(false));
   els.straightenReset.onclick=()=>{
     if(current<0)return;
+    rememberEditState();
     items[current].straighten=0;
     scheduleLibraryState(items[current]);
     updateThumbCustomBadge(current);
@@ -4267,9 +4503,17 @@
     }
   }
 
-  async function processItem(it){
+  async function processingCheckpoint(cancellable){
+    if(!cancellable)return;
+    await new Promise(resolve=>setTimeout(resolve,0));
+    throwIfProcessingCancelled();
+  }
+
+  async function processItem(it,cancellable=false){
+    await processingCheckpoint(cancellable);
     const settings=it.settings||batchSettings;
     const img=await decodeForProcessing(it.file);
+    throwIfProcessingCancelled();
     const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));
     const src=cropCanvas(rotated,it.crop);
     img.close?.();
@@ -4277,17 +4521,23 @@
     applyChromaNoiseReduction(out,1,settings);
     applyBasicAdjustments(out,settings);
     applyColorLut(out,settings);
+    await processingCheckpoint(cancellable);
     applyChromaticAberration(out,settings);
     applyFade(out,settings);
     applyLightLeaks(out,it.file,settings);
     applyHalation(out,settings);
     applyBloom(out,settings);
+    await processingCheckpoint(cancellable);
     applyGrain(out,it.file,1,settings);
     await applyDateStamp(out,it.file,settings);
+    throwIfProcessingCancelled();
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
     const encoded=await canvasToBlob(out,mime,quality);
-    return await preserveExifMetadata(encoded,it.file,out.width,out.height);
+    throwIfProcessingCancelled();
+    const result=await preserveExifMetadata(encoded,it.file,out.width,out.height);
+    throwIfProcessingCancelled();
+    return result;
   }
 
   async function downloadBlob(blob,name){
@@ -4329,9 +4579,10 @@
     const out=new Uint8Array(len); let o=0;
     for(const p of parts){out.set(p,o);o+=p.length} return out;
   }
-  async function buildZip(entries){
+  async function buildZip(entries,cancellable=false){
     const enc=new TextEncoder(), locals=[], centrals=[]; let offset=0;
     for(const e of entries){
+      if(cancellable)throwIfProcessingCancelled();
       const name=enc.encode(e.name), data=new Uint8Array(await e.blob.arrayBuffer()), crc=crc32(data);
       const local=concat([
         le32(0x04034b50),le16(20),le16(0),le16(0),le16(0),le16(0),
@@ -4344,6 +4595,7 @@
         le16(0),le16(0),le32(0),le32(offset),name
       ]));
       offset+=local.length;
+      await processingCheckpoint(cancellable);
     }
     const central=concat(centrals), localAll=concat(locals);
     const end=concat([
@@ -4363,22 +4615,30 @@
       for(let i=0;i<items.length;i++){
         setStatus(`Processing ${i+1} of ${items.length}: ${items[i].file.name}`);
         setProcessingStage("Processing photos…",`Photo ${i+1} of ${items.length}`);
-        const blob=await processItem(items[i]);
+        const blob=await processItem(items[i],true);
+        throwIfProcessingCancelled();
         entries.push({name:await outputName(items[i].file,usedNames),blob});
         setProgress(i+1,items.length);
         await new Promise(r=>setTimeout(r,0));
       }
       setStatus("Building ZIP…");
       setProcessingStage("Building ZIP…",`Packing ${items.length} ${items.length===1?"photo":"photos"}`);
-      const zip=await buildZip(entries);
+      const zip=await buildZip(entries,true);
+      throwIfProcessingCancelled();
       await downloadBlob(zip,"OnDevice_Film_Lab_Exports.zip");
       setStatus(`ZIP ready • ${items.length} photos`);
       setProcessingStage("Download ready",`${items.length} ${items.length===1?"photo":"photos"} exported`);
       await new Promise(r=>setTimeout(r,350));
     }catch(e){
-      console.error(e);setStatus("ZIP export failed");
-      setProcessingStage("Export failed","Please try again");
-      await new Promise(r=>setTimeout(r,1200));
+      if(e?.name==="AbortError"){
+        setStatus("ZIP export cancelled");
+        setProcessingStage("Export cancelled","No ZIP was downloaded");
+        await new Promise(r=>setTimeout(r,350));
+      }else{
+        console.error(e);setStatus("ZIP export failed");
+        setProcessingStage("Export failed","Please try again");
+        await new Promise(r=>setTimeout(r,1200));
+      }
     }
     hideProcessing();
     setBusy(false);

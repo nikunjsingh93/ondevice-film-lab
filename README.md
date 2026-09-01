@@ -65,14 +65,14 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
 - Vertically scrolling gallery for reviewing all imported photos, multi-selecting, and removing several at once
-- Batch-first editing with optional per-photo overrides, Custom filmstrip badges, copy/paste edits, and one-click reset
+- Batch-first editing with optional per-photo overrides, Custom filmstrip badges, copy/paste edits, one-click reset, and session undo/redo
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
 - Manual cropping with a movable, resizable rule-of-thirds frame, plus 90° rotation and fine ±15° straightening, baked into exports
 - Preserves the original JPEG EXIF metadata, including camera, capture time, exposure, ISO, focal length, technical comments, and GPS data when present, while removing CampSnap's generic `My favorite picture` description
 - Left and Right Arrow navigation between photos
 - Retro segmented date stamp enabled by default, with selectable date formats and a soft orange film-like glow
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
-- Individual JPEG downloads or **Download all .zip** batch export
+- Individual JPEG downloads or cancellable **Download all .zip** batch export with progress
 - Responsive layout for phones, tablets, and desktop browsers
 - Lightroom-style mobile tool bar, settings sheets, and hamburger import menu
 - Fixed desktop editing workspace that keeps the preview and filmstrip visible
