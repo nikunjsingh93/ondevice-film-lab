@@ -724,7 +724,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.3.3</div>
+        <div class="appVersion desktopAppVersion">Version 1.3.4</div>
       </div>
 
       <div class="photoPicker">
@@ -740,7 +740,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.3.3</div>
+        <div class="appVersion">Version 1.3.4</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -2830,16 +2830,16 @@
   updateGrainUI();
   updateStampUI();
 
-  // Mobile range inputs normally jump when any point on the track is tapped.
-  // Only let a touch/pen gesture reach the native control when it begins on
-  // the current thumb; touches elsewhere remain available for panel scrolling.
+  // Touch range inputs normally jump when any point on the track is tapped.
+  // On every touch-capable layout, only let a touch/pen gesture reach the
+  // native control when it begins on the current thumb. Touches elsewhere
+  // remain available for scrolling the panel.
   const blockedMobileRangeClicks=new WeakSet();
   const blockedMobileRangePointers=new Map();
   const blockedMobileRangeValues=new WeakMap();
   document.querySelectorAll('input[type="range"]').forEach(range=>acceptedMobileRangeValues.set(range,range.value));
-  const mobileSliderLayout=()=>window.matchMedia("(max-width:900px) and (orientation:portrait)").matches;
   document.addEventListener("pointerdown",event=>{
-    if(event.pointerType==="mouse"||!mobileSliderLayout())return;
+    if(event.pointerType==="mouse")return;
     const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
     if(!range||range.disabled)return;
     const acceptedValue=acceptedMobileRangeValues.get(range)??range.value;
@@ -2857,6 +2857,8 @@
     blockedMobileRangePointers.set(event.pointerId,range);
     blockedMobileRangeValues.set(range,acceptedValue);
     range.blur();
+    event.preventDefault();
+    event.stopImmediatePropagation();
     requestAnimationFrame(()=>{
       if(blockedMobileRangeValues.has(range))range.value=acceptedValue;
     });
