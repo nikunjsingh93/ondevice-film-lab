@@ -647,7 +647,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.7</div>
+        <div class="appVersion">Version 1.2.8</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -1007,6 +1007,10 @@
   let editScope = "all";
   let copiedPhotoSettings = null;
   let batchSettings = {};
+  const acceptedMobileRangeValues=new WeakMap();
+  function rememberRangeValue(range){
+    if(range instanceof HTMLInputElement&&range.type==="range")acceptedMobileRangeValues.set(range,range.value);
+  }
 
   const photoSettingControls=[
     els.exposure,els.highlights,els.shadows,els.contrast,els.saturation,
@@ -1031,6 +1035,7 @@
       if(!(control.id in settings))continue;
       if(control.type==="checkbox")control.checked=!!settings[control.id];
       else control.value=String(settings[control.id]);
+      rememberRangeValue(control);
     }
     updateSliderLabels();
     updateGrainUI();
@@ -1094,6 +1099,7 @@
     const selected=current>=0&&!!items[current];
     const angle=selected ? (items[current].straighten||0) : 0;
     els.straightenSlider.value=String(Math.round(angle*10));
+    rememberRangeValue(els.straightenSlider);
     els.straightenValue.textContent=`${angle>0?"+":""}${angle.toFixed(1)}°`;
     els.straightenPanel.hidden=!selected||!straightenOpen;
     els.straightenBtn.setAttribute("aria-expanded",String(selected&&straightenOpen));
@@ -2547,15 +2553,19 @@
   // the current thumb; touches elsewhere remain available for panel scrolling.
   const blockedMobileRangeClicks=new WeakSet();
   const blockedMobileRangePointers=new Map();
+  const blockedMobileRangeValues=new WeakMap();
+  document.querySelectorAll('input[type="range"]').forEach(range=>acceptedMobileRangeValues.set(range,range.value));
   const mobileSliderLayout=()=>window.matchMedia("(max-width:900px) and (orientation:portrait)").matches;
   document.addEventListener("pointerdown",event=>{
     if(event.pointerType==="mouse"||!mobileSliderLayout())return;
     const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
     if(!range||range.disabled)return;
+    const acceptedValue=acceptedMobileRangeValues.get(range)??range.value;
+    range.value=acceptedValue;
     const rect=range.getBoundingClientRect();
     const minimum=Number(range.min)||0;
     const maximum=Number(range.max)||100;
-    const value=Number(range.value);
+    const value=Number(acceptedValue);
     const ratio=maximum===minimum ? 0 : (value-minimum)/(maximum-minimum);
     const thumbDiameter=Math.max(22,Math.min(28,rect.height||22));
     const thumbCenter=rect.left+thumbDiameter/2+ratio*Math.max(0,rect.width-thumbDiameter);
@@ -2563,26 +2573,49 @@
     if(Math.abs(event.clientX-thumbCenter)<=hitRadius)return;
     blockedMobileRangeClicks.add(range);
     blockedMobileRangePointers.set(event.pointerId,range);
-    event.preventDefault();
-    event.stopPropagation();
+    blockedMobileRangeValues.set(range,acceptedValue);
     range.blur();
+    requestAnimationFrame(()=>{
+      if(blockedMobileRangeValues.has(range))range.value=acceptedValue;
+    });
   },true);
+  const guardMobileRangeValue=event=>{
+    const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
+    if(!range)return;
+    if(blockedMobileRangeValues.has(range)){
+      range.value=blockedMobileRangeValues.get(range);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    acceptedMobileRangeValues.set(range,range.value);
+  };
+  document.addEventListener("input",guardMobileRangeValue,true);
+  document.addEventListener("change",guardMobileRangeValue,true);
   document.addEventListener("click",event=>{
     const range=event.target instanceof HTMLInputElement&&event.target.type==="range" ? event.target : null;
     if(!range||!blockedMobileRangeClicks.has(range))return;
+    range.value=blockedMobileRangeValues.get(range)??acceptedMobileRangeValues.get(range)??range.value;
     event.preventDefault();
     event.stopImmediatePropagation();
-    blockedMobileRangeClicks.delete(range);
   },true);
   document.addEventListener("pointerup",event=>{
     const range=blockedMobileRangePointers.get(event.pointerId);
     blockedMobileRangePointers.delete(event.pointerId);
-    if(range)setTimeout(()=>blockedMobileRangeClicks.delete(range),0);
+    if(range)setTimeout(()=>{
+      range.value=blockedMobileRangeValues.get(range)??acceptedMobileRangeValues.get(range)??range.value;
+      blockedMobileRangeValues.delete(range);
+      blockedMobileRangeClicks.delete(range);
+    },0);
   },true);
   document.addEventListener("pointercancel",event=>{
     const range=blockedMobileRangePointers.get(event.pointerId);
     blockedMobileRangePointers.delete(event.pointerId);
-    if(range)blockedMobileRangeClicks.delete(range);
+    if(range){
+      range.value=blockedMobileRangeValues.get(range)??acceptedMobileRangeValues.get(range)??range.value;
+      blockedMobileRangeValues.delete(range);
+      blockedMobileRangeClicks.delete(range);
+    }
   },true);
 
   els.scopeAllBtn.addEventListener("click",()=>{
