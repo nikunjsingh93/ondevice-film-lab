@@ -123,6 +123,24 @@
   .check{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--muted);cursor:pointer}
   .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
+  .profileBar{
+    position:relative;padding:9px;border:1px solid #40516a;border-radius:12px;background:#141b27
+  }
+  .profileHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 1px 7px}
+  .profileLabel{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .profileState{color:#8090a7;font-size:9px;white-space:nowrap}
+  .profileState.isDirty{color:#e5b878}
+  .profileControls{display:flex;align-items:center;gap:5px}
+  .profileControls select{min-width:0;flex:1;padding:7px 8px;font-size:10px;font-weight:700}
+  .profileAddBtn{flex:0 0 auto;padding:7px 8px;font-size:10px;font-weight:750;white-space:nowrap}
+  .profileMenuBtn{width:31px;height:31px;min-width:31px;padding:3px;border-radius:8px;font-size:18px;font-weight:800;line-height:1;letter-spacing:1px}
+  .profileActions{
+    display:none;position:absolute;z-index:52;top:calc(100% + 6px);right:0;width:205px;padding:7px;
+    border:1px solid #465875;border-radius:11px;background:#182130f8;box-shadow:0 16px 44px #000b
+  }
+  .profileBar.menuOpen .profileActions{display:grid;gap:5px}
+  .profileActions button{width:100%;min-width:0;padding:8px 9px;font-size:10px;line-height:1.25;text-align:left}
+  .profileDeleteBtn{color:#ffd9dc}
   .editScopeBar{
     position:sticky;z-index:35;top:-14px;padding:7px;border:1px solid #40516a;border-radius:12px;background:#141b27f5;
     box-shadow:0 8px 22px #080b1266;backdrop-filter:blur(12px)
@@ -593,11 +611,13 @@
     .sidebar.mobileOpen .settingsGroup>h3{display:none}
     .sidebar.mobileOpen .sidebarIntro,
     .sidebar.mobileOpen .photoPicker,
+    .sidebar.mobileOpen .profileBar,
     .sidebar.mobileOpen .editScopeBar,
     .sidebar.mobileOpen .settingsGroup,
     .sidebar.mobileOpen .tip{display:none}
     .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #profileBar,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
     .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup,
@@ -659,6 +679,10 @@
   @media(max-width:900px) and (orientation:portrait){
     .sidebar.mobileOpen{touch-action:auto}
     .sidebar.mobileOpen #editScopeBar{position:static;padding:11px;border-radius:14px;box-shadow:none;backdrop-filter:none}
+    .sidebar.mobileOpen #profileBar{padding:11px;border-radius:14px}
+    .sidebar.mobileOpen .profileControls select{font-size:11px}
+    .sidebar.mobileOpen .profileActions{position:static;width:auto;margin-top:8px;padding:8px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
+    .sidebar.mobileOpen .profileActions button{padding:8px;text-align:center}
     .sidebar.mobileOpen .editScopeCompact{display:block}
     .sidebar.mobileOpen .editScopeTitle{justify-content:space-between;margin-bottom:8px;font-size:11px}
     .sidebar.mobileOpen #editScopeState{display:inline}
@@ -730,7 +754,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.3.5</div>
+        <div class="appVersion desktopAppVersion">Version 1.4.0</div>
       </div>
 
       <div class="photoPicker">
@@ -746,7 +770,25 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.3.5</div>
+        <div class="appVersion">Version 1.4.0</div>
+      </div>
+
+      <div id="profileBar" class="profileBar">
+        <div class="profileHeader">
+          <span class="profileLabel">Camera profile</span>
+          <span id="profileState" class="profileState">Saved</span>
+        </div>
+        <div class="profileControls">
+          <label class="visuallyHidden" for="profileSelect">Camera profile</label>
+          <select id="profileSelect" aria-label="Camera profile"></select>
+          <button id="profileAddBtn" class="profileAddBtn" type="button">+ Profile</button>
+          <button id="profileMenuBtn" class="profileMenuBtn" type="button" aria-label="Manage selected profile" aria-expanded="false">•••</button>
+        </div>
+        <div id="profileActions" class="profileActions">
+          <button id="profileSaveBtn" type="button">Save current edits</button>
+          <button id="profileRenameBtn" type="button">Rename profile</button>
+          <button id="profileDeleteBtn" class="profileDeleteBtn" type="button">Delete profile</button>
+        </div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -1122,6 +1164,9 @@
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
+    profileBar: $("#profileBar"), profileSelect: $("#profileSelect"), profileState: $("#profileState"),
+    profileAddBtn: $("#profileAddBtn"), profileMenuBtn: $("#profileMenuBtn"),
+    profileSaveBtn: $("#profileSaveBtn"), profileRenameBtn: $("#profileRenameBtn"), profileDeleteBtn: $("#profileDeleteBtn"),
     scopeAllBtn: $("#scopeAllBtn"), scopePhotoBtn: $("#scopePhotoBtn"), editScopeState: $("#editScopeState"),
     editScopeHint: $("#editScopeHint"), copyEditsBtn: $("#copyEditsBtn"), pasteEditsBtn: $("#pasteEditsBtn"),
     resetPhotoEditsBtn: $("#resetPhotoEditsBtn"), editScopeMenuBtn: $("#editScopeMenuBtn"), editScopeBar: $("#editScopeBar"),
@@ -1150,6 +1195,8 @@
   let editScope = "all";
   let copiedPhotoSettings = null;
   let batchSettings = {};
+  let cameraProfiles=[];
+  let activeCameraProfileId="cam1-default";
   let galleryOpen=false;
   let galleryRemoving=false;
   let galleryPreviousFocus=null;
@@ -1317,6 +1364,7 @@
     updateSliderLabels();
     updateGrainUI();
     updateStampUI();
+    updateProfileUI();
   }
   function settingValue(settings,id){
     if(settings&&Object.prototype.hasOwnProperty.call(settings,id))return settings[id];
@@ -1367,11 +1415,12 @@
   }
   function setBusy(v){
     busy = v;
-    if(v){closeDesktopLibraryMenu();closeEditScopeMenu()}
+    if(v){closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu()}
     [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.filmstripAddBtn,els.libraryRemoveBtn,els.libraryClearBtn,els.editScopeMenuBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
     });
     if(!v) updateButtons();
+    else updateProfileUI();
   }
   function updateStraightenUI(){
     const selected=current>=0&&!!items[current];
@@ -1448,6 +1497,7 @@
     updateStraightenUI();
     updateCropUI();
     updateEditScopeUI();
+    updateProfileUI();
   }
 
   document.querySelectorAll(".sectionCollapseToggle").forEach(button=>{
@@ -2758,6 +2808,118 @@
     }catch(error){console.warn("Settings could not be saved",error)}
   }
 
+  const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";
+  const DEFAULT_CAMERA_PROFILE_ID="cam1-default";
+
+  function normalizeProfileSettings(settings,fallback=batchSettings){
+    const normalized={};
+    for(const control of photoSettingControls){
+      let value=settings&&Object.prototype.hasOwnProperty.call(settings,control.id)
+        ? settings[control.id] : fallback?.[control.id];
+      if(value===undefined)value=controlValue(control);
+      if(control.type==="checkbox")normalized[control.id]=!!value;
+      else if(control.type==="range"){
+        const minimum=Number(control.min),maximum=Number(control.max),number=Number(value);
+        const safe=Number.isFinite(number)?Math.max(minimum,Math.min(maximum,number)):Number(control.value);
+        normalized[control.id]=String(safe);
+      }else if(control.type==="color"){
+        normalized[control.id]=/^#[0-9a-f]{6}$/i.test(String(value))?String(value):control.value;
+      }else if(control.tagName==="SELECT"){
+        normalized[control.id]=[...control.options].some(option=>option.value===String(value))?String(value):control.value;
+      }else normalized[control.id]=value;
+    }
+    return normalized;
+  }
+  function cameraProfileById(id){return cameraProfiles.find(profile=>profile.id===id)||null}
+  function currentCameraProfile(){return cameraProfileById(activeCameraProfileId)||cameraProfiles[0]||null}
+  function saveCameraProfiles(){
+    try{
+      localStorage.setItem(CAMERA_PROFILE_STORAGE_KEY,JSON.stringify({activeId:activeCameraProfileId,profiles:cameraProfiles}));
+    }catch(error){console.warn("Camera profiles could not be saved",error)}
+  }
+  function renderCameraProfiles(){
+    els.profileSelect.innerHTML="";
+    for(const profile of cameraProfiles){
+      const option=document.createElement("option");
+      option.value=profile.id;
+      option.textContent=profile.id===DEFAULT_CAMERA_PROFILE_ID?`${profile.name} (Default)`:profile.name;
+      els.profileSelect.appendChild(option);
+    }
+    if(cameraProfileById(activeCameraProfileId))els.profileSelect.value=activeCameraProfileId;
+    updateProfileUI();
+  }
+  function restoreCameraProfiles(){
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY)||"null")}
+    catch(error){console.warn("Camera profiles could not be restored",error)}
+    const restored=[];
+    if(Array.isArray(saved?.profiles)){
+      for(const candidate of saved.profiles){
+        if(!candidate||typeof candidate.id!=="string"||typeof candidate.name!=="string"||!candidate.name.trim())continue;
+        if(restored.some(profile=>profile.id===candidate.id))continue;
+        restored.push({id:candidate.id,name:candidate.name.trim().slice(0,40),settings:normalizeProfileSettings(candidate.settings)});
+      }
+    }
+    const defaultProfile=restored.find(profile=>profile.id===DEFAULT_CAMERA_PROFILE_ID);
+    if(defaultProfile)defaultProfile.name="Cam1 Profile";
+    else restored.unshift({id:DEFAULT_CAMERA_PROFILE_ID,name:"Cam1 Profile",settings:normalizeProfileSettings(batchSettings)});
+    cameraProfiles=restored;
+    activeCameraProfileId=restored.some(profile=>profile.id===saved?.activeId)?saved.activeId:DEFAULT_CAMERA_PROFILE_ID;
+    renderCameraProfiles();
+    saveCameraProfiles();
+  }
+  function updateProfileUI(){
+    if(!els.profileSelect)return;
+    const profile=currentCameraProfile();
+    const dirty=!!profile&&!settingsMatch(capturePhotoSettings(),profile.settings);
+    els.profileState.textContent=dirty?"Changes not saved":"Saved";
+    els.profileState.classList.toggle("isDirty",dirty);
+    els.profileSelect.disabled=busy||!cameraProfiles.length;
+    els.profileAddBtn.disabled=busy;
+    els.profileMenuBtn.disabled=busy||!profile;
+    els.profileSaveBtn.disabled=busy||!profile||!dirty;
+    const fixedDefault=profile?.id===DEFAULT_CAMERA_PROFILE_ID;
+    els.profileRenameBtn.disabled=busy||!profile||fixedDefault;
+    els.profileDeleteBtn.disabled=busy||!profile||fixedDefault;
+  }
+  function closeProfileMenu(){
+    els.profileBar.classList.remove("menuOpen");
+    els.profileMenuBtn.setAttribute("aria-expanded","false");
+  }
+  function profileNameFromUser(message,suggested,ignoreId=""){
+    const response=window.prompt(message,suggested);
+    if(response===null)return null;
+    const name=response.trim().replace(/\s+/g," ").slice(0,40);
+    if(!name){window.alert("Please enter a profile name.");return null}
+    if(cameraProfiles.some(profile=>profile.id!==ignoreId&&profile.name.toLocaleLowerCase()===name.toLocaleLowerCase())){
+      window.alert("A profile with that name already exists.");return null;
+    }
+    return name;
+  }
+  function applyCameraProfile(profile){
+    if(!profile)return;
+    const settings=normalizeProfileSettings(profile.settings);
+    profile.settings=cloneSettings(settings);
+    if(editScope==="photo"&&current>=0&&items[current]){
+      items[current].settings=cloneSettings(settings);
+      loadPhotoSettings(items[current].settings);
+      updateThumbCustomBadge(current);
+      scheduleLibraryState(items[current]);
+    }else{
+      batchSettings=cloneSettings(settings);
+      for(const item of items)item.settings=cloneSettings(settings);
+      loadPhotoSettings(batchSettings);
+      updateAllCustomBadges();
+      scheduleAllLibraryStates();
+      saveSettings();
+    }
+    updateEditScopeUI();
+    updateProfileUI();
+    saveCameraProfiles();
+    rerender();
+    setStatus(`Applied ${profile.name} to ${editScope==="photo"&&current>=0?"this photo":"all photos"}`);
+  }
+
   function updateSliderLabels(){
     const signedPercent=value=>`${value>0?"+":""}${value}%`;
     const exposureStops=+els.exposure.value/50;
@@ -2818,12 +2980,14 @@
     }
     refreshSettingUI();
     updateEditScopeUI();
+    updateProfileUI();
     saveSettings();
     rerender();
   }
 
   restoreSettings();
   batchSettings=capturePhotoSettings();
+  restoreCameraProfiles();
   for(const control of photoSettingControls){
     if(!control)continue;
     if(control.type==="range"||control.type==="color")control.addEventListener("input",()=>commitPhotoControl(control));
@@ -2908,6 +3072,64 @@
     }
   },true);
 
+  els.profileSelect.addEventListener("change",()=>{
+    const profile=cameraProfileById(els.profileSelect.value);
+    if(!profile)return;
+    activeCameraProfileId=profile.id;
+    closeProfileMenu();
+    applyCameraProfile(profile);
+  });
+  els.profileAddBtn.addEventListener("click",()=>{
+    closeProfileMenu();
+    const name=profileNameFromUser("Name the new camera profile:",`Camera ${cameraProfiles.length+1} Profile`);
+    if(!name)return;
+    const id=`camera-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+    cameraProfiles.push({id,name,settings:normalizeProfileSettings(capturePhotoSettings())});
+    activeCameraProfileId=id;
+    renderCameraProfiles();
+    saveCameraProfiles();
+    setStatus(`Created ${name} from the current edits`);
+  });
+  els.profileMenuBtn.addEventListener("click",event=>{
+    event.stopPropagation();
+    const open=!els.profileBar.classList.contains("menuOpen");
+    els.profileBar.classList.toggle("menuOpen",open);
+    els.profileMenuBtn.setAttribute("aria-expanded",String(open));
+  });
+  els.profileSaveBtn.addEventListener("click",()=>{
+    const profile=currentCameraProfile();
+    if(!profile)return;
+    closeProfileMenu();
+    if(!window.confirm(`Replace the saved edits in “${profile.name}” with the current slider settings?`))return;
+    profile.settings=normalizeProfileSettings(capturePhotoSettings());
+    saveCameraProfiles();
+    updateProfileUI();
+    setStatus(`Saved current edits to ${profile.name}`);
+  });
+  els.profileRenameBtn.addEventListener("click",()=>{
+    const profile=currentCameraProfile();
+    if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
+    closeProfileMenu();
+    const name=profileNameFromUser("Rename this camera profile:",profile.name,profile.id);
+    if(!name)return;
+    profile.name=name;
+    renderCameraProfiles();
+    saveCameraProfiles();
+    setStatus(`Renamed profile to ${name}`);
+  });
+  els.profileDeleteBtn.addEventListener("click",()=>{
+    const profile=currentCameraProfile();
+    if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
+    closeProfileMenu();
+    if(!window.confirm(`Delete the “${profile.name}” profile? Your photos will not be removed.`))return;
+    cameraProfiles=cameraProfiles.filter(candidate=>candidate.id!==profile.id);
+    activeCameraProfileId=DEFAULT_CAMERA_PROFILE_ID;
+    renderCameraProfiles();
+    saveCameraProfiles();
+    applyCameraProfile(currentCameraProfile());
+    setStatus(`Deleted ${profile.name}`);
+  });
+
   els.scopeAllBtn.addEventListener("click",()=>{
     editScope="all";
     updateEditScopeUI();
@@ -2971,6 +3193,7 @@
   function openMobilePanel(panel,title){
     closeDesktopLibraryMenu();
     closeEditScopeMenu();
+    closeProfileMenu();
     els.sidebar.dataset.mobilePanel=panel;
     els.mobilePanelTitle.textContent=title;
     els.sidebar.classList.add("mobileOpen");
@@ -2980,6 +3203,7 @@
     mobileToolButtons.forEach(button=>button.classList.toggle("active",button.dataset.panel===panel));
   }
   function closeMobilePanel(){
+    closeProfileMenu();
     els.sidebar.classList.remove("mobileOpen");
     els.mobileBackdrop.classList.remove("open");
     document.body.classList.remove("mobilePanelOpen");
@@ -3032,6 +3256,7 @@
   document.addEventListener("pointerdown",event=>{
     if(!els.desktopLibraryMenu.hidden&&!els.desktopLibraryMenu.contains(event.target)&&!event.target.closest("#filmstripAddBtn,.emptyAddPhotosBtn"))closeDesktopLibraryMenu();
     if(els.editScopeBar.classList.contains("menuOpen")&&!els.editScopeBar.contains(event.target))closeEditScopeMenu();
+    if(els.profileBar.classList.contains("menuOpen")&&!els.profileBar.contains(event.target))closeProfileMenu();
   });
   window.addEventListener("resize",closeDesktopLibraryMenu);
   window.addEventListener("scroll",closeDesktopLibraryMenu,true);
@@ -3482,9 +3707,9 @@
       if(e.key==="Escape"){e.preventDefault();closeGallery()}
       return;
     }
-    if(!els.desktopLibraryMenu.hidden||els.editScopeBar.classList.contains("menuOpen")){
+    if(!els.desktopLibraryMenu.hidden||els.editScopeBar.classList.contains("menuOpen")||els.profileBar.classList.contains("menuOpen")){
       if(e.key==="Escape"){
-        e.preventDefault();closeDesktopLibraryMenu();closeEditScopeMenu();
+        e.preventDefault();closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu();
       }
       return;
     }
