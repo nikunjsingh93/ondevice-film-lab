@@ -52,6 +52,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 
 - Processes photos locally on your device
 - Imports individual photos or an entire DCIM folder
+- Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
 - Supports JPEG, PNG, and WebP input
 - Basic exposure, highlights, shadows, contrast, and saturation adjustments
 - Adjustable de-sharpen strength, halo radius, and edge threshold
@@ -79,6 +80,8 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 ## Privacy
 
 Your photos never leave your browser. Processing and exporting happen locally on your device, with no account, upload, or cloud service required.
+
+Imported working photos and their individual edits are kept in the browser's on-device storage so they can return after a refresh. **Remove current photo** deletes that photo from the local library, and **Clear all photos** deletes the whole local library. Clearing the site's browser data or using private/incognito browsing can also remove locally stored photos.
 
 ## How to use
 

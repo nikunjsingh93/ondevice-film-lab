@@ -647,7 +647,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.2.8</div>
+        <div class="appVersion">Version 1.2.9</div>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -1010,6 +1010,134 @@
   const acceptedMobileRangeValues=new WeakMap();
   function rememberRangeValue(range){
     if(range instanceof HTMLInputElement&&range.type==="range")acceptedMobileRangeValues.set(range,range.value);
+  }
+
+  const LIBRARY_DB_NAME="ondevice-film-lab-library";
+  const LIBRARY_DB_VERSION=1;
+  let libraryDBPromise=null;
+  let libraryRestorePromise=Promise.resolve();
+  const pendingLibraryStates=new Set();
+  let libraryStateTimer=0;
+
+  function openLibraryDB(){
+    if(!("indexedDB" in window))return Promise.reject(new Error("IndexedDB is unavailable"));
+    if(libraryDBPromise)return libraryDBPromise;
+    libraryDBPromise=new Promise((resolve,reject)=>{
+      const request=indexedDB.open(LIBRARY_DB_NAME,LIBRARY_DB_VERSION);
+      request.onupgradeneeded=()=>{
+        const db=request.result;
+        if(!db.objectStoreNames.contains("photos"))db.createObjectStore("photos",{keyPath:"id"});
+        if(!db.objectStoreNames.contains("states"))db.createObjectStore("states",{keyPath:"id"});
+      };
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error("Photo library could not be opened"));
+      request.onblocked=()=>reject(new Error("Photo library upgrade was blocked"));
+    });
+    return libraryDBPromise;
+  }
+  function transactionComplete(transaction){
+    return new Promise((resolve,reject)=>{
+      transaction.oncomplete=()=>resolve();
+      transaction.onabort=()=>reject(transaction.error||new Error("Photo library transaction was cancelled"));
+      transaction.onerror=()=>reject(transaction.error||new Error("Photo library transaction failed"));
+    });
+  }
+  function requestResult(request){
+    return new Promise((resolve,reject)=>{
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error||new Error("Photo library request failed"));
+    });
+  }
+  function storedStateFor(item){
+    return {
+      id:item.libraryId,
+      rotation:item.rotation||0,
+      straighten:item.straighten||0,
+      crop:cropIsFull(item.crop)?null:normalizedCrop(item.crop),
+      settings:cloneSettings(item.settings||batchSettings)
+    };
+  }
+  async function persistImportedItems(imported){
+    if(!imported.length)return true;
+    try{
+      const db=await openLibraryDB();
+      const transaction=db.transaction(["photos","states"],"readwrite");
+      const complete=transactionComplete(transaction);
+      const photos=transaction.objectStore("photos"),states=transaction.objectStore("states");
+      for(const item of imported){
+        photos.put({
+          id:item.libraryId,
+          file:item.file,
+          name:item.file.name,
+          type:item.file.type,
+          lastModified:item.file.lastModified,
+          captureTime:item.captureDate.getTime(),
+          order:item.libraryOrder
+        });
+        states.put(storedStateFor(item));
+      }
+      await complete;
+      return true;
+    }catch(error){
+      console.warn("Photos could not be saved for refresh",error);
+      return false;
+    }
+  }
+  async function flushLibraryStates(){
+    libraryStateTimer=0;
+    const ids=[...pendingLibraryStates];
+    pendingLibraryStates.clear();
+    if(!ids.length)return;
+    try{
+      const db=await openLibraryDB();
+      const transaction=db.transaction("states","readwrite");
+      const complete=transactionComplete(transaction);
+      const store=transaction.objectStore("states");
+      for(const id of ids){
+        const item=items.find(candidate=>candidate.libraryId===id);
+        if(item)store.put(storedStateFor(item));
+      }
+      await complete;
+    }catch(error){
+      console.warn("Photo edits could not be saved for refresh",error);
+    }
+  }
+  function scheduleLibraryState(item){
+    if(!item?.libraryId)return;
+    pendingLibraryStates.add(item.libraryId);
+    clearTimeout(libraryStateTimer);
+    libraryStateTimer=setTimeout(flushLibraryStates,350);
+  }
+  function scheduleAllLibraryStates(){
+    for(const item of items)if(item.libraryId)pendingLibraryStates.add(item.libraryId);
+    clearTimeout(libraryStateTimer);
+    libraryStateTimer=setTimeout(flushLibraryStates,350);
+  }
+  async function deleteStoredItem(id){
+    if(!id)return;
+    pendingLibraryStates.delete(id);
+    const db=await openLibraryDB();
+    const transaction=db.transaction(["photos","states"],"readwrite");
+    const complete=transactionComplete(transaction);
+    transaction.objectStore("photos").delete(id);
+    transaction.objectStore("states").delete(id);
+    await complete;
+  }
+  async function clearStoredLibrary(){
+    pendingLibraryStates.clear();
+    clearTimeout(libraryStateTimer);libraryStateTimer=0;
+    const db=await openLibraryDB();
+    const transaction=db.transaction(["photos","states"],"readwrite");
+    const complete=transactionComplete(transaction);
+    transaction.objectStore("photos").clear();
+    transaction.objectStore("states").clear();
+    await complete;
+  }
+  function requestPersistentStorage(){
+    if(!navigator.storage?.persist)return;
+    navigator.storage.persisted?.().then(persisted=>{
+      if(!persisted)return navigator.storage.persist();
+    }).catch(error=>console.warn("Persistent storage could not be requested",error));
   }
 
   const photoSettingControls=[
@@ -2520,6 +2648,7 @@
       items[current].settings=items[current].settings||cloneSettings(batchSettings);
       items[current].settings[control.id]=value;
       updateThumbCustomBadge(current);
+      scheduleLibraryState(items[current]);
     }else{
       batchSettings[control.id]=value;
       for(const item of items){
@@ -2527,6 +2656,7 @@
         item.settings[control.id]=value;
       }
       updateAllCustomBadges();
+      scheduleAllLibraryStates();
     }
     refreshSettingUI();
     updateEditScopeUI();
@@ -2641,6 +2771,7 @@
     updateThumbCustomBadge(current);
     updateEditScopeUI();
     makePreview(current);
+    scheduleLibraryState(items[current]);
     setStatus("Pasted edits onto this photo");
   });
   els.resetPhotoEditsBtn.addEventListener("click",()=>{
@@ -2658,6 +2789,7 @@
     updateEditScopeUI();
     refreshThumb(current);
     makePreview(current);
+    scheduleLibraryState(item);
     setStatus("Reset this photo to the shared settings");
   });
 
@@ -2722,9 +2854,95 @@
     }
   }
 
+  function createLibraryId(){
+    return crypto.randomUUID?.()||`photo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+  function appendLibraryItem(item){
+    items.push(item);
+    const row=document.createElement("div");row.className="thumb";
+    const image=document.createElement("img");image.src=item.thumbUrl;
+    const name=document.createElement("div");name.className="name";name.textContent=item.file.name;
+    const meta=document.createElement("div");meta.className="meta";
+    const captureDate=item.captureDate;
+    meta.textContent=`${captureDate.getFullYear()}-${pad2(captureDate.getMonth()+1)}-${pad2(captureDate.getDate())} ${pad2(captureDate.getHours())}:${pad2(captureDate.getMinutes())} • ${(item.file.size/1024/1024).toFixed(1)} MB`;
+    const transforms=document.createElement("div");transforms.className="rot";
+    const labels=[];
+    if(item.rotation)labels.push(`${item.rotation}°`);
+    if(Math.abs(item.straighten||0)>.05)labels.push(`${item.straighten>0?"+":""}${item.straighten.toFixed(1)}°`);
+    if(!cropIsFull(item.crop))labels.push("Crop");
+    transforms.textContent=labels.join(" · ");
+    const badge=document.createElement("span");badge.className="customBadge";badge.textContent="Custom";badge.hidden=true;
+    row.append(image,name,meta,transforms,badge);
+    row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
+    els.thumbs.appendChild(row);
+    updateThumbCustomBadge(items.length-1);
+  }
+
+  async function restoreStoredLibrary(){
+    try{
+      const db=await openLibraryDB();
+      const transaction=db.transaction(["photos","states"],"readonly");
+      const complete=transactionComplete(transaction);
+      const photosPromise=requestResult(transaction.objectStore("photos").getAll());
+      const statesPromise=requestResult(transaction.objectStore("states").getAll());
+      const [photos,states]=await Promise.all([photosPromise,statesPromise]);
+      await complete;
+      if(!photos.length)return;
+      const stateById=new Map(states.map(state=>[state.id,state]));
+      photos.sort((a,b)=>(a.order||0)-(b.order||0));
+      for(const stored of photos){
+        if(!stored.file)continue;
+        const file=stored.file instanceof File&&stored.file.name
+          ? stored.file
+          : new File([stored.file],stored.name||"Photo.jpg",{type:stored.type||stored.file.type||"image/jpeg",lastModified:stored.lastModified||Date.now()});
+        const state=stateById.get(stored.id)||{};
+        const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
+        const item={
+          libraryId:stored.id,
+          libraryOrder:stored.order||Date.now(),
+          file,
+          rotation:state.rotation||0,
+          straighten:state.straighten||0,
+          crop:state.crop||null,
+          settings:{...cloneSettings(batchSettings),...(state.settings||{})},
+          thumbUrl:URL.createObjectURL(file),
+          captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate
+        };
+        appendLibraryItem(item);
+      }
+      if(!items.length)return;
+      els.count.textContent=`Photos (${items.length})`;
+      select(0);
+      closeMobilePanel();
+      setStatus(`Restored ${items.length} photo${items.length===1?"":"s"}`);
+      const transformedRows=items.flatMap((item,index)=>
+        item.rotation||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)
+          ? [els.thumbs.children[index]] : []
+      ).filter(Boolean);
+      if("IntersectionObserver" in window&&transformedRows.length){
+        const observer=new IntersectionObserver(entries=>{
+          for(const entry of entries){
+            if(!entry.isIntersecting)continue;
+            observer.unobserve(entry.target);
+            const index=[...els.thumbs.children].indexOf(entry.target);
+            if(index>=0)refreshThumb(index);
+          }
+        },{root:els.thumbs,rootMargin:"120px"});
+        transformedRows.forEach(row=>observer.observe(row));
+      }else if(transformedRows.length){
+        const index=[...els.thumbs.children].indexOf(transformedRows[0]);
+        if(index>=0)setTimeout(()=>refreshThumb(index),0);
+      }
+    }catch(error){
+      console.warn("Saved photos could not be restored",error);
+    }
+  }
+
   async function addFiles(list){
+    await libraryRestorePromise;
     const files=[...list].filter(supported);
     if(!files.length){ setStatus("No supported photos found"); return; }
+    requestPersistentStorage();
     const known=new Set(items.map(x=>x.file.name+"|"+x.file.size+"|"+x.file.lastModified));
     const added=[];
     for(const f of files){
@@ -2732,23 +2950,22 @@
       if(known.has(key)) continue;
       known.add(key);
       const captureDate=await getCaptureDate(f);
-      const it={file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),thumbUrl:URL.createObjectURL(f),captureDate};
-      items.push(it); added.push(it);
-      const row=document.createElement("div"); row.className="thumb";
-      const im=document.createElement("img"); im.src=it.thumbUrl;
-      const n=document.createElement("div"); n.className="name"; n.textContent=f.name;
-      const m=document.createElement("div"); m.className="meta";
-      m.textContent=`${captureDate.getFullYear()}-${pad2(captureDate.getMonth()+1)}-${pad2(captureDate.getDate())} ${pad2(captureDate.getHours())}:${pad2(captureDate.getMinutes())} • ${(f.size/1024/1024).toFixed(1)} MB`;
-      const r=document.createElement("div"); r.className="rot";
-      const badge=document.createElement("span"); badge.className="customBadge"; badge.textContent="Custom"; badge.hidden=true;
-      row.append(im,n,m,r,badge);
-      row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
-      els.thumbs.appendChild(row);
+      const it={
+        libraryId:createLibraryId(),libraryOrder:Date.now()+added.length/1000,
+        file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
+        thumbUrl:URL.createObjectURL(f),captureDate
+      };
+      appendLibraryItem(it);added.push(it);
     }
     els.count.textContent=`Photos (${items.length})`;
     updateButtons();
     if(current<0 && items.length) select(0);
-    setStatus(`Added ${added.length} photo${added.length===1?"":"s"}`);
+    if(!added.length){setStatus("Those photos are already added");return}
+    setStatus(`Saving ${added.length} photo${added.length===1?"":"s"} on this device…`);
+    const persisted=await persistImportedItems(added);
+    setStatus(persisted
+      ? `Added ${added.length} photo${added.length===1?"":"s"} • kept after refresh`
+      : `Added ${added.length} photo${added.length===1?"":"s"} • could not keep after refresh`);
   }
 
   function showEmptyLibrary(){
@@ -2769,11 +2986,14 @@
     updateButtons();
   }
 
-  function removeCurrentPhoto(){
+  async function removeCurrentPhoto(){
     if(current<0||!items[current])return;
     if(!window.confirm("Remove the current photo from the app? Your original photo will remain on your device."))return;
     previewToken++;
     const index=current;
+    const removed=items[index];
+    try{await deleteStoredItem(removed.libraryId)}
+    catch(error){console.warn("Stored photo could not be removed",error);setStatus("Could not remove the stored photo");return}
     URL.revokeObjectURL(items[index].thumbUrl);
     items.splice(index,1);
     els.thumbs.children[index]?.remove();
@@ -2786,10 +3006,12 @@
     closeMobilePanel();
   }
 
-  function clearAllPhotos(){
+  async function clearAllPhotos(){
     if(!items.length)return;
     if(!window.confirm("Remove all photos from the app? Your original photos will remain on your device."))return;
     previewToken++;
+    try{await clearStoredLibrary()}
+    catch(error){console.warn("Stored photos could not be cleared",error);setStatus("Could not clear stored photos");return}
     for(const item of items)URL.revokeObjectURL(item.thumbUrl);
     items.length=0;
     els.thumbs.replaceChildren();
@@ -2816,6 +3038,7 @@
     if(cropOpen){cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping")}
     items[current].crop=rotatedCrop(items[current].crop,delta);
     items[current].rotation=(items[current].rotation+delta+360)%360;
+    scheduleLibraryState(items[current]);
     updateThumbCustomBadge(current);
     updateEditScopeUI();
     refreshThumb(current); makePreview(current);
@@ -2847,6 +3070,7 @@
     items[current].crop=cropIsFull(cropDraft)?null:normalizedCrop(cropDraft);
     cropOpen=false;cropDraft=null;els.viewer.classList.remove("cropping");
     updateCropUI();updateThumbCustomBadge(current);updateEditScopeUI();
+    scheduleLibraryState(items[current]);
     refreshThumb(current);makePreview(current);
     setStatus(cropIsFull(items[current].crop)?"Crop reset":"Crop applied");
   };
@@ -2870,6 +3094,7 @@
   els.straightenSlider.addEventListener("input",()=>{
     if(current<0)return;
     items[current].straighten=+els.straightenSlider.value/10;
+    scheduleLibraryState(items[current]);
     updateThumbCustomBadge(current);
     updateEditScopeUI();
     showStraightenGrid(true,!straightenDragging);
@@ -2887,6 +3112,7 @@
   els.straightenReset.onclick=()=>{
     if(current<0)return;
     items[current].straighten=0;
+    scheduleLibraryState(items[current]);
     updateThumbCustomBadge(current);
     updateEditScopeUI();
     showStraightenGrid(false);
@@ -3240,7 +3466,9 @@
     setBusy(false);
   };
 
+  window.addEventListener("pagehide",()=>{if(pendingLibraryStates.size)flushLibraryStates()});
   updateButtons();
+  libraryRestorePromise=restoreStoredLibrary();
 })();
 </script>
 <script>
