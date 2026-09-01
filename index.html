@@ -758,7 +758,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.1</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.2</div>
       </div>
 
       <div class="photoPicker">
@@ -774,7 +774,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.1</div>
+        <div class="appVersion">Version 1.5.2</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1275,6 +1275,37 @@
       settings:cloneSettings(item.settings||batchSettings)
     };
   }
+  function fileFromStoredPhoto(stored){
+    return stored.file instanceof File&&stored.file.name
+      ? stored.file
+      : new File([stored.file],stored.name||"Photo.jpg",{
+          type:stored.type||stored.file?.type||"image/jpeg",
+          lastModified:stored.lastModified||Date.now()
+        });
+  }
+  async function adoptStoredPhotoCopies(imported){
+    const db=await openLibraryDB();
+    const transaction=db.transaction("photos","readonly");
+    const complete=transactionComplete(transaction);
+    const store=transaction.objectStore("photos");
+    const storedPhotos=await Promise.all(imported.map(item=>requestResult(store.get(item.libraryId))));
+    await complete;
+    for(let index=0;index<imported.length;index++){
+      const item=imported[index],stored=storedPhotos[index];
+      if(!stored?.file)continue;
+      const ownedFile=fileFromStoredPhoto(stored);
+      const previousUrl=item.thumbUrl;
+      item.file=ownedFile;
+      item.thumbUrl=URL.createObjectURL(ownedFile);
+      const itemIndex=items.indexOf(item);
+      const thumbnail=itemIndex>=0?els.thumbs.children[itemIndex]?.querySelector("img"):null;
+      if(thumbnail)thumbnail.src=item.thumbUrl;
+      if(previousUrl)URL.revokeObjectURL(previousUrl);
+    }
+    // If the camera was disconnected while the first preview was decoding,
+    // retry it automatically against the newly adopted local copy.
+    if(current>=0&&imported.includes(items[current]))rerender();
+  }
   async function persistImportedItems(imported){
     if(!imported.length)return true;
     try{
@@ -1295,6 +1326,12 @@
         states.put(storedStateFor(item));
       }
       await complete;
+      // File objects selected from a directly connected camera can remain
+      // tied to that removable source for the lifetime of the page. Switch
+      // the active session to the independent IndexedDB copies immediately,
+      // just as a refresh would, so disconnecting the camera cannot break
+      // previewing or export.
+      await adoptStoredPhotoCopies(imported);
       return true;
     }catch(error){
       console.warn("Photos could not be saved for refresh",error);
@@ -3639,9 +3676,7 @@
       photos.sort((a,b)=>(a.order||0)-(b.order||0));
       for(const stored of photos){
         if(!stored.file)continue;
-        const file=stored.file instanceof File&&stored.file.name
-          ? stored.file
-          : new File([stored.file],stored.name||"Photo.jpg",{type:stored.type||stored.file.type||"image/jpeg",lastModified:stored.lastModified||Date.now()});
+        const file=fileFromStoredPhoto(stored);
         const state=stateById.get(stored.id)||{};
         const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
         const restoredSettings={...cloneSettings(batchSettings),...(state.settings||{})};
