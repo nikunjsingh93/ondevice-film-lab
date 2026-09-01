@@ -650,6 +650,8 @@
     .sidebar.mobileOpen[data-mobile-panel="grain"] #grainGroup,
     .sidebar.mobileOpen[data-mobile-panel="stamp"] #stampGroup,
     .sidebar.mobileOpen[data-mobile-panel="output"] #outputGroup{display:block}
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #editSectionContent,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #exportSectionContent{display:none}
     .sidebar.mobileOpen .settingsGroup{border-top:0;margin-top:0;padding-top:2px}
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup{border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
     .mobileBackdrop{
@@ -716,6 +718,7 @@
     .sidebar.mobileOpen .editScopeHint{display:block;min-height:31px;margin-top:7px}
     .sidebar.mobileOpen .editScopeActions{display:grid;position:static;width:auto;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;padding:8px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}
     .sidebar.mobileOpen .editScopeActions button{padding:7px 5px;text-align:center}
+    .sidebar.mobileOpen .editScopeDivider{grid-column:1/-1;width:100%;margin:2px 0}
     .sidebar.mobileOpen .editScopeActions button:last-child{grid-column:1/-1}
     .sectionCollapseToggle,.groupCollapseToggle{display:none}
     .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
@@ -778,7 +781,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.3</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.4</div>
       </div>
 
       <div class="photoPicker">
@@ -794,7 +797,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.3</div>
+        <div class="appVersion">Version 1.5.4</div>
       </div>
 
       <div id="profileBar" class="profileBar">
