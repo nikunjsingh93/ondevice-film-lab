@@ -183,6 +183,12 @@
       body.serverEdition #filmstripAddBtn,body.serverEdition #openGalleryBtn{display:none!important}
       body.serverEdition .serverCoreFilmstrip{display:none!important}
       body.serverEdition .editScopeSwitch,body.serverEdition .editScopeHint{display:none!important}
+      body.serverEdition .previewPreferences,body.serverEdition .editScopeTitle{display:none!important}
+      body.serverEdition #editScopeBar{position:static;padding:0;border:0;background:none;box-shadow:none;backdrop-filter:none;flex:0 0 auto}
+      body.serverEdition #editScopeMenuBtn{display:grid;place-items:center;height:38px;margin:0;letter-spacing:0}
+      body.serverEdition #editScopeBar .editScopeActions{position:fixed;z-index:2400;width:min(230px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow-y:auto}
+      body.serverEdition #editScopeBar .editScopeActions button{min-height:40px;font-size:12px}
+      @media(max-width:900px){body.serverEdition #editScopeMenuBtn{height:44px}}
       .serverLibraryButton{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
       .serverLibraryButton svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
       .serverSaveButton.saved{border-color:#4d947d!important;color:#b8f0d9!important}
@@ -192,6 +198,32 @@
     `;
     document.head.appendChild(style);
     document.body.classList.add("serverEdition");
+    const editMenu = document.querySelector("#editScopeBar");
+    const editMenuButton = document.querySelector("#editScopeMenuBtn");
+    const fullscreen = document.querySelector("#fullBtn");
+    if (editMenu && editMenuButton && fullscreen) {
+      fullscreen.after(editMenu);
+      editMenuButton.classList.add("iconButton");
+      editMenuButton.title = "Photo edit actions";
+      editMenuButton.setAttribute("aria-label", "Photo edit actions");
+      editMenuButton.innerHTML = '<svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="4" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="20" cy="12" r="1.5"/></svg>';
+      const positionEditMenu = () => {
+        if (!editMenu.classList.contains("menuOpen")) return;
+        const actions = editMenu.querySelector(".editScopeActions");
+        const rect = editMenuButton.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const width = viewport?.width || window.innerWidth;
+        const height = viewport?.height || window.innerHeight;
+        const left = viewport?.offsetLeft || 0, top = viewport?.offsetTop || 0;
+        actions.style.right = "auto";
+        actions.style.left = `${Math.max(left + 12, Math.min(rect.right - actions.offsetWidth, left + width - actions.offsetWidth - 12))}px`;
+        actions.style.top = `${Math.max(top + 12, Math.min(rect.bottom + 6, top + height - actions.offsetHeight - 12))}px`;
+      };
+      editMenuButton.addEventListener("click", positionEditMenu);
+      window.addEventListener("resize", positionEditMenu);
+      window.addEventListener("scroll", positionEditMenu, true);
+      window.visualViewport?.addEventListener("resize", positionEditMenu);
+    }
     const coreFilmstrip = document.querySelector(".filmstripWrap");
     if (coreFilmstrip) {
       coreFilmstrip.classList.add("serverCoreFilmstrip");

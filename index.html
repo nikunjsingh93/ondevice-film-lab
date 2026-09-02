@@ -126,6 +126,17 @@
   .subsectionTitle{font-size:13px;font-weight:750;color:var(--text);margin:2px 0 8px}
   .editBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
   .control{margin:11px 0}
+  .colorMixTabs{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px;margin:10px 0}
+  .colorMixTabs button{min-width:0;min-height:40px;padding:4px 0;border:2px solid transparent;background:transparent;border-radius:8px}
+  .colorMixTabs .swatch{display:block;width:21px;height:21px;margin:auto;border:2px solid var(--swatch);border-radius:50%}
+  .colorMixTabs button[aria-selected="true"]{border-color:var(--text);background:#273447}
+  .colorMixTabs button[aria-selected="true"] .swatch{background:var(--swatch);box-shadow:inset 0 0 0 4px #273447}
+  .colorGradeTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:10px 0}
+  .colorGradeTabs button{min-width:0;min-height:40px;padding:6px 2px;font-size:11px}
+  .colorGradeTabs button[aria-selected="true"]{background:var(--accent);color:#101824;font-weight:750}
+  .colorPanel[hidden]{display:none!important}
+  .colorPanel h5{margin:5px 0;font-size:12px;color:var(--muted)}
+  .colorMixTabs button:focus-visible,.colorGradeTabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
   .control .value{color:var(--accent);font-variant-numeric:tabular-nums}
   .stampColorRow{align-items:center}
@@ -674,7 +685,7 @@
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
     .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
-    .sidebar.mobileOpen[data-mobile-panel="grain"] #grainGroup,
+    .sidebar.mobileOpen[data-mobile-panel="colors"] #colorsGroup,
     .sidebar.mobileOpen[data-mobile-panel="stamp"] #stampGroup,
     .sidebar.mobileOpen[data-mobile-panel="output"] #outputGroup{display:block}
     .sidebar.mobileOpen[data-mobile-panel="menu"] #editSectionContent,
@@ -811,7 +822,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.6.9</div>
+        <div class="appVersion desktopAppVersion">Version 1.7.0</div>
       </div>
 
       <div class="photoPicker">
@@ -827,7 +838,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.6.9</div>
+        <div class="appVersion">Version 1.7.0</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -924,12 +935,30 @@
             <input id="contrast" type="range" min="-100" max="100" value="0" aria-label="Contrast">
           </div>
           <div class="control">
-            <label><span>Saturation</span><span id="saturationVal" class="value">0%</span></label>
-            <input id="saturation" type="range" min="-100" max="100" value="0" aria-label="Saturation">
-          </div>
-          <div class="control">
             <label><span>Temperature</span><span id="temperatureVal" class="value">0</span></label>
             <input id="temperature" type="range" min="-100" max="100" value="0" aria-label="Temperature, cool to warm">
+          </div>
+        </div>
+
+        <div id="colorsGroup" class="editBlock settingsGroup">
+          <button class="groupCollapseToggle" type="button" aria-expanded="true">
+            <span>Colors</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
+          </button>
+          <div class="control">
+            <label for="saturation"><span>Saturation</span><span id="saturationVal" class="value">0%</span></label>
+            <input id="saturation" type="range" min="-100" max="100" value="0" aria-label="Saturation">
+          </div>
+          <div class="editBlock">
+            <h4 class="subsectionTitle">Color Mix</h4>
+            <div id="colorMixTabs" class="colorMixTabs" role="tablist" aria-label="Color to adjust"></div>
+            <div id="colorMixPanels"></div>
+          </div>
+          <div class="editBlock">
+            <h4 class="subsectionTitle">Color grading</h4>
+            <p class="notice">Choose a tonal range. Hue selects the tint; saturation adds it. Luminance adjusts brightness.</p>
+            <div id="colorGradeTabs" class="colorGradeTabs" role="tablist" aria-label="Tonal range to grade"></div>
+            <div id="colorGradePanels"></div>
           </div>
         </div>
 
@@ -977,13 +1006,6 @@
             <label><span>Light leaks</span><span id="lightLeaksVal" class="value">0%</span></label>
             <input id="lightLeaks" type="range" min="0" max="100" value="0">
           </div>
-        </div>
-
-        <div id="grainGroup" class="editBlock settingsGroup">
-          <button class="groupCollapseToggle" type="button" aria-expanded="true">
-            <span>Film grain</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
           <label class="check"><input id="grainEnabled" type="checkbox" checked> Add film grain</label>
 
           <div id="grainOptions" style="margin-top:10px">
@@ -1155,7 +1177,7 @@
         <div class="mobileTools" aria-label="Editing tools">
           <button type="button" data-panel="softening" data-title="Edit">Edit</button>
           <button type="button" data-panel="film" data-title="Film look">Film</button>
-          <button type="button" data-panel="grain" data-title="Film grain">Grain</button>
+          <button type="button" data-panel="colors" data-title="Colors">Colors</button>
           <button type="button" data-panel="stamp" data-title="Date stamp">Stamp</button>
           <button type="button" data-panel="output" data-title="Quality">Quality</button>
         </div>
@@ -1651,7 +1673,64 @@
     }
   }
 
+  const colorMixChannels=[
+    ["Red",0,"#ee535b"],["Orange",30,"#ef943e"],["Yellow",60,"#e6d547"],
+    ["Green",120,"#64b55c"],["Aqua",180,"#44c6c9"],["Blue",240,"#617fe2"],
+    ["Purple",270,"#a569db"],["Magenta",300,"#d756bd"]
+  ];
+  const colorGradeRanges=["Shadows","Midtones","Highlights"];
+  const colorSettingControls=[];
+  function buildColorControls(prefix,choices){
+    const tabs=$(`#${prefix}Tabs`),panels=$(`#${prefix}Panels`);
+    choices.forEach((choice,index)=>{
+      const name=choice[0],id=prefix+name;
+      const tab=document.createElement("button");
+      tab.type="button";tab.id=id+"Tab";tab.setAttribute("role","tab");
+      tab.setAttribute("aria-controls",id+"Panel");tab.setAttribute("aria-selected",String(index===0));
+      tab.tabIndex=index===0?0:-1;tab.title=name;tab.setAttribute("aria-label",name);
+      if(prefix==="colorMix"){
+        tab.style.setProperty("--swatch",choice[2]);
+        tab.innerHTML='<span class="swatch" aria-hidden="true"></span>';
+      }else tab.textContent=name;
+      const panel=document.createElement("div");
+      panel.id=id+"Panel";panel.className="colorPanel";panel.hidden=index!==0;
+      panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tab.id);
+      const heading=document.createElement("h5");heading.textContent=name;panel.appendChild(heading);
+      for(const component of ["Hue","Saturation","Luminance"]){
+        const key=id+component,isGrade=prefix==="colorGrade",isHue=component==="Hue";
+        const minimum=isGrade&&component!=="Luminance"?0:-100;
+        const maximum=isGrade&&isHue?360:100;
+        const wrapper=document.createElement("div");wrapper.className="control";
+        wrapper.innerHTML=`<label for="${key}"><span>${component}</span><span id="${key}Val" class="value">0</span></label><input id="${key}" type="range" min="${minimum}" max="${maximum}" value="0" data-color-setting="true" aria-label="${name} ${component.toLowerCase()}">`;
+        const control=wrapper.querySelector("input");
+        els[key]=control;els[key+"Val"]=wrapper.querySelector(".value");
+        colorSettingControls.push(control);panel.appendChild(wrapper);
+      }
+      tab.addEventListener("click",()=>{
+        [...tabs.children].forEach(button=>{
+          const selected=button===tab;
+          button.setAttribute("aria-selected",String(selected));button.tabIndex=selected?0:-1;
+        });
+        [...panels.children].forEach(child=>{child.hidden=child!==panel});
+      });
+      tab.addEventListener("keydown",event=>{
+        const buttons=[...tabs.children];let next=index;
+        if(event.key==="ArrowRight")next=(index+1)%buttons.length;
+        else if(event.key==="ArrowLeft")next=(index+buttons.length-1)%buttons.length;
+        else if(event.key==="Home")next=0;
+        else if(event.key==="End")next=buttons.length-1;
+        else return;
+        event.preventDefault();buttons[next].click();buttons[next].focus();
+      });
+      tabs.appendChild(tab);panels.appendChild(panel);
+    });
+  }
+  buildColorControls("colorMix",colorMixChannels);
+  buildColorControls("colorGrade",colorGradeRanges.map(name=>[name]));
+  const colorSettingDefaults=Object.fromEntries(colorSettingControls.map(control=>[control.id,"0"]));
+
   const photoSettingControls=[
+    ...colorSettingControls,
     els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
@@ -1662,7 +1741,7 @@
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
   }
-  function cloneSettings(settings){return {...settings}}
+  function cloneSettings(settings){return {...colorSettingDefaults,...settings}}
   function capturePhotoSettings(){
     const settings={};
     for(const control of photoSettingControls)settings[control.id]=controlValue(control);
@@ -1670,6 +1749,7 @@
   }
   function loadPhotoSettings(settings){
     if(!settings)return;
+    settings=cloneSettings(settings);
     for(const control of photoSettingControls){
       if(!(control.id in settings))continue;
       if(control.type==="checkbox")control.checked=!!settings[control.id];
@@ -1684,12 +1764,13 @@
   }
   function settingValue(settings,id){
     if(settings&&Object.prototype.hasOwnProperty.call(settings,id))return settings[id];
+    if(settings&&Object.prototype.hasOwnProperty.call(colorSettingDefaults,id))return "0";
     const control=els[id];
     return control ? controlValue(control) : undefined;
   }
   function settingNumber(settings,id){return +settingValue(settings,id)}
   function settingsMatch(a,b){
-    return photoSettingControls.every(control=>a?.[control.id]===b?.[control.id]);
+    return photoSettingControls.every(control=>(a?.[control.id]??colorSettingDefaults[control.id])===(b?.[control.id]??colorSettingDefaults[control.id]));
   }
   function itemHasCustomEdits(item){
     return !!item&&(item.rotation!==0||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||!settingsMatch(item.settings,batchSettings));
@@ -2487,6 +2568,96 @@
       pixels[index]=Math.round(red*255);
       pixels[index+1]=Math.round(green*255);
       pixels[index+2]=Math.round(blue*255);
+    }
+    context.putImageData(image,0,0);
+    return canvas;
+  }
+
+  // Color Mix uses overlapping, circular hue bands, not hard color cutoffs.
+  // The table is built once per render; no arrays are allocated per pixel.
+  function colorSettingNumber(settings,id,min=-100,max=100){
+    const value=Number(settingValue(settings,id));
+    return Number.isFinite(value)?Math.max(min,Math.min(max,value)):0;
+  }
+  function createColorMixTable(settings){
+    const adjustments=colorMixChannels.map(([name])=>["Hue","Saturation","Luminance"].map(component=>
+      colorSettingNumber(settings,"colorMix"+name+component)/100));
+    if(!adjustments.some(values=>values.some(Boolean)))return null;
+    const table=new Float32Array(361*3);
+    for(let hue=0;hue<=360;hue++){
+      let left=0;
+      while(left<7&&hue>=colorMixChannels[left+1][1])left++;
+      const right=(left+1)%8,start=colorMixChannels[left][1],end=right===0?360:colorMixChannels[right][1];
+      const weight=smoothStep(start,end,hue);
+      for(let component=0;component<3;component++){
+        table[hue*3+component]=adjustments[left][component]*(1-weight)+adjustments[right][component]*weight;
+      }
+    }
+    return table;
+  }
+  function hslChannel(hue,saturation,lightness,offset){
+    const k=(offset+hue/30)%12;
+    return lightness-saturation*Math.min(lightness,1-lightness)*Math.max(-1,Math.min(k-3,9-k,1));
+  }
+  function applyColorAdjustments(canvas,settings=null){
+    const mix=createColorMixTable(settings);
+    const grades=colorGradeRanges.map(name=>{
+      const hue=colorSettingNumber(settings,"colorGrade"+name+"Hue",0,360);
+      const saturation=colorSettingNumber(settings,"colorGrade"+name+"Saturation",0,100)/100;
+      const luminance=colorSettingNumber(settings,"colorGrade"+name+"Luminance")/100;
+      const red=hslChannel(hue,1,.5,0),green=hslChannel(hue,1,.5,8),blue=hslChannel(hue,1,.5,4);
+      const luma=.2126*red+.7152*green+.0722*blue;
+      return [(red-luma)*saturation,(green-luma)*saturation,(blue-luma)*saturation,luminance];
+    });
+    const grading=grades.some(values=>values.some(Boolean));
+    if(!mix&&!grading)return canvas;
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const image=context.getImageData(0,0,canvas.width,canvas.height),pixels=image.data;
+    for(let index=0;index<pixels.length;index+=4){
+      let red=pixels[index]/255,green=pixels[index+1]/255,blue=pixels[index+2]/255;
+      if(mix){
+        const high=Math.max(red,green,blue),low=Math.min(red,green,blue),delta=high-low;
+        if(delta>1e-6){
+          let hue=high===red?60*((green-blue)/delta):high===green?60*((blue-red)/delta+2):60*((red-green)/delta+4);
+          hue=(hue+360)%360;
+          let lightness=(high+low)/2,saturation=delta/(1-Math.abs(2*lightness-1));
+          const slot=Math.floor(hue),fraction=hue-slot,base=slot*3;
+          const hueShift=mix[base]*(1-fraction)+mix[base+3]*fraction;
+          const saturationShift=mix[base+1]*(1-fraction)+mix[base+4]*fraction;
+          const luminanceShift=mix[base+2]*(1-fraction)+mix[base+5]*fraction;
+          // Protect near-neutral pixels: a tiny noisy hue should not move gray brightness.
+          const colorWeight=smoothStep(0,.15,saturation);
+          hue=(hue+hueShift*45+360)%360;
+          lightness=clamp01(lightness+luminanceShift*.6*colorWeight*(luminanceShift>0?1-lightness:lightness));
+          saturation=clamp01(saturation*(1+saturationShift));
+          red=hslChannel(hue,saturation,lightness,0);
+          green=hslChannel(hue,saturation,lightness,8);
+          blue=hslChannel(hue,saturation,lightness,4);
+        }
+      }
+      if(grading){
+        const luma=.2126*red+.7152*green+.0722*blue;
+        const shadowWeight=1-smoothStep(.15,.6,luma),highlightWeight=smoothStep(.4,.85,luma);
+        const midtoneWeight=1-shadowWeight-highlightWeight;
+        const shadow=grades[0],midtone=grades[1],highlight=grades[2];
+        // Smooth masks sum to one. Anchor true black/white and preserve luminance
+        // when adding chroma; the separate Luminance controls shift tone explicitly.
+        const envelope=4*luma*(1-luma);
+        const tone=(shadow[3]*shadowWeight+midtone[3]*midtoneWeight+highlight[3]*highlightWeight)*.5*envelope;
+        const target=clamp01(luma+tone),tint=.35*envelope;
+        red+=tone+tint*(shadow[0]*shadowWeight+midtone[0]*midtoneWeight+highlight[0]*highlightWeight);
+        green+=tone+tint*(shadow[1]*shadowWeight+midtone[1]*midtoneWeight+highlight[1]*highlightWeight);
+        blue+=tone+tint*(shadow[2]*shadowWeight+midtone[2]*midtoneWeight+highlight[2]*highlightWeight);
+        // Compress chroma back into RGB gamut rather than clipping individual channels.
+        const high=Math.max(red,green,blue),low=Math.min(red,green,blue);
+        let scale=1;
+        if(high>1)scale=Math.min(scale,(1-target)/(high-target));
+        if(low<0)scale=Math.min(scale,target/(target-low));
+        red=target+(red-target)*scale;green=target+(green-target)*scale;blue=target+(blue-target)*scale;
+      }
+      pixels[index]=Math.round(clamp01(red)*255);
+      pixels[index+1]=Math.round(clamp01(green)*255);
+      pixels[index+2]=Math.round(clamp01(blue)*255);
     }
     context.putImageData(image,0,0);
     return canvas;
@@ -3299,6 +3470,7 @@
       const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
       applyChromaNoiseReduction(editedBase,previewScale,settings);
       applyBasicAdjustments(editedBase,settings);
+      applyColorAdjustments(editedBase,settings);
       applyColorLut(editedBase,settings);
       applyChromaticAberration(editedBase,settings);
       applyFade(editedBase,settings);
@@ -3427,6 +3599,7 @@
   const DEFAULT_CAMERA_PROFILE_ID="cam1-default";
 
   function normalizeProfileSettings(settings,fallback=batchSettings){
+    if(settings)settings=cloneSettings(settings);
     const normalized={};
     for(const control of photoSettingControls){
       let value=settings&&Object.prototype.hasOwnProperty.call(settings,control.id)
@@ -3547,6 +3720,11 @@
 
   function updateSliderLabels(){
     const signedPercent=value=>`${value>0?"+":""}${value}%`;
+    for(const control of colorSettingControls){
+      const value=+control.value;
+      els[control.id+"Val"].textContent=control.id.startsWith("colorGrade")&&control.id.endsWith("Hue")
+        ? `${value}°` : `${value>0?"+":""}${value}`;
+    }
     const exposureStops=+els.exposure.value/50;
     els.exposureVal.textContent=`${exposureStops>0?"+":""}${exposureStops.toFixed(1)} EV`;
     els.temperatureVal.textContent=`${+els.temperature.value>0?"+":""}${els.temperature.value}`;
@@ -4074,7 +4252,7 @@
         const file=fileFromStoredPhoto(stored);
         const state=stateById.get(stored.id)||{};
         const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
-        const restoredSettings={...cloneSettings(batchSettings),...(state.settings||{})};
+        const restoredSettings={...cloneSettings(batchSettings),...(state.settings?cloneSettings(state.settings):{})};
         if(restoredSettings.lutSelect!=="none"&&!customLuts.has(restoredSettings.lutSelect))restoredSettings.lutSelect="none";
         const item={
           libraryId:stored.id,
@@ -4725,6 +4903,7 @@
     const out=processCanvas(src,1,settings);
     applyChromaNoiseReduction(out,1,settings);
     applyBasicAdjustments(out,settings);
+    applyColorAdjustments(out,settings);
     applyColorLut(out,settings);
     await processingCheckpoint(cancellable);
     applyChromaticAberration(out,settings);

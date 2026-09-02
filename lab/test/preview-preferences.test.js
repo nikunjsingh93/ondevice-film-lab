@@ -79,6 +79,34 @@ test("Server Lab selection toggle is in gallery controls before Select all, not 
   assert.match(controls, /class="gallerySelectionControls"/);
 });
 
+test("Server Lab moves the existing edit menu after fullscreen and fits its popup on narrow screens", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../public/lab-editor.js"), "utf8");
+  const actions = { style: {}, offsetWidth: 230, offsetHeight: 255 };
+  const bar = { classList: { contains: () => true }, querySelector: () => actions };
+  const button = new Events();
+  button.classList = { add() {} };
+  button.attributes = {};
+  button.setAttribute = (name, value) => { button.attributes[name] = value; };
+  button.getBoundingClientRect = () => ({ right: 150, bottom: 170 });
+  const fullscreen = { after(element) { this.next = element; } };
+  const nodes = { "#editScopeBar": bar, "#editScopeMenuBtn": button, "#fullBtn": fullscreen };
+  const window = new Events(); window.innerWidth = 320; window.innerHeight = 480;
+  const setup = source.slice(source.indexOf('    const editMenu ='), source.indexOf('    const coreFilmstrip ='));
+  vm.runInNewContext(setup, { document: { querySelector: selector => nodes[selector] }, window });
+  assert.equal(fullscreen.next, bar);
+  assert.equal(button.attributes["aria-label"], "Photo edit actions");
+  assert.match(button.innerHTML, /<svg/);
+  button.emit("click");
+  assert.equal(actions.style.left, "12px");
+  assert.equal(actions.style.top, "176px");
+  button.getBoundingClientRect = () => ({ right: 318, bottom: 440 });
+  window.emit("resize");
+  assert.equal(actions.style.left, "78px");
+  assert.equal(actions.style.top, "213px");
+  assert.match(source, /body\.serverEdition \.previewPreferences,body\.serverEdition \.editScopeTitle\{display:none!important\}/);
+  assert.match(source, /#editScopeBar \.editScopeActions\{position:fixed/);
+});
+
 for (const pointerType of ["mouse", "touch", "pen"]) {
   test(`${pointerType}: reveals only after holding and returns to edited on release`, () => {
     const h = harness();

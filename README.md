@@ -60,14 +60,15 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
 - Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step
 - Supports JPEG, PNG, and WebP input
-- Basic exposure, temperature, highlights, shadows, contrast, and saturation adjustments
+- Basic exposure, temperature, highlights, shadows, and contrast adjustments
+- **Colors**: global saturation, eight-channel Color Mix (red, orange, yellow, green, aqua, blue, purple, magenta) with hue/saturation/luminance, and separate shadow/midtone/highlight color grading. New controls start at zero and are saved with profiles and individual edits, including copy/paste and undo/redo.
 - Custom `.cube` LUT import with **No LUT** as the default, adjustable LUT strength, 1D and 3D LUT support, tetrahedral 3D interpolation, live preview, matching export, and on-device persistence
 - Adjustable de-sharpen strength, halo radius, and edge threshold
 - Old-film fade with adjustable strength, set to 30% by default
 - Diffusion-style highlight bloom inspired by black-mist filters, set to 30% by default
 - Highlight-sensitive red/orange film halation, set to 30% by default with adjustable strength
 - Radial red/cyan chromatic aberration, set to 30% by default
-- Film grain enabled by default, with adjustable strength, size, and roughness
+- Film grain inside **Film look**, enabled by default with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
 - Vertically scrolling gallery where one tap opens a photo for editing, with a separate Select mode for multi-selecting and removing photos
 - Batch-first editing with optional per-photo overrides, Custom filmstrip badges, copy/paste edits, one-click reset, and session undo/redo
