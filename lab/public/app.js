@@ -42,6 +42,8 @@
   async function jsonRequest(url, options = {}) {
     const response = await fetch(url, options);
     const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) { location.replace("/login"); throw new Error("Please sign in"); }
+    if (payload.code === "PASSWORD_CHANGE_REQUIRED") { location.replace("/login"); throw new Error(payload.error); }
     if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
     return payload;
   }
@@ -50,8 +52,12 @@
     const [library, session] = await Promise.all([jsonRequest("/api/library"), jsonRequest("/api/session").catch(() => ({ user: null }))]);
     elements.photoCount.textContent = library.photos.toLocaleString();
     elements.librarySize.textContent = formatBytes(library.originalBytes);
-    elements.freeSpace.textContent = library.storage ? formatBytes(library.storage.free) : "—";
-    elements.sessionLabel.textContent = session.user ? `Private Tailnet · ${session.user.name}` : "Private Server Lab";
+    elements.freeSpace.textContent = library.quotaBytes == null
+      ? (library.storage ? formatBytes(library.storage.free) : "—")
+      : formatBytes(Math.max(0, library.quotaBytes - library.usedBytes));
+    elements.sessionLabel.textContent = session.user
+      ? `Signed in as ${session.user.username}${session.tailscaleUser ? ` · ${session.tailscaleUser.name}` : ""}`
+      : "Private Server Lab";
   }
 
   function updateSelection() {

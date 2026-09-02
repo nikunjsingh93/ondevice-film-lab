@@ -1,13 +1,13 @@
 {
   "name": "ondevice-film-lab-server",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
   "description": "Self-hosted shared photo library for OnDevice Film Lab",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check public/app.js && node --check public/lab-editor.js",
-    "test": "node --test test/server.test.js"
+    "check": "node --check server.js && node --check public/app.js && node --check public/auth.js && node --check public/settings.js && node --check public/lab-editor.js",
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=22"

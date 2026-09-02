@@ -122,6 +122,9 @@ Server Lab is an optional self-hosted companion. It does not replace or change t
 ### Server Lab features
 
 - Shared responsive gallery for phones, tablets and computers
+- Password-protected accounts with secure, expiring sign-in sessions
+- A private photo library, edits, camera profiles and LUTs for every account
+- Administrator account management and per-user storage allowances
 - Multi-photo and folder upload with visible progress and cancellation
 - Uploads stream directly into the configured library directory
 - Unmodified originals organized by capture year and month
@@ -145,11 +148,13 @@ Server Lab separates the large photo library from its SQLite state. Bind `/data`
 
 ```text
 /external-drive/OnDeviceFilmLab/
-├── originals/      # Original uploads; never modified
-├── previews/       # Lightweight editing previews
-├── thumbnails/     # Gallery images
-├── exports/        # Finished Film Lab JPEGs
-└── luts/           # Shared LUT storage
+└── users/
+    └── account-id/
+        ├── originals/      # Original uploads; never modified
+        ├── previews/       # Lightweight editing previews
+        ├── thumbnails/     # Gallery images
+        ├── exports/        # Finished Film Lab JPEGs
+        └── luts/           # Account's custom LUTs
 
 /var/lib/ondevice-film-lab/
 └── film-lab.db     # Library metadata and edit state on Linux storage
@@ -240,6 +245,29 @@ From another device on the same local network, open `http://UBUNTU-IP:3000`. You
 
 After deployment, open `http://UBUNTU-IP:3000` on a device connected to the same network.
 
+### First login and user accounts
+
+The initial administrator credentials are:
+
+```text
+Username: admin
+Password: admin
+```
+
+Server Lab requires the administrator to replace this temporary password immediately after the first login. The new password must contain at least eight characters.
+
+After signing in, select **Settings** to:
+
+- Change your own username or password.
+- Add an account with a temporary password.
+- Assign a storage allowance in GB, or leave it blank for unlimited storage.
+- Change an account's allowance or reset its password.
+- Remove an account and all photos belonging to it.
+
+Every added user must replace their temporary password at first login. Existing photographs from an older single-user Server Lab database are automatically assigned to the initial administrator during the upgrade. Account sessions last for 30 days unless the user signs out or an administrator resets that account's password.
+
+Direct-IP login uses unencrypted HTTP, so use it only on a private, trusted LAN. Do not forward port `3000` through the router. Use the Tailscale HTTPS option below when connecting across networks or untrusted Wi-Fi.
+
 The included GitHub Actions workflow builds `ghcr.io/nikunjsingh93/ondevice-film-lab-server:latest` after relevant pushes. After its first successful run, open the package on GitHub and make it **Public**, or configure Portainer with GitHub Container Registry credentials. A public package is simplest for a private Tailscale-only service because it allows downloading the software image without making the running photo library public.
 
 After future pushes, wait for the **Build Server Lab image** workflow to finish, then open the Portainer stack and use **Pull and redeploy** with **Re-pull image** enabled. If GitOps is enabled, turn on **Re-pull image** there as well so Portainer retrieves the image produced from the new commit.
@@ -273,7 +301,7 @@ The gallery/backend code is under `lab/`, while `docker-compose.lab.yml` defines
 
 ### Backups
 
-Stop Server Lab briefly or use SQLite's online backup facilities before copying a live database. At minimum, regularly back up the complete `/srv/ondevice-film-lab` directory to a second physical disk or another machine. An external drive by itself is storage, not a backup.
+Stop Server Lab briefly or use SQLite's online backup facilities before copying a live database. At minimum, regularly back up both `/media/wvx/TOSH 4TB/OnDeviceFilmLab` and `/var/lib/ondevice-film-lab` to a second physical disk or another machine. The external drive by itself is storage, not a backup.
 
 ## License
 

@@ -13,12 +13,13 @@
     <header class="appHeader">
       <a class="brand" href="/" aria-label="OnDevice Film Lab Server home">
         <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
-        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.0</small></span>
+        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.3</small></span>
       </a>
       <div class="headerActions">
         <button id="uploadButton" class="primary" type="button">+ Add photos</button>
         <button id="folderButton" type="button">Add folder</button>
         <button id="selectButton" type="button" aria-pressed="false">Select</button>
+        <a class="buttonLink" href="/settings">Settings</a>
       </div>
       <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple hidden>
       <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple hidden>
@@ -34,7 +35,7 @@
         <div class="libraryStats" aria-label="Library information">
           <div><strong id="photoCount">0</strong><span>Photos</span></div>
           <div><strong id="librarySize">0 B</strong><span>Originals</span></div>
-          <div><strong id="freeSpace">—</strong><span>Free space</span></div>
+          <div><strong id="freeSpace">—</strong><span>Available</span></div>
         </div>
       </section>
 

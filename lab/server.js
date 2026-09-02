@@ -20,19 +20,14 @@ const MAX_UPLOAD_BYTES = Math.max(10, Number(process.env.MAX_UPLOAD_MB) || 150) 
 const TRUST_TAILSCALE_HEADERS = String(process.env.TRUST_TAILSCALE_HEADERS || "true") === "true";
 const REQUIRE_STORAGE_MARKER = String(process.env.REQUIRE_STORAGE_MARKER || "false") === "true";
 const STORAGE_MARKER = path.join(DATA_DIR, ".filmlab-storage");
-const directories = {
-  originals: path.join(DATA_DIR, "originals"),
-  previews: path.join(DATA_DIR, "previews"),
-  thumbnails: path.join(DATA_DIR, "thumbnails"),
-  exports: path.join(DATA_DIR, "exports"),
-  incoming: path.join(DATA_DIR, ".incoming"),
-  luts: path.join(DATA_DIR, "luts")
-};
+const SESSION_COOKIE = "film_lab_session";
+const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 8;
 
 if (REQUIRE_STORAGE_MARKER && !fs.existsSync(STORAGE_MARKER)) {
   throw new Error(`External storage marker is missing at ${STORAGE_MARKER}. Refusing to write to a possibly unmounted internal directory.`);
 }
-for (const directory of [DATA_DIR, STATE_DIR, ...Object.values(directories)]) {
+for (const directory of [DATA_DIR, STATE_DIR, path.join(DATA_DIR, ".incoming")]) {
   fs.mkdirSync(directory, { recursive: true });
 }
 
@@ -40,74 +35,213 @@ const DATABASE_PATH = path.join(STATE_DIR, "film-lab.db");
 const db = new Database(DATABASE_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
+
+function passwordHash(password) {
+  const salt = crypto.randomBytes(16);
+  const digest = crypto.scryptSync(String(password), salt, 64);
+  return `scrypt$${salt.toString("base64url")}$${digest.toString("base64url")}`;
+}
+
+function passwordMatches(password, encoded) {
+  try {
+    const [scheme, saltText, digestText] = String(encoded).split("$");
+    if (scheme !== "scrypt" || !saltText || !digestText) return false;
+    const expected = Buffer.from(digestText, "base64url");
+    const actual = crypto.scryptSync(String(password), Buffer.from(saltText, "base64url"), expected.length);
+    return crypto.timingSafeEqual(actual, expected);
+  } catch { return false; }
+}
+
 db.exec(`
-  CREATE TABLE IF NOT EXISTS photos (
+  CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
-    content_hash TEXT NOT NULL UNIQUE,
-    original_name TEXT NOT NULL,
-    stored_path TEXT NOT NULL,
-    preview_path TEXT NOT NULL,
-    thumbnail_path TEXT NOT NULL,
-    export_path TEXT,
-    export_name TEXT,
-    mime_type TEXT NOT NULL,
-    byte_size INTEGER NOT NULL,
-    width INTEGER NOT NULL,
-    height INTEGER NOT NULL,
-    captured_at TEXT,
-    imported_at TEXT NOT NULL,
-    edits_json TEXT NOT NULL DEFAULT '{}'
-  );
-  CREATE INDEX IF NOT EXISTS photos_imported_at ON photos(imported_at DESC);
-  CREATE INDEX IF NOT EXISTS photos_captured_at ON photos(captured_at DESC);
-  CREATE TABLE IF NOT EXISTS app_state (
-    key TEXT PRIMARY KEY,
-    value_json TEXT NOT NULL,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin','user')),
+    quota_bytes INTEGER,
+    must_change_password INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
-  CREATE TABLE IF NOT EXISTS luts (
-    id TEXT PRIMARY KEY,
-    content_hash TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    file_name TEXT NOT NULL,
-    stored_path TEXT NOT NULL,
-    byte_size INTEGER NOT NULL,
-    created_at TEXT NOT NULL
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL
   );
+  CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
 `);
-if (!db.prepare("PRAGMA table_info(photos)").all().some(column => column.name === "export_name")) {
-  db.exec("ALTER TABLE photos ADD COLUMN export_name TEXT");
+
+let defaultAdmin = db.prepare("SELECT * FROM users WHERE role = 'admin' ORDER BY created_at LIMIT 1").get();
+if (!defaultAdmin) {
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  db.prepare("INSERT INTO users (id, username, password_hash, role, quota_bytes, must_change_password, created_at, updated_at) VALUES (?, 'admin', ?, 'admin', NULL, 1, ?, ?)")
+    .run(id, passwordHash("admin"), now, now);
+  defaultAdmin = db.prepare("SELECT * FROM users WHERE id = ?").get(id);
+  console.warn("Created the initial Server Lab administrator. Sign in with admin / admin and change the password immediately.");
 }
+
+const photoTableSql = `CREATE TABLE photos (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content_hash TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  stored_path TEXT NOT NULL,
+  preview_path TEXT NOT NULL,
+  thumbnail_path TEXT NOT NULL,
+  export_path TEXT,
+  export_name TEXT,
+  mime_type TEXT NOT NULL,
+  byte_size INTEGER NOT NULL,
+  preview_byte_size INTEGER NOT NULL DEFAULT 0,
+  thumbnail_byte_size INTEGER NOT NULL DEFAULT 0,
+  export_byte_size INTEGER NOT NULL DEFAULT 0,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  captured_at TEXT,
+  imported_at TEXT NOT NULL,
+  edits_json TEXT NOT NULL DEFAULT '{}',
+  UNIQUE(user_id, content_hash)
+)`;
+const stateTableSql = `CREATE TABLE app_state (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  value_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(user_id, key)
+)`;
+const lutTableSql = `CREATE TABLE luts (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  stored_path TEXT NOT NULL,
+  byte_size INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE(user_id, content_hash)
+)`;
+
+function migrateOwnedTable(name, createSql, normalize) {
+  const exists = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+  if (!exists) { db.exec(createSql); return; }
+  const columns = db.prepare(`PRAGMA table_info(${name})`).all().map(column => column.name);
+  const needsMigration = !columns.includes("user_id") || (name === "photos" && !columns.includes("export_byte_size"));
+  if (!needsMigration) return;
+  const rows = db.prepare(`SELECT * FROM ${name}`).all();
+  db.transaction(() => {
+    db.exec(`DROP TABLE ${name}`);
+    db.exec(createSql);
+    for (const row of rows) normalize(row);
+  })();
+}
+
+migrateOwnedTable("photos", photoTableSql, row => {
+  const storedSize = relativePath => {
+    if (!relativePath) return 0;
+    try { return fs.statSync(path.resolve(DATA_DIR, relativePath)).size; } catch { return 0; }
+  };
+  db.prepare(`
+    INSERT INTO photos (id,user_id,content_hash,original_name,stored_path,preview_path,thumbnail_path,export_path,export_name,mime_type,byte_size,preview_byte_size,thumbnail_byte_size,export_byte_size,width,height,captured_at,imported_at,edits_json)
+    VALUES (@id,@user_id,@content_hash,@original_name,@stored_path,@preview_path,@thumbnail_path,@export_path,@export_name,@mime_type,@byte_size,@preview_byte_size,@thumbnail_byte_size,@export_byte_size,@width,@height,@captured_at,@imported_at,@edits_json)
+  `).run({
+    ...row,
+    user_id: row.user_id || defaultAdmin.id,
+    export_name: row.export_name || null,
+    preview_byte_size: row.preview_byte_size || storedSize(row.preview_path),
+    thumbnail_byte_size: row.thumbnail_byte_size || storedSize(row.thumbnail_path),
+    export_byte_size: row.export_byte_size || storedSize(row.export_path)
+  });
+});
+migrateOwnedTable("app_state", stateTableSql, row => db.prepare("INSERT INTO app_state (user_id,key,value_json,updated_at) VALUES (?,?,?,?)")
+  .run(row.user_id || defaultAdmin.id, row.key, row.value_json, row.updated_at));
+migrateOwnedTable("luts", lutTableSql, row => db.prepare("INSERT INTO luts (id,user_id,content_hash,name,file_name,stored_path,byte_size,created_at) VALUES (?,?,?,?,?,?,?,?)")
+  .run(row.id, row.user_id || defaultAdmin.id, row.content_hash, row.name, row.file_name, row.stored_path, row.byte_size, row.created_at));
+db.exec(`
+  CREATE INDEX IF NOT EXISTS photos_user_imported ON photos(user_id, imported_at DESC);
+  CREATE INDEX IF NOT EXISTS photos_user_captured ON photos(user_id, captured_at DESC);
+`);
 
 const statements = {
   insertPhoto: db.prepare(`
     INSERT INTO photos (
-      id, content_hash, original_name, stored_path, preview_path, thumbnail_path,
-      mime_type, byte_size, width, height, captured_at, imported_at, edits_json
+      id, user_id, content_hash, original_name, stored_path, preview_path, thumbnail_path,
+      mime_type, byte_size, preview_byte_size, thumbnail_byte_size, width, height, captured_at, imported_at, edits_json
     ) VALUES (
-      @id, @content_hash, @original_name, @stored_path, @preview_path, @thumbnail_path,
-      @mime_type, @byte_size, @width, @height, @captured_at, @imported_at, '{}'
+      @id, @user_id, @content_hash, @original_name, @stored_path, @preview_path, @thumbnail_path,
+      @mime_type, @byte_size, @preview_byte_size, @thumbnail_byte_size, @width, @height, @captured_at, @imported_at, '{}'
     )
   `),
-  byHash: db.prepare("SELECT * FROM photos WHERE content_hash = ?"),
-  byId: db.prepare("SELECT * FROM photos WHERE id = ?"),
-  updateEdits: db.prepare("UPDATE photos SET edits_json = ? WHERE id = ?"),
-  updateExport: db.prepare("UPDATE photos SET export_path = ?, export_name = ? WHERE id = ?"),
-  deletePhoto: db.prepare("DELETE FROM photos WHERE id = ?"),
-  countPhotos: db.prepare("SELECT COUNT(*) AS count, COALESCE(SUM(byte_size), 0) AS bytes FROM photos"),
-  getState: db.prepare("SELECT value_json, updated_at FROM app_state WHERE key = ?"),
+  byHash: db.prepare("SELECT * FROM photos WHERE user_id = ? AND content_hash = ?"),
+  byId: db.prepare("SELECT * FROM photos WHERE user_id = ? AND id = ?"),
+  updateEdits: db.prepare("UPDATE photos SET edits_json = ? WHERE user_id = ? AND id = ?"),
+  updateExport: db.prepare("UPDATE photos SET export_path = ?, export_name = ?, export_byte_size = ? WHERE user_id = ? AND id = ?"),
+  deletePhoto: db.prepare("DELETE FROM photos WHERE user_id = ? AND id = ?"),
+  countPhotos: db.prepare("SELECT COUNT(*) AS count, COALESCE(SUM(byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
+  usagePhotos: db.prepare("SELECT COALESCE(SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
+  usageLuts: db.prepare("SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM luts WHERE user_id = ?"),
+  getState: db.prepare("SELECT value_json, updated_at FROM app_state WHERE user_id = ? AND key = ?"),
   setState: db.prepare(`
-    INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
+    INSERT INTO app_state (user_id, key, value_json, updated_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at
   `),
-  listLuts: db.prepare("SELECT * FROM luts ORDER BY name COLLATE NOCASE"),
-  lutById: db.prepare("SELECT * FROM luts WHERE id = ?"),
-  lutByHash: db.prepare("SELECT * FROM luts WHERE content_hash = ?"),
-  insertLut: db.prepare("INSERT INTO luts (id, content_hash, name, file_name, stored_path, byte_size, created_at) VALUES (@id, @content_hash, @name, @file_name, @stored_path, @byte_size, @created_at)")
+  listLuts: db.prepare("SELECT * FROM luts WHERE user_id = ? ORDER BY name COLLATE NOCASE"),
+  lutById: db.prepare("SELECT * FROM luts WHERE user_id = ? AND id = ?"),
+  lutByHash: db.prepare("SELECT * FROM luts WHERE user_id = ? AND content_hash = ?"),
+  insertLut: db.prepare("INSERT INTO luts (id, user_id, content_hash, name, file_name, stored_path, byte_size, created_at) VALUES (@id, @user_id, @content_hash, @name, @file_name, @stored_path, @byte_size, @created_at)"),
+  userById: db.prepare("SELECT * FROM users WHERE id = ?"),
+  userByName: db.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE"),
+  sessionByToken: db.prepare("SELECT sessions.*, users.id AS id, users.username, users.role, users.quota_bytes, users.must_change_password FROM sessions JOIN users ON users.id = sessions.user_id WHERE token_hash = ? AND expires_at > ?"),
+  deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?")
 };
 
 function safeJson(value, fallback = {}) {
   try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function userDirectories(userId) {
+  const safeId = String(userId);
+  if (!/^[a-f0-9-]{20,50}$/i.test(safeId)) throw new Error("Invalid account storage identifier");
+  const root = path.join(DATA_DIR, "users", safeId);
+  const result = {
+    root,
+    originals: path.join(root, "originals"),
+    previews: path.join(root, "previews"),
+    thumbnails: path.join(root, "thumbnails"),
+    exports: path.join(root, "exports"),
+    luts: path.join(root, "luts"),
+    incoming: path.join(DATA_DIR, ".incoming", safeId)
+  };
+  for (const directory of Object.values(result)) fs.mkdirSync(directory, { recursive: true });
+  return result;
+}
+
+function userUsage(userId) {
+  return statements.usagePhotos.get(userId).bytes + statements.usageLuts.get(userId).bytes;
+}
+
+function quotaError(user, additionalBytes, replacedBytes = 0) {
+  if (user.quota_bytes == null) return null;
+  const projected = userUsage(user.id) - Math.max(0, replacedBytes) + Math.max(0, additionalBytes);
+  if (projected <= user.quota_bytes) return null;
+  const error = new Error("Your Server Lab storage allowance is full. Remove photos or ask the administrator for more space.");
+  error.status = 413;
+  error.code = "QUOTA_EXCEEDED";
+  return error;
+}
+
+function publicUser(row) {
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    isAdmin: row.role === "admin",
+    quotaBytes: row.quota_bytes == null ? null : Number(row.quota_bytes),
+    mustChangePassword: Boolean(row.must_change_password)
+  };
 }
 
 function relativeDataPath(absolutePath) {
@@ -194,11 +328,11 @@ async function removeIfPresent(filename) {
   try { await fsp.unlink(filename); } catch (error) { if (error.code !== "ENOENT") throw error; }
 }
 
-async function deletePhotoIds(ids) {
+async function deletePhotoIds(ids, userId) {
   const uniqueIds = [...new Set(ids.map(String))].slice(0, 1000);
-  const rows = uniqueIds.map(id => statements.byId.get(id)).filter(Boolean);
+  const rows = uniqueIds.map(id => statements.byId.get(userId, id)).filter(Boolean);
   const transaction = db.transaction(records => {
-    for (const row of records) statements.deletePhoto.run(row.id);
+    for (const row of records) statements.deletePhoto.run(userId, row.id);
   });
   transaction(rows);
   for (const row of rows) {
@@ -208,10 +342,10 @@ async function deletePhotoIds(ids) {
   return rows.length;
 }
 
-async function importPhoto(file) {
+async function importPhoto(file, user) {
   if (!supportedUpload(file)) throw new Error(`${file.originalname} is not a supported JPEG, PNG, or WebP photo.`);
   const hash = await hashFile(file.path);
-  const duplicate = statements.byHash.get(hash);
+  const duplicate = statements.byHash.get(user.id, hash);
   if (duplicate) {
     await removeIfPresent(file.path);
     return { duplicate: true, photo: photoResponse(duplicate) };
@@ -224,6 +358,7 @@ async function importPhoto(file) {
   const month = String(captureDate.getMonth() + 1).padStart(2, "0");
   const id = crypto.randomUUID();
   const extension = inferExtension(file, metadata.format);
+  const directories = userDirectories(user.id);
   const originalDirectory = path.join(directories.originals, year, month);
   await fsp.mkdir(originalDirectory, { recursive: true });
   const originalPath = path.join(originalDirectory, `${id}${extension}`);
@@ -237,8 +372,12 @@ async function importPhoto(file) {
       source.clone().resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88, mozjpeg: true }).toFile(previewPath),
       source.clone().resize({ width: 520, height: 360, fit: "cover", position: "attention", withoutEnlargement: true }).jpeg({ quality: 78, mozjpeg: true }).toFile(thumbnailPath)
     ]);
+    const [previewStats, thumbnailStats] = await Promise.all([fsp.stat(previewPath), fsp.stat(thumbnailPath)]);
+    const quotaFailure = quotaError(user, file.size + previewStats.size + thumbnailStats.size);
+    if (quotaFailure) throw quotaFailure;
     const row = {
       id,
+      user_id: user.id,
       content_hash: hash,
       original_name: path.basename(file.originalname || `Photo${extension}`).slice(0, 240),
       stored_path: relativeDataPath(originalPath),
@@ -246,13 +385,15 @@ async function importPhoto(file) {
       thumbnail_path: relativeDataPath(thumbnailPath),
       mime_type: metadata.format === "png" ? "image/png" : metadata.format === "webp" ? "image/webp" : "image/jpeg",
       byte_size: file.size,
+      preview_byte_size: previewStats.size,
+      thumbnail_byte_size: thumbnailStats.size,
       width: metadata.autoOrient?.width || metadata.width,
       height: metadata.autoOrient?.height || metadata.height,
       captured_at: captureDate.toISOString(),
       imported_at: new Date().toISOString()
     };
     statements.insertPhoto.run(row);
-    return { duplicate: false, photo: photoResponse(statements.byId.get(id)) };
+    return { duplicate: false, photo: photoResponse(statements.byId.get(user.id, id)) };
   } catch (error) {
     await Promise.allSettled([removeIfPresent(originalPath), removeIfPresent(previewPath), removeIfPresent(thumbnailPath)]);
     throw error;
@@ -263,9 +404,80 @@ function asyncRoute(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 }
 
+function cookieValue(request, name) {
+  const prefix = `${name}=`;
+  for (const part of String(request.headers.cookie || "").split(";")) {
+    const item = part.trim();
+    if (item.startsWith(prefix)) return decodeURIComponent(item.slice(prefix.length));
+  }
+  return "";
+}
+
+function sessionTokenHash(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+function setSessionCookie(request, response, token, maxAgeSeconds) {
+  const secure = request.secure;
+  response.setHeader("Set-Cookie", `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.max(0, maxAgeSeconds)}${secure ? "; Secure" : ""}`);
+}
+
+function authenticate(request, _response, next) {
+  const token = cookieValue(request, SESSION_COOKIE);
+  if (token) {
+    const tokenHash = sessionTokenHash(token);
+    const row = statements.sessionByToken.get(tokenHash, Date.now());
+    if (row) {
+      request.user = row;
+      request.sessionTokenHash = tokenHash;
+    }
+  }
+  next();
+}
+
+function requireAuth(request, response, next) {
+  if (request.user) return next();
+  if (request.path.startsWith("/api/")) return response.status(401).json({ error: "Please sign in to Server Lab", code: "AUTH_REQUIRED" });
+  response.redirect("/login");
+}
+
+function requireReadyAccount(request, response, next) {
+  if (!request.user.must_change_password) return next();
+  if (request.path.startsWith("/api/")) return response.status(403).json({ error: "Change the temporary password before using Server Lab", code: "PASSWORD_CHANGE_REQUIRED" });
+  response.redirect("/login");
+}
+
+function requireAdmin(request, response, next) {
+  if (request.user?.role === "admin") return next();
+  response.status(403).json({ error: "Administrator access is required" });
+}
+
+function validUsername(value) {
+  return /^[a-z0-9][a-z0-9._-]{2,31}$/i.test(String(value || ""));
+}
+
+function parseQuotaBytes(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 50 * 1024 * 1024) throw Object.assign(new Error("Storage allowance must be at least 50 MB or unlimited"), { status: 400 });
+  return number;
+}
+
+function quotaUploadGuard(request, response, next) {
+  if (request.user.quota_bytes == null) return next();
+  const contentLength = Number(request.get("Content-Length"));
+  const remaining = Math.max(0, request.user.quota_bytes - userUsage(request.user.id));
+  if (Number.isFinite(contentLength) && contentLength > remaining) {
+    return response.status(413).json({ error: "This upload is larger than your remaining Server Lab storage allowance", code: "QUOTA_EXCEEDED" });
+  }
+  next();
+}
+
 const upload = multer({
   storage: multer.diskStorage({
-    destination: (_request, _file, callback) => callback(null, directories.incoming),
+    destination: (request, _file, callback) => {
+      try { callback(null, userDirectories(request.user.id).incoming); } catch (error) { callback(error); }
+    },
     filename: (_request, _file, callback) => callback(null, `${Date.now()}-${crypto.randomUUID()}.upload`)
   }),
   limits: { fileSize: MAX_UPLOAD_BYTES, files: 500 }
@@ -283,16 +495,131 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.2" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.3" }));
+app.use(authenticate);
+
+const loginFailures = new Map();
+app.post("/api/auth/login", (request, response) => {
+  const attemptKey = request.ip || "unknown";
+  const attempt = loginFailures.get(attemptKey);
+  if (attempt?.blockedUntil > Date.now()) return response.status(429).json({ error: "Too many sign-in attempts. Try again in a few minutes." });
+  const username = String(request.body?.username || "").trim();
+  const password = String(request.body?.password || "");
+  const user = statements.userByName.get(username);
+  if (!user || !passwordMatches(password, user.password_hash)) {
+    const failures = (attempt?.failures || 0) + 1;
+    loginFailures.set(attemptKey, { failures, blockedUntil: failures >= 8 ? Date.now() + 10 * 60 * 1000 : 0 });
+    return response.status(401).json({ error: "Incorrect username or password" });
+  }
+  loginFailures.delete(attemptKey);
+  const token = crypto.randomBytes(32).toString("base64url");
+  const now = Date.now();
+  db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
+  db.prepare("INSERT INTO sessions (token_hash,user_id,created_at,expires_at,last_seen_at) VALUES (?,?,?,?,?)")
+    .run(sessionTokenHash(token), user.id, now, now + SESSION_LIFETIME_MS, now);
+  setSessionCookie(request, response, token, Math.floor(SESSION_LIFETIME_MS / 1000));
+  response.json({ user: publicUser(user) });
+});
+
+app.post("/api/auth/logout", (request, response) => {
+  if (request.sessionTokenHash) statements.deleteSession.run(request.sessionTokenHash);
+  setSessionCookie(request, response, "", 0);
+  response.json({ ok: true });
+});
+
+app.get("/api/auth/session", (request, response) => {
+  response.json({ authenticated: Boolean(request.user), user: request.user ? publicUser(request.user) : null });
+});
+
+app.put("/api/account", requireAuth, (request, response) => {
+  const current = statements.userById.get(request.user.user_id);
+  const currentPassword = String(request.body?.currentPassword || "");
+  if (!passwordMatches(currentPassword, current.password_hash)) return response.status(400).json({ error: "Current password is incorrect" });
+  const username = String(request.body?.username || current.username).trim();
+  const newPassword = String(request.body?.newPassword || "");
+  if (!validUsername(username)) return response.status(400).json({ error: "Username must be 3–32 characters using letters, numbers, dots, dashes or underscores" });
+  if ((newPassword || current.must_change_password) && (newPassword.length < MIN_PASSWORD_LENGTH || newPassword.length > 256)) return response.status(400).json({ error: `New password must be ${MIN_PASSWORD_LENGTH}–256 characters` });
+  const conflict = statements.userByName.get(username);
+  if (conflict && conflict.id !== current.id) return response.status(409).json({ error: "That username is already in use" });
+  const now = new Date().toISOString();
+  db.prepare("UPDATE users SET username = ?, password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?")
+    .run(username, newPassword ? passwordHash(newPassword) : current.password_hash, now, current.id);
+  if (newPassword) db.prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?").run(current.id, request.sessionTokenHash);
+  response.json({ user: publicUser(statements.userById.get(current.id)) });
+});
+
+app.get("/login", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "login.html")));
+app.get("/login.html", (_request, response) => response.redirect("/login"));
+app.get("/auth.js", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "auth.js")));
+app.get("/styles.css", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "styles.css")));
+app.use("/branding", express.static(path.join(APP_ROOT, "branding"), { maxAge: "7d" }));
+app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" }));
+
+app.use(requireAuth);
+
+app.get("/api/admin/users", requireReadyAccount, requireAdmin, (request, response) => {
+  const rows = db.prepare(`SELECT users.id,users.username,users.role,users.quota_bytes,users.must_change_password,users.created_at,
+    COALESCE((SELECT SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size) FROM photos WHERE photos.user_id=users.id),0) +
+    COALESCE((SELECT SUM(byte_size) FROM luts WHERE luts.user_id=users.id),0) AS used_bytes
+    FROM users ORDER BY role='admin' DESC, username COLLATE NOCASE`).all();
+  response.json({ users: rows.map(row => ({ ...publicUser(row), usedBytes: row.used_bytes, createdAt: row.created_at })) });
+});
+
+app.post("/api/admin/users", requireReadyAccount, requireAdmin, (request, response) => {
+  const username = String(request.body?.username || "").trim();
+  const password = String(request.body?.password || "");
+  if (!validUsername(username)) return response.status(400).json({ error: "Username must be 3–32 characters using letters, numbers, dots, dashes or underscores" });
+  if (password.length < MIN_PASSWORD_LENGTH) return response.status(400).json({ error: `Temporary password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+  if (statements.userByName.get(username)) return response.status(409).json({ error: "That username is already in use" });
+  const quotaBytes = parseQuotaBytes(request.body?.quotaBytes);
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  db.prepare("INSERT INTO users (id,username,password_hash,role,quota_bytes,must_change_password,created_at,updated_at) VALUES (?,?,?,'user',?,1,?,?)")
+    .run(id, username, passwordHash(password), quotaBytes, now, now);
+  response.status(201).json({ user: publicUser(statements.userById.get(id)) });
+});
+
+app.patch("/api/admin/users/:id", requireReadyAccount, requireAdmin, (request, response) => {
+  const target = statements.userById.get(request.params.id);
+  if (!target) return response.status(404).json({ error: "Account not found" });
+  const username = request.body?.username == null ? target.username : String(request.body.username).trim();
+  const password = String(request.body?.password || "");
+  if (!validUsername(username)) return response.status(400).json({ error: "Invalid username" });
+  if (password && password.length < MIN_PASSWORD_LENGTH) return response.status(400).json({ error: `Temporary password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+  const conflict = statements.userByName.get(username);
+  if (conflict && conflict.id !== target.id) return response.status(409).json({ error: "That username is already in use" });
+  const quotaBytes = target.role === "admin" ? null : Object.prototype.hasOwnProperty.call(request.body || {}, "quotaBytes") ? parseQuotaBytes(request.body.quotaBytes) : target.quota_bytes;
+  if (quotaBytes != null && quotaBytes < userUsage(target.id)) return response.status(400).json({ error: "The allowance cannot be lower than the account's current usage" });
+  const resetPassword = password ? passwordHash(password) : target.password_hash;
+  db.prepare("UPDATE users SET username=?,password_hash=?,quota_bytes=?,must_change_password=?,updated_at=? WHERE id=?")
+    .run(username, resetPassword, quotaBytes, password ? 1 : target.must_change_password, new Date().toISOString(), target.id);
+  if (password) db.prepare("DELETE FROM sessions WHERE user_id=? AND token_hash<>?").run(target.id, target.id === request.user.user_id ? request.sessionTokenHash : "");
+  response.json({ user: publicUser(statements.userById.get(target.id)) });
+});
+
+app.delete("/api/admin/users/:id", requireReadyAccount, requireAdmin, asyncRoute(async (request, response) => {
+  const target = statements.userById.get(request.params.id);
+  if (!target) return response.status(404).json({ error: "Account not found" });
+  if (target.id === request.user.user_id || target.role === "admin") return response.status(400).json({ error: "The administrator account cannot be removed" });
+  db.prepare("DELETE FROM users WHERE id = ?").run(target.id);
+  await fsp.rm(path.join(DATA_DIR, "users", target.id), { recursive: true, force: true });
+  await fsp.rm(path.join(DATA_DIR, ".incoming", target.id), { recursive: true, force: true });
+  response.json({ ok: true });
+}));
+
+app.get("/settings", requireReadyAccount, (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "settings.html")));
+app.get("/settings.js", requireReadyAccount, (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "settings.js")));
+app.use(requireReadyAccount);
 
 app.get("/api/library", asyncRoute(async (_request, response) => {
-  const counts = statements.countPhotos.get();
+  const counts = statements.countPhotos.get(_request.user.id);
+  const usedBytes = userUsage(_request.user.id);
   let storage = null;
   try {
     const stats = await fsp.statfs(DATA_DIR);
     storage = { total: stats.blocks * stats.bsize, free: stats.bavail * stats.bsize };
   } catch { /* Storage totals are optional. */ }
-  response.json({ photos: counts.count, originalBytes: counts.bytes, storage });
+  response.json({ photos: counts.count, originalBytes: counts.bytes, usedBytes, quotaBytes: _request.user.quota_bytes, storage });
 }));
 
 app.get("/api/photos", (request, response) => {
@@ -300,17 +627,17 @@ app.get("/api/photos", (request, response) => {
   const offset = Math.max(0, Number(request.query.offset) || 0);
   const query = String(request.query.q || "").trim();
   const rows = query
-    ? db.prepare("SELECT * FROM photos WHERE original_name LIKE ? ESCAPE '\\' ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?")
-      .all(`%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`, limit, offset)
-    : db.prepare("SELECT * FROM photos ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?").all(limit, offset);
+    ? db.prepare("SELECT * FROM photos WHERE user_id = ? AND original_name LIKE ? ESCAPE '\\' ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?")
+      .all(request.user.id, `%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`, limit, offset)
+    : db.prepare("SELECT * FROM photos WHERE user_id = ? ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?").all(request.user.id, limit, offset);
   const total = query
-    ? db.prepare("SELECT COUNT(*) AS count FROM photos WHERE original_name LIKE ? ESCAPE '\\'").get(`%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`).count
-    : statements.countPhotos.get().count;
+    ? db.prepare("SELECT COUNT(*) AS count FROM photos WHERE user_id = ? AND original_name LIKE ? ESCAPE '\\'").get(request.user.id, `%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`).count
+    : statements.countPhotos.get(request.user.id).count;
   response.json({ photos: rows.map(photoResponse), total, offset, limit, hasMore: offset + rows.length < total });
 });
 
 app.get("/api/photos/:id", (request, response) => {
-  const row = statements.byId.get(request.params.id);
+  const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
   response.json({ photo: photoResponse(row) });
 });
@@ -318,7 +645,7 @@ app.get("/api/photos/:id", (request, response) => {
 function sendPhotoFile(column, download = false) {
   return (request, response, next) => {
     try {
-      const row = statements.byId.get(request.params.id);
+      const row = statements.byId.get(request.user.id, request.params.id);
       if (!row || !row[column]) return response.status(404).json({ error: "Photo file not found" });
       const filename = resolveDataPath(row[column]);
       response.setHeader("Cache-Control", column === "stored_path" ? "private, max-age=3600" : "private, max-age=86400");
@@ -333,7 +660,7 @@ app.get("/api/photos/:id/preview", sendPhotoFile("preview_path"));
 app.get("/api/photos/:id/thumbnail", sendPhotoFile("thumbnail_path"));
 app.get("/api/photos/:id/export", sendPhotoFile("export_path", true));
 
-app.post("/api/photos", upload.array("photos", 500), asyncRoute(async (request, response) => {
+app.post("/api/photos", quotaUploadGuard, upload.array("photos", 500), asyncRoute(async (request, response) => {
   const files = request.files || [];
   if (!files.length) return response.status(400).json({ error: "No photos were selected" });
   const imported = [];
@@ -341,61 +668,66 @@ app.post("/api/photos", upload.array("photos", 500), asyncRoute(async (request, 
   const errors = [];
   for (const file of files) {
     try {
-      const result = await importPhoto(file);
+      const earlyQuotaFailure = quotaError(request.user, file.size);
+      if (earlyQuotaFailure) throw earlyQuotaFailure;
+      const result = await importPhoto(file, request.user);
       (result.duplicate ? duplicates : imported).push(result.photo);
     } catch (error) {
       await removeIfPresent(file.path).catch(() => {});
-      errors.push({ name: file.originalname, error: error.message });
+      errors.push({ name: file.originalname, error: error.message, code: error.code || null, status: Number(error.status) || 400 });
     }
   }
-  response.status(imported.length || duplicates.length ? 201 : 400).json({ imported, duplicates, errors });
+  const succeeded = imported.length || duplicates.length;
+  response.status(succeeded ? 201 : errors[0]?.status || 400).json({ imported, duplicates, errors, ...(succeeded ? {} : { error: errors[0]?.error || "No photos could be added" }) });
 }));
 
 app.patch("/api/photos/:id/edits", (request, response) => {
-  const row = statements.byId.get(request.params.id);
+  const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
   const edits = request.body?.edits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).json({ error: "Invalid edits" });
   const encoded = JSON.stringify(edits);
   if (encoded.length > 250_000) return response.status(413).json({ error: "Edit data is too large" });
-  statements.updateEdits.run(encoded, row.id);
+  statements.updateEdits.run(encoded, request.user.id, row.id);
   response.json({ ok: true });
 });
 
 app.post("/api/photos/:id/edits-beacon", (request, response) => {
-  const row = statements.byId.get(request.params.id);
+  const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).end();
   const edits = request.body?.edits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).end();
   const encoded = JSON.stringify(edits);
   if (encoded.length > 250_000) return response.status(413).end();
-  statements.updateEdits.run(encoded, row.id);
+  statements.updateEdits.run(encoded, request.user.id, row.id);
   response.status(204).end();
 });
 
 app.put("/api/photos/:id/export", express.raw({ type: ["image/jpeg", "application/octet-stream"], limit: `${Math.ceil(MAX_UPLOAD_BYTES / 1024 / 1024)}mb` }), asyncRoute(async (request, response) => {
-  const row = statements.byId.get(request.params.id);
+  const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
   if (!Buffer.isBuffer(request.body) || request.body.length < 4 || request.body[0] !== 0xff || request.body[1] !== 0xd8) {
     return response.status(400).json({ error: "The processed file is not a JPEG" });
   }
   const outputName = String(request.get("X-FilmLab-Filename") || `${path.parse(row.original_name).name}_FilmLab.jpg`)
     .replace(/[^a-z0-9._' -]/gi, "_").slice(0, 240);
-  const exportPath = path.join(directories.exports, `${row.id}.jpg`);
+  const quotaFailure = quotaError(request.user, request.body.length, row.export_byte_size);
+  if (quotaFailure) throw quotaFailure;
+  const exportPath = path.join(userDirectories(request.user.id).exports, `${row.id}.jpg`);
   await fsp.writeFile(exportPath, request.body, { mode: 0o640 });
-  statements.updateExport.run(relativeDataPath(exportPath), outputName, row.id);
+  statements.updateExport.run(relativeDataPath(exportPath), outputName, request.body.length, request.user.id, row.id);
   response.json({ ok: true, filename: outputName, url: `/api/photos/${row.id}/export` });
 }));
 
 app.delete("/api/photos", asyncRoute(async (request, response) => {
   const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))].slice(0, 1000) : [];
   if (!ids.length) return response.status(400).json({ error: "No photos selected" });
-  response.json({ removed: await deletePhotoIds(ids) });
+  response.json({ removed: await deletePhotoIds(ids, request.user.id) });
 }));
 
 app.get("/api/state/:key", (request, response) => {
   if (!/^[a-z0-9-]{1,40}$/i.test(request.params.key)) return response.status(400).json({ error: "Invalid state key" });
-  const row = statements.getState.get(request.params.key);
+  const row = statements.getState.get(request.user.id, request.params.key);
   response.json({ value: row ? safeJson(row.value_json, null) : null, updatedAt: row?.updated_at || null });
 });
 
@@ -405,21 +737,21 @@ app.put("/api/state/:key", (request, response) => {
   const encoded = JSON.stringify(value ?? null);
   if (encoded.length > 500_000) return response.status(413).json({ error: "State is too large" });
   const updatedAt = new Date().toISOString();
-  statements.setState.run(request.params.key, encoded, updatedAt);
+  statements.setState.run(request.user.id, request.params.key, encoded, updatedAt);
   response.json({ ok: true, updatedAt });
 });
 
-app.get("/api/luts", (_request, response) => response.json({ luts: statements.listLuts.all().map(lutResponse) }));
+app.get("/api/luts", (request, response) => response.json({ luts: statements.listLuts.all(request.user.id).map(lutResponse) }));
 
 app.get("/api/luts/:id", (request, response, next) => {
   try {
-    const row = statements.lutById.get(request.params.id);
+    const row = statements.lutById.get(request.user.id, request.params.id);
     if (!row) return response.status(404).json({ error: "LUT not found" });
     response.type("text/plain").sendFile(resolveDataPath(row.stored_path), error => { if (error) next(error); });
   } catch (error) { next(error); }
 });
 
-app.post("/api/luts", upload.single("lut"), asyncRoute(async (request, response) => {
+app.post("/api/luts", quotaUploadGuard, upload.single("lut"), asyncRoute(async (request, response) => {
   const file = request.file;
   if (!file) return response.status(400).json({ error: "No LUT was selected" });
   try {
@@ -430,18 +762,21 @@ app.post("/api/luts", upload.single("lut"), asyncRoute(async (request, response)
       throw Object.assign(new Error("This does not appear to be a valid .cube LUT"), { status: 400 });
     }
     const hash = crypto.createHash("sha256").update(text).digest("hex");
-    const existing = statements.lutByHash.get(hash);
+    const existing = statements.lutByHash.get(request.user.id, hash);
     if (existing) {
       await removeIfPresent(file.path);
       return response.json({ duplicate: true, lut: lutResponse(existing) });
     }
-    const id = cubeLutId(text);
+    const quotaFailure = quotaError(request.user, file.size);
+    if (quotaFailure) throw quotaFailure;
+    const id = crypto.randomUUID();
     const title = text.match(/^\s*TITLE\s+"([^"]+)"/im)?.[1]?.trim();
     const fileName = path.basename(file.originalname).slice(0, 180);
-    const destination = path.join(directories.luts, `${id}.cube`);
+    const destination = path.join(userDirectories(request.user.id).luts, `${id}.cube`);
     await fsp.rename(file.path, destination);
     const row = {
       id,
+      user_id: request.user.id,
       content_hash: hash,
       name: (title || fileName.replace(/\.cube$/i, "") || "Custom LUT").slice(0, 80),
       file_name: fileName,
@@ -460,11 +795,12 @@ app.post("/api/luts", upload.single("lut"), asyncRoute(async (request, response)
 app.get("/api/session", (request, response) => {
   const login = TRUST_TAILSCALE_HEADERS ? request.get("Tailscale-User-Login") : null;
   const name = TRUST_TAILSCALE_HEADERS ? request.get("Tailscale-User-Name") : null;
-  response.json({ user: login ? { login, name: name || login } : null });
+  response.json({ user: publicUser(request.user), tailscaleUser: login ? { login, name: name || login } : null });
 });
 
-function createEditorHtml() {
+function createEditorHtml(userId = "server") {
   let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
+  const accountKey = String(userId).replace(/[^a-z0-9-]/gi, "");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
     async loadPhoto(file,state){
@@ -500,14 +836,16 @@ function createEditorHtml() {
   };
 `;
   html = html.replace("  updateButtons();\n  lutRestorePromise=restoreCustomLuts();\n  libraryRestorePromise=lutRestorePromise.then(()=>restoreStoredLibrary());", `${bridgeApi}\n  updateButtons();\n  lutRestorePromise=restoreCustomLuts();\n  libraryRestorePromise=Promise.resolve();`);
+  html = html.replace('const LIBRARY_DB_NAME="ondevice-film-lab-library";', `const LIBRARY_DB_NAME="ondevice-film-lab-library-${accountKey}";`);
+  html = html.replace('const SETTINGS_STORAGE_KEY="ondevice-film-lab-settings-v1";', `const SETTINGS_STORAGE_KEY="ondevice-film-lab-settings-v1-${accountKey}";`);
+  html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", '<script src="/lab-editor.js"></script>\n</body>');
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js"></script>\n</body>`);
   return html;
 }
 
-const editorHtml = createEditorHtml();
-app.get("/editor", (_request, response) => response.type("html").send(editorHtml));
+app.get("/editor", (request, response) => response.type("html").send(createEditorHtml(request.user.id)));
 app.use("/branding", express.static(path.join(APP_ROOT, "branding"), { maxAge: "7d" }));
 app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" }));
 app.get("/manifest.webmanifest", (_request, response) => response.sendFile(path.join(APP_ROOT, "manifest.webmanifest")));
@@ -550,5 +888,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, directories, statements, importPhoto, deletePhotoIds, createEditorHtml }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, createEditorHtml }
 };

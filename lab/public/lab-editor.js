@@ -7,7 +7,9 @@
     return;
   }
 
-  const profileKey = "ondevice-film-lab-camera-profiles-v1";
+  const accountKey = String(window.__FILMLAB_ACCOUNT_ID__ || "server");
+  const profileKey = `ondevice-film-lab-camera-profiles-v1-${accountKey}`;
+  const profileSessionKey = `filmLabProfilesLoaded-${accountKey}`;
   let lastPhotoState = "";
   let lastProfileState = "";
   let autosaveTimer = 0;
@@ -31,6 +33,7 @@
   async function requestJson(url, options = {}) {
     const response = await fetch(url, options);
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401) { location.replace("/login"); throw new Error("Please sign in"); }
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
     return data;
   }
@@ -63,9 +66,9 @@
     const local = localStorage.getItem(profileKey) || "";
     if (remote.value) {
       const encoded = JSON.stringify(remote.value);
-      if (encoded !== local && !sessionStorage.getItem("filmLabProfilesLoaded")) {
+      if (encoded !== local && !sessionStorage.getItem(profileSessionKey)) {
         localStorage.setItem(profileKey, encoded);
-        sessionStorage.setItem("filmLabProfilesLoaded", "1");
+        sessionStorage.setItem(profileSessionKey, "1");
         location.reload();
         return false;
       }
