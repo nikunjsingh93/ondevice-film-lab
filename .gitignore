@@ -1,0 +1,5 @@
+lab/node_modules/
+lab/data/
+lab-data/
+*.log
+.DS_Store

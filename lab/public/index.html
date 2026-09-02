@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>OnDevice Film Lab Server</title>
+  <link rel="icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="appShell">
+    <header class="appHeader">
+      <a class="brand" href="/" aria-label="OnDevice Film Lab Server home">
+        <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
+        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.0</small></span>
+      </a>
+      <div class="headerActions">
+        <button id="uploadButton" class="primary" type="button">+ Add photos</button>
+        <button id="folderButton" type="button">Add folder</button>
+        <button id="selectButton" type="button" aria-pressed="false">Select</button>
+      </div>
+      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple hidden>
+      <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple hidden>
+    </header>
+
+    <main>
+      <section class="libraryHero">
+        <div>
+          <p class="eyebrow">SHARED PHOTO LIBRARY</p>
+          <h1>Your film lab, available on every device.</h1>
+          <p>Originals stay on your Ubuntu storage. Open any photograph in the full Film Lab editor, and its crop, rotation and edits return on your other devices.</p>
+        </div>
+        <div class="libraryStats" aria-label="Library information">
+          <div><strong id="photoCount">0</strong><span>Photos</span></div>
+          <div><strong id="librarySize">0 B</strong><span>Originals</span></div>
+          <div><strong id="freeSpace">—</strong><span>Free space</span></div>
+        </div>
+      </section>
+
+      <section class="libraryToolbar" aria-label="Gallery controls">
+        <label class="searchBox">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>
+          <input id="searchInput" type="search" placeholder="Search filenames" autocomplete="off">
+        </label>
+        <div id="selectionActions" class="selectionActions" hidden>
+          <span id="selectedCount">0 selected</span>
+          <button id="selectAllButton" type="button">Select all</button>
+          <button id="removeButton" class="danger" type="button" disabled>Remove selected</button>
+        </div>
+        <span id="sessionLabel" class="sessionLabel"></span>
+      </section>
+
+      <section id="emptyState" class="emptyState">
+        <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
+        <h2>Add your first photographs</h2>
+        <p>Photos are copied directly to the server library and remain available from every device on your Tailnet.</p>
+        <div><button id="emptyUploadButton" class="primary" type="button">Choose photos</button><button id="emptyFolderButton" type="button">Choose a folder</button></div>
+      </section>
+
+      <section id="gallery" class="gallery" aria-label="Photo gallery"></section>
+      <div class="loadMoreWrap"><button id="loadMoreButton" type="button" hidden>Load more photos</button></div>
+    </main>
+  </div>
+
+  <div id="dropOverlay" class="dropOverlay" hidden><strong>Drop photos to add them</strong></div>
+
+  <div id="progressOverlay" class="modalOverlay" hidden>
+    <div class="modalCard progressCard" role="status" aria-live="polite">
+      <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
+      <h2 id="progressTitle">Adding photos…</h2>
+      <p id="progressText">Preparing upload</p>
+      <div class="progressTrack"><div id="progressBar"></div></div>
+      <strong id="progressPercent">0%</strong>
+      <button id="cancelUploadButton" type="button">Cancel</button>
+    </div>
+  </div>
+
+  <div id="dialogOverlay" class="modalOverlay" hidden>
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <h2 id="dialogTitle">Remove photos?</h2>
+      <p id="dialogMessage"></p>
+      <div class="dialogActions"><button id="dialogCancel" type="button">Cancel</button><button id="dialogConfirm" class="danger" type="button">Remove</button></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+.git
+.gitignore
+lab/node_modules
+lab/data
+lab-data
+screenshots
+*.log
+.DS_Store

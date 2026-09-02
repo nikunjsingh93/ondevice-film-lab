@@ -1,0 +1,25 @@
+services:
+  film-lab:
+    build:
+      context: .
+      dockerfile: lab/Dockerfile
+    image: ghcr.io/nikunjsingh93/ondevice-film-lab-server:latest
+    container_name: ondevice-film-lab-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATA_DIR: /data
+      MAX_UPLOAD_MB: 150
+      TRUST_TAILSCALE_HEADERS: "true"
+      REQUIRE_STORAGE_MARKER: "true"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - type: bind
+        source: ${FILMLAB_DATA_PATH:?Set FILMLAB_DATA_PATH to the prepared external-drive directory}
+        target: /data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

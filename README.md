@@ -2,6 +2,11 @@
 
 OnDevice Film Lab is a private, browser-based photo processor. It softens harsh digital sharpening and halos, adds film-inspired fade, bloom, halation, chromatic aberration and grain, provides a side-by-side comparison, and exports finished photos without uploading them to a server.
 
+This repository now contains two editions:
+
+- **Offline edition:** the original GitHub Pages PWA. Photos and settings stay inside the current browser and it continues to work without a connection.
+- **Server Lab edition:** an optional private Ubuntu/Docker photo library. Originals live on server storage, while the same Film Lab editor can be opened from every authorized device.
+
 ## [Open OnDevice Film Lab](https://nikunjsingh93.github.io/ondevice-film-lab/)
 
 ## Screenshots Desktop and Mobile
@@ -109,6 +114,145 @@ python3 -m http.server 8000
 ```
 
 Then open `http://localhost:8000` in a modern browser.
+
+## Server Lab edition
+
+Server Lab is an optional self-hosted companion. It does not replace or change the offline GitHub Pages application. The container serves a shared gallery and loads the existing editor at runtime, so film processing behavior stays aligned with the offline edition.
+
+### Server Lab features
+
+- Shared responsive gallery for phones, tablets and computers
+- Multi-photo and folder upload with visible progress and cancellation
+- Uploads stream directly into the configured library directory
+- Unmodified originals organized by capture year and month
+- SHA-256 duplicate detection, even when filenames differ
+- Server-generated lightweight gallery thumbnails and editing previews
+- Full OnDevice Film Lab editor for every library photo
+- Non-destructive crop, rotation, straightening and slider settings saved per photo
+- Camera profiles and custom `.cube` LUTs synchronized through the server
+- Processed JPEGs, with preserved EXIF metadata, saved back to the shared library
+- Multi-select removal that states the number of photos being deleted
+- External-drive capacity shown in the gallery
+- SQLite metadata database with WAL journaling
+- Tailscale identity display when Server Lab is accessed through Tailscale Serve
+- Container health check and graceful database shutdown
+
+Server Lab needs a connection to the Ubuntu server. Continue using the GitHub Pages edition whenever completely offline editing is required.
+
+### Storage layout
+
+The container stores everything beneath `/data`. Bind that path to an external drive on the Ubuntu host. A recommended host path is:
+
+```text
+/srv/ondevice-film-lab/
+├── originals/      # Original uploads; never modified
+├── previews/       # Lightweight editing previews
+├── thumbnails/     # Gallery images
+├── exports/        # Finished Film Lab JPEGs
+├── luts/           # Reserved shared LUT storage
+└── film-lab.db     # Library metadata and edit state
+```
+
+For a drive that remains connected to Ubuntu, `ext4` is recommended. Identify the correct partition and its UUID before changing any mount configuration:
+
+```sh
+lsblk -f
+sudo blkid /dev/sdX1
+```
+
+Replace `/dev/sdX1` with the exact external-drive partition. Do not format a drive containing photographs. Create the permanent mount point:
+
+```sh
+sudo mkdir -p /srv/ondevice-film-lab
+```
+
+Add an `/etc/fstab` entry using the real UUID and filesystem reported by `lsblk`. Example for an ext4 drive:
+
+```text
+UUID=YOUR-REAL-DRIVE-UUID /srv/ondevice-film-lab ext4 defaults,nofail,x-systemd.device-timeout=10 0 2
+```
+
+Test the entry before rebooting, give the container's unprivileged user access, and create Server Lab's storage marker:
+
+```sh
+sudo mount -a
+findmnt /srv/ondevice-film-lab
+sudo chown -R 1000:1000 /srv/ondevice-film-lab
+sudo touch /srv/ondevice-film-lab/.filmlab-storage
+sudo chown 1000:1000 /srv/ondevice-film-lab/.filmlab-storage
+```
+
+The container requires this marker. If the external drive is disconnected and `/srv/ondevice-film-lab` is only an empty directory on the internal drive, Server Lab refuses to start instead of accidentally filling internal storage.
+
+The database is small, but it is intentionally kept with the library so the photo files and their edit records can be backed up together. Do not place `film-lab.db` on an SMB or NFS mount; SQLite expects reliable local filesystem locking.
+
+### Test Server Lab with Docker Compose
+
+On a machine with Docker and Docker Compose installed:
+
+```sh
+git clone https://github.com/nikunjsingh93/ondevice-film-lab.git
+cd ondevice-film-lab
+FILMLAB_DATA_PATH=/srv/ondevice-film-lab docker compose -f docker-compose.lab.yml up -d --build
+```
+
+The Compose configuration publishes Server Lab only on `127.0.0.1:3000`. On the Ubuntu server itself, check:
+
+```sh
+curl http://127.0.0.1:3000/api/health
+docker compose -f docker-compose.lab.yml logs -f film-lab
+```
+
+For temporary LAN-only testing, change the port mapping in `docker-compose.lab.yml` from `127.0.0.1:3000:3000` to `3000:3000`, then open `http://SERVER-LAN-IP:3000`. The Tailscale HTTPS setup below is preferred for normal use.
+
+### Deploy through Portainer
+
+1. Mount the external drive at `/srv/ondevice-film-lab` and set its ownership as described above.
+2. Push this repository, including `lab/` and `docker-compose.lab.yml`, to GitHub.
+3. In Portainer, open the Ubuntu **Docker Standalone** environment.
+4. Select **Stacks → Add stack → Git repository**.
+5. Name the stack `ondevice-film-lab`.
+6. Use repository URL `https://github.com/nikunjsingh93/ondevice-film-lab`.
+7. Choose the branch you deploy, normally `main`.
+8. Set **Compose path** to `docker-compose.lab.yml`.
+9. Add the environment variable `FILMLAB_DATA_PATH` with value `/srv/ondevice-film-lab`.
+10. Optionally enable **GitOps updates** using polling or a Portainer webhook.
+11. Select **Deploy the stack**.
+
+The included GitHub Actions workflow builds `ghcr.io/nikunjsingh93/ondevice-film-lab-server:latest` after relevant pushes. After its first successful run, open the package on GitHub and make it **Public**, or configure Portainer with GitHub Container Registry credentials. A public package is simplest for a private Tailscale-only service because it allows downloading the software image without making the running photo library public.
+
+After future pushes, wait for the **Build Server Lab image** workflow to finish, then open the Portainer stack and use **Pull and redeploy** with **Re-pull image** enabled. If GitOps is enabled, turn on **Re-pull image** there as well so Portainer retrieves the image produced from the new commit.
+
+### Private HTTPS access with Tailscale
+
+Install and connect Tailscale on the Ubuntu server and client devices. With the container running, expose its localhost port privately:
+
+```sh
+sudo tailscale serve --bg http://127.0.0.1:3000
+tailscale serve status
+```
+
+Tailscale displays an HTTPS address similar to:
+
+```text
+https://your-ubuntu-server.your-tailnet.ts.net
+```
+
+Use that address on your Mac, Android devices and iOS devices. Tailscale Serve remains inside the Tailnet and automatically supplies HTTPS. Do **not** enable Tailscale Funnel for a private photo library, because Funnel is intended for public internet access.
+
+### Updating both editions
+
+The offline and Server Lab editions live in this one repository. Normal editor changes continue to be made in the root `index.html`; Server Lab reads that editor when its container starts. Therefore a single commit updates the shared editor for both deployments:
+
+1. Push the commit to GitHub.
+2. GitHub Pages updates the offline edition.
+3. In Portainer, pull and redeploy the Server Lab stack, or let GitOps do so.
+
+The gallery/backend code is under `lab/`, while `docker-compose.lab.yml` defines the Ubuntu deployment.
+
+### Backups
+
+Stop Server Lab briefly or use SQLite's online backup facilities before copying a live database. At minimum, regularly back up the complete `/srv/ondevice-film-lab` directory to a second physical disk or another machine. An external drive by itself is storage, not a backup.
 
 ## License
 
