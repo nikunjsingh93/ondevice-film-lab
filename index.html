@@ -261,6 +261,15 @@
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
+  .previewPreferences{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .previewPreferences .check{line-height:1.4}
+  .compareBox.holdOriginalMode{-webkit-touch-callout:none}
+  .compareBox.holdOriginalMode:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .compareBox.holdOriginalMode .divider,.compareBox.holdOriginalMode .before{display:none}
+  .compareBox.holdOriginalMode .softLayer{clip-path:inset(0 100% 0 0)!important;-webkit-clip-path:inset(0 100% 0 0)!important}
+  .compareBox.holdOriginalMode.showingOriginal .softLayer{clip-path:inset(0)!important;-webkit-clip-path:inset(0)!important}
+  .compareBox.holdOriginalMode.showingOriginal .before{display:block}
+  .compareBox.holdOriginalMode.showingOriginal .after{display:none}
   .viewer.straightening .compareBox::after{
     content:"";
     position:absolute;inset:0;z-index:3;pointer-events:none;
@@ -640,6 +649,7 @@
     .sidebar.mobileOpen .photoPicker,
     .sidebar.mobileOpen .profileBar,
     .sidebar.mobileOpen .editScopeBar,
+    .sidebar.mobileOpen .previewPreferences,
     .sidebar.mobileOpen .settingsGroup,
     .sidebar.mobileOpen .tip{display:none}
     .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
@@ -647,6 +657,7 @@
     .sidebar.mobileOpen[data-mobile-panel="menu"] #profileBar,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
     .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] .previewPreferences,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #basicGroup,
     .sidebar.mobileOpen[data-mobile-panel="softening"] #softeningGroup,
     .sidebar.mobileOpen[data-mobile-panel="film"] #filmGroup,
@@ -784,7 +795,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.6.7</div>
+        <div class="appVersion desktopAppVersion">Version 1.6.8</div>
       </div>
 
       <div class="photoPicker">
@@ -800,7 +811,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.6.7</div>
+        <div class="appVersion">Version 1.6.8</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -839,6 +850,11 @@
           <button id="pasteEditsBtn" type="button" disabled>Paste edits</button>
           <button id="resetPhotoEditsBtn" type="button" disabled>Reset edits on this photo</button>
         </div>
+      </div>
+
+      <div class="previewPreferences">
+        <label class="check"><input id="holdOriginal" type="checkbox" role="switch"> Long press to see original</label>
+        <div class="notice">Show the full edited preview. Hold the photo with a mouse or finger to compare, then release. Turn off to use the split divider.</div>
       </div>
 
       <div id="editSection" class="section">
@@ -1219,7 +1235,7 @@
     lutStrengthControl: $("#lutStrengthControl"), lutStrength: $("#lutStrength"), lutStrengthVal: $("#lutStrengthVal"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
-    quality: $("#quality"),
+    quality: $("#quality"), holdOriginal: $("#holdOriginal"),
     exposureVal: $("#exposureVal"), temperatureVal: $("#temperatureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
     contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"),
@@ -1263,6 +1279,7 @@
   let previewToken = 0;
   let busy = false;
   let comparePercent = 50;
+  let cancelOriginalHold = ()=>{};
   let previewZoom = 1;
   let straightenOpen = false;
   let straightenDragging = false;
@@ -1613,7 +1630,7 @@
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
   ];
-  const globalSettingControls=[els.quality,els.dateRename];
+  const globalSettingControls=[els.quality,els.dateRename,els.holdOriginal];
 
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
@@ -2982,6 +2999,62 @@
     if(divider) divider.style.left=comparePercent+"%";
   }
 
+  function updatePreviewComparison(){
+    cancelOriginalHold();
+    const box=els.viewer.querySelector(".compareBox");
+    if(!box)return;
+    const enabled=els.holdOriginal.checked;
+    box.classList.toggle("holdOriginalMode",enabled);
+    box.tabIndex=enabled?0:-1;
+    box.setAttribute("role","group");
+    box.setAttribute("aria-label",enabled?"Edited photo. Hold to see original, or hold Space when focused.":"Original and edited photo comparison");
+  }
+
+  // One delegated gesture handler survives preview replacement without keeping
+  // old canvases alive. Scrolling, panning and multi-touch cancel the hold.
+  function wireHoldPreview(viewer,isEnabled,isBlocked){
+    let active=null;
+    let timer=0;
+    const reset=()=>{
+      clearTimeout(timer);timer=0;
+      active?.box.classList.remove("showingOriginal");
+      active=null;
+    };
+    const reveal=()=>{
+      if(!active||!active.box.isConnected||!isEnabled()||isBlocked()){reset();return}
+      active.box.classList.add("showingOriginal");
+    };
+    viewer.addEventListener("pointerdown",event=>{
+      if(active){reset();return}
+      if(!isEnabled()||isBlocked()||event.isPrimary===false||event.button!==0)return;
+      const box=event.target.closest(".compareBox");
+      if(!box)return;
+      active={box,id:event.pointerId,x:event.clientX,y:event.clientY};
+      timer=setTimeout(reveal,300);
+    });
+    document.addEventListener("pointermove",event=>{
+      if(active&&event.pointerId===active.id&&Math.hypot(event.clientX-active.x,event.clientY-active.y)>10)reset();
+    });
+    const release=event=>{if(active&&event.pointerId===active.id)reset()};
+    document.addEventListener("pointerup",release);
+    document.addEventListener("pointercancel",release);
+    viewer.addEventListener("lostpointercapture",release);
+    viewer.addEventListener("pointerleave",reset);
+    viewer.addEventListener("contextmenu",event=>{
+      if(isEnabled()&&!isBlocked()&&event.target.closest(".compareBox"))event.preventDefault();
+    });
+    viewer.addEventListener("keydown",event=>{
+      if(event.code!=="Space"||!isEnabled()||isBlocked()||!event.target.matches(".compareBox"))return;
+      event.preventDefault();
+      if(!active){active={box:event.target,id:"keyboard"};reveal()}
+    });
+    viewer.addEventListener("keyup",event=>{if(event.code==="Space")reset()});
+    viewer.addEventListener("focusout",reset);
+    window.addEventListener("blur",reset);
+    document.addEventListener("visibilitychange",()=>{if(document.hidden)reset()});
+    return reset;
+  }
+
   function applyPreviewZoom(recalculateFit=false){
     const stage=els.viewer.querySelector(".compareStage");
     const box=els.viewer.querySelector(".compareBox");
@@ -3169,6 +3242,7 @@
 
   async function makePreview(index){
     if(index<0||!items[index]) return;
+    cancelOriginalHold();
     const token=++previewToken;
     const it=items[index];
     const settings=it.settings||batchSettings;
@@ -3241,6 +3315,7 @@
       els.viewer.classList.add("hasPreview");
       els.viewer.classList.toggle("cropping",editingCrop);
       els.viewer.appendChild(stage);
+      updatePreviewComparison();
 
       wireCompare(box,divider);
       wirePan(stage);
@@ -3528,6 +3603,13 @@
   }
 
   restoreSettings();
+  cancelOriginalHold=wireHoldPreview(els.viewer,()=>els.holdOriginal.checked,()=>cropOpen||straightenDragging||busy);
+  els.holdOriginal.addEventListener("change",()=>{saveSettings();updatePreviewComparison()});
+  window.addEventListener("storage",event=>{
+    if(event.key!==SETTINGS_STORAGE_KEY)return;
+    try{els.holdOriginal.checked=JSON.parse(event.newValue||"{}").holdOriginal===true;updatePreviewComparison()}
+    catch{ /* Ignore malformed preference updates from other tabs. */ }
+  });
   batchSettings=capturePhotoSettings();
   restoreCameraProfiles();
   const beginControlHistory=control=>{
@@ -4181,6 +4263,7 @@
   els.galleryRemoveBtn.addEventListener("click",removeGallerySelection);
 
   function showEmptyLibrary(){
+    cancelOriginalHold();
     previewToken++;
     current=-1;
     previewZoom=1;

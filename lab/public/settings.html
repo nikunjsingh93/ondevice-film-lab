@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>Settings · OnDevice Film Lab</title>
   <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=1.0.8">
 </head>
 <body>
   <div class="appShell settingsShell">
@@ -24,6 +24,11 @@
           <button class="primary" type="submit">Save account</button>
         </form>
       </section>
+      <section class="settingsCard">
+        <p class="eyebrow">PREVIEW</p><h2>Photo comparison</h2>
+        <label class="preferenceToggle"><input id="previewHoldOriginal" type="checkbox" role="switch" disabled> Long press to see original</label>
+        <p class="settingsHelp">Show the full edited photo. Hold it with a mouse or finger to see the original, then release to see your edit again. Turn off to use the split divider. This preference is saved on this device.</p>
+      </section>
       <section id="adminSection" class="settingsCard" hidden>
         <p class="eyebrow">ADMINISTRATION</p><h2>People and storage</h2><p class="settingsHelp">Create private accounts and choose how much Server Lab storage each person can use.</p>
         <form id="newUserForm" class="newUserForm">
@@ -38,6 +43,6 @@
   </div>
   <div id="confirmOverlay" class="modalOverlay" hidden><div class="modalCard" role="dialog" aria-modal="true"><h2>Remove account?</h2><p id="confirmMessage"></p><div class="dialogActions"><button id="confirmCancel">Cancel</button><button id="confirmRemove" class="danger">Remove account</button></div></div></div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script src="/settings.js"></script>
+  <script src="/settings.js?v=1.0.8"></script>
 </body>
 </html>

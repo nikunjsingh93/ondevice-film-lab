@@ -7,7 +7,7 @@
     selectAllButton: $("#selectAllButton"), downloadZipButton: $("#downloadZipButton"), removeButton: $("#removeButton"), selectedCount: $("#selectedCount"),
     selectionActions: $("#selectionActions"), searchInput: $("#searchInput"), sortSelect: $("#sortSelect"), gallery: $("#gallery"), emptyState: $("#emptyState"),
     loadMoreButton: $("#loadMoreButton"), photoCount: $("#photoCount"), librarySize: $("#librarySize"), freeSpace: $("#freeSpace"),
-    sessionLabel: $("#sessionLabel"), dropOverlay: $("#dropOverlay"), progressOverlay: $("#progressOverlay"),
+    userGreeting: $("#userGreeting"), gridSizeSelect: $("#gridSizeSelect"), dropOverlay: $("#dropOverlay"), progressOverlay: $("#progressOverlay"),
     progressTitle: $("#progressTitle"), progressText: $("#progressText"), progressBar: $("#progressBar"), progressPercent: $("#progressPercent"),
     cancelUploadButton: $("#cancelUploadButton"), dialogOverlay: $("#dialogOverlay"), dialogTitle: $("#dialogTitle"),
     dialogMessage: $("#dialogMessage"), dialogCancel: $("#dialogCancel"), dialogConfirm: $("#dialogConfirm"), toast: $("#toast")
@@ -57,9 +57,7 @@
     elements.freeSpace.textContent = library.quotaBytes == null
       ? (library.storage ? formatBytes(library.storage.free) : "—")
       : formatBytes(Math.max(0, library.quotaBytes - library.usedBytes));
-    elements.sessionLabel.textContent = session.user
-      ? `Signed in as ${session.user.username}${session.tailscaleUser ? ` · ${session.tailscaleUser.name}` : ""}`
-      : "Private Server Lab";
+    elements.userGreeting.textContent = session.user ? `Hi, ${session.user.username}` : "";
   }
 
   function updateSelection() {
@@ -281,6 +279,16 @@
   elements.gallery.addEventListener("keydown", event => { if ((event.key === "Enter" || event.key === " ") && event.target.closest(".photoCard")) { event.preventDefault(); handleCard(event.target.closest(".photoCard")); } });
   elements.searchInput.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadPhotos(true).catch(error => notify(error.message)), 250); });
   elements.sortSelect.value = sortMode;
+  function applyGridSize(value) {
+    const size = ["small", "medium", "large"].includes(value) ? value : "medium";
+    elements.gridSizeSelect.value = size;
+    elements.gallery.dataset.size = size;
+  }
+  try { applyGridSize(localStorage.getItem("filmLabServerGridSize")); } catch { applyGridSize("medium"); }
+  elements.gridSizeSelect.addEventListener("change", () => {
+    applyGridSize(elements.gridSizeSelect.value);
+    try { localStorage.setItem("filmLabServerGridSize", elements.gridSizeSelect.value); } catch { /* Session-only preference if storage is unavailable. */ }
+  });
   elements.sortSelect.addEventListener("change", () => {
     sortMode = elements.sortSelect.value === "imported" ? "imported" : "captured";
     localStorage.setItem("filmLabServerSort", sortMode);

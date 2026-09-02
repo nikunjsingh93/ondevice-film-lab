@@ -71,9 +71,26 @@
   });
   $("#logoutButton").onclick = async () => { await request("/api/auth/logout", { method: "POST" }).catch(() => {}); location.replace("/login"); };
 
+  $("#previewHoldOriginal").addEventListener("change", () => {
+    if (!sessionUser) return;
+    try {
+      const key = `ondevice-film-lab-settings-v1-${sessionUser.id}`;
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      const settings = saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+      settings.holdOriginal = $("#previewHoldOriginal").checked;
+      localStorage.setItem(key, JSON.stringify(settings));
+      notify("Preview preference saved");
+    } catch { notify("This browser could not save the preview preference"); }
+  });
+
   request("/api/auth/session").then(async result => {
     if (!result.authenticated) return location.replace("/login");
     sessionUser = result.user; $("#accountUsername").value = sessionUser.username;
+    try {
+      const saved = JSON.parse(localStorage.getItem(`ondevice-film-lab-settings-v1-${sessionUser.id}`) || "{}");
+      $("#previewHoldOriginal").checked = saved?.holdOriginal === true;
+    } catch { /* Default to the split preview when browser storage is unavailable. */ }
+    $("#previewHoldOriginal").disabled = false;
     if (sessionUser.isAdmin) { $("#adminSection").hidden = false; await loadUsers(); }
   }).catch(error => notify(error.message));
 })();

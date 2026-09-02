@@ -525,7 +525,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.7" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.8" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -912,7 +912,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.0.7"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.0.8"></script>\n</body>`);
   return html;
 }
 
