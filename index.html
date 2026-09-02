@@ -492,7 +492,9 @@
   .galleryPhotoCount{color:var(--muted);font-size:11px}
   #galleryCloseBtn{width:40px;height:40px;min-width:40px;padding:9px;display:grid;place-items:center}
   #galleryCloseBtn svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-  .galleryActions{padding-top:9px;padding-bottom:9px;background:#141b27}
+  .galleryActions{display:none;padding-top:9px;padding-bottom:9px;background:#141b27}
+  .galleryCard.selectionMode .galleryActions{display:flex}
+  .gallerySelectModeBtn[aria-pressed="true"]{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:800}
   .gallerySelectedCount{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   .galleryActions .spacer{flex:1}
   .galleryRemoveBtn{color:#ffd9dc;border-color:#824953;background:#492b32}
@@ -515,9 +517,10 @@
   .galleryItemName{font-size:11px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .galleryItemMeta{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .galleryCheck{
-    position:absolute;z-index:2;top:13px;left:13px;display:grid;place-items:center;width:27px;height:27px;
+    position:absolute;z-index:2;top:13px;left:13px;display:none;place-items:center;width:27px;height:27px;
     border:2px solid #e8eef9;border-radius:8px;background:#101722c7;color:#101824;box-shadow:0 2px 10px #0009
   }
+  .galleryCard.selectionMode .galleryCheck{display:grid}
   .galleryCheck svg{display:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
   .galleryItem[aria-selected="true"] .galleryCheck{background:var(--accent);border-color:var(--accent)}
   .galleryItem[aria-selected="true"] .galleryCheck svg{display:block}
@@ -781,14 +784,14 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.7</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.9</div>
       </div>
 
       <div class="photoPicker">
         <strong>Choose photos or a DCIM folder</strong>
         <small>JPEG, PNG and WebP. You can also choose a folder from a directly connected camera.</small>
         <div class="btnrow">
-          <label class="button" for="fileInput">Choose photos</label>
+          <button id="choosePhotosBtn" type="button">Choose photos</button>
           <label class="button" for="folderInput">Choose folder</label>
         </div>
         <div id="photoActions" class="btnrow photoActions" hidden>
@@ -797,7 +800,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.7</div>
+        <div class="appVersion">Version 1.5.9</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1171,11 +1174,12 @@
   </div>
 
   <div id="galleryOverlay" class="galleryOverlay" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" aria-describedby="galleryHint" aria-hidden="true">
-    <div class="galleryCard">
+    <div id="galleryCard" class="galleryCard">
       <div class="galleryHeader">
         <strong id="galleryTitle">Photo Gallery</strong>
         <span id="galleryPhotoCount" class="galleryPhotoCount">0 photos</span>
         <span class="spacer"></span>
+        <button id="gallerySelectModeBtn" class="gallerySelectModeBtn" type="button" aria-pressed="false">Select</button>
         <button id="galleryCloseBtn" class="iconButton" type="button" aria-label="Close gallery">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg>
         </button>
@@ -1189,7 +1193,7 @@
       <div id="galleryScroller" class="galleryScroller" tabindex="0">
         <div id="galleryGrid" class="galleryGrid" role="listbox" aria-label="Imported photos" aria-multiselectable="true"></div>
       </div>
-      <div id="galleryHint" class="galleryHint">Tap photos to select more than one, then remove the selected photos.</div>
+      <div id="galleryHint" class="galleryHint">Tap a photo to open it in the editor.</div>
     </div>
   </div>
 </div>
@@ -1200,7 +1204,7 @@
 
   const $ = s => document.querySelector(s);
   const els = {
-    appRoot: $("#appRoot"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
+    appRoot: $("#appRoot"), choosePhotosBtn: $("#choosePhotosBtn"), fileInput: $("#fileInput"), folderInput: $("#folderInput"),
     sidebar: $(".sidebar"), mobileMenuBtn: $("#mobileMenuBtn"),
     mobilePanelClose: $("#mobilePanelClose"), mobilePanelTitle: $("#mobilePanelTitle"),
     mobileBackdrop: $("#mobileBackdrop"), desktopLibraryMenu: $("#desktopLibraryMenu"),
@@ -1248,9 +1252,10 @@
     appDialogOverlay: $("#appDialogOverlay"), appDialogTitle: $("#appDialogTitle"), appDialogMessage: $("#appDialogMessage"),
     appDialogField: $("#appDialogField"), appDialogInputLabel: $("#appDialogInputLabel"), appDialogInput: $("#appDialogInput"),
     appDialogError: $("#appDialogError"), appDialogCancelBtn: $("#appDialogCancelBtn"), appDialogConfirmBtn: $("#appDialogConfirmBtn"),
-    galleryOverlay: $("#galleryOverlay"), galleryGrid: $("#galleryGrid"), galleryScroller: $("#galleryScroller"),
+    galleryOverlay: $("#galleryOverlay"), galleryCard: $("#galleryCard"), galleryGrid: $("#galleryGrid"), galleryScroller: $("#galleryScroller"),
     galleryPhotoCount: $("#galleryPhotoCount"), gallerySelectedCount: $("#gallerySelectedCount"),
-    gallerySelectAllBtn: $("#gallerySelectAllBtn"), galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn")
+    gallerySelectModeBtn: $("#gallerySelectModeBtn"), gallerySelectAllBtn: $("#gallerySelectAllBtn"),
+    galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn"), galleryHint: $("#galleryHint")
   };
 
   const items = [];
@@ -1271,6 +1276,7 @@
   let activeCameraProfileId="cam1-default";
   const customLuts=new Map();
   let galleryOpen=false;
+  let gallerySelectionMode=false;
   let galleryRemoving=false;
   let galleryPreviousFocus=null;
   const gallerySelection=new Set();
@@ -3838,7 +3844,27 @@
   });
   els.libraryRemoveBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();removeCurrentPhoto()});
   els.libraryClearBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();clearAllPhotos()});
-  els.libraryChoosePhotosBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();els.fileInput.click()});
+  async function choosePhotos(){
+    closeDesktopLibraryMenu();
+    if(isAndroid&&window.isSecureContext&&"showOpenFilePicker" in window){
+      try{
+        // Chrome 132+ on Android exposes the File System Access picker. Calling
+        // it directly avoids the visual-media picker chosen for file inputs and
+        // permits selecting several files from available document providers.
+        const handles=await window.showOpenFilePicker({multiple:true});
+        const files=await Promise.all(handles.map(handle=>handle.getFile()));
+        await addFiles(files);
+        closeMobilePanel();
+        return;
+      }catch(error){
+        if(error?.name==="AbortError")return;
+        console.warn("Document picker failed; using file-input fallback",error);
+      }
+    }
+    els.fileInput.click();
+  }
+  els.choosePhotosBtn.addEventListener("click",choosePhotos);
+  els.libraryChoosePhotosBtn.addEventListener("click",choosePhotos);
   els.libraryChooseFolderBtn.addEventListener("click",()=>{closeDesktopLibraryMenu();els.folderInput.click()});
   document.addEventListener("pointerdown",event=>{
     if(!els.desktopLibraryMenu.hidden&&!els.desktopLibraryMenu.contains(event.target)&&!event.target.closest("#filmstripAddBtn,.emptyAddPhotosBtn"))closeDesktopLibraryMenu();
@@ -4003,9 +4029,18 @@
   }
 
   function updateGalleryActions(){
+    if(!gallerySelectionMode&&gallerySelection.size)gallerySelection.clear();
     const selected=gallerySelection.size;
     const allSelected=items.length>0&&selected===items.length;
     els.galleryPhotoCount.textContent=`${items.length} photo${items.length===1?"":"s"}`;
+    els.galleryCard.classList.toggle("selectionMode",gallerySelectionMode);
+    els.gallerySelectModeBtn.textContent=gallerySelectionMode?"Done":"Select";
+    els.gallerySelectModeBtn.setAttribute("aria-pressed",String(gallerySelectionMode));
+    els.gallerySelectModeBtn.disabled=galleryRemoving||!items.length;
+    els.galleryGrid.setAttribute("aria-multiselectable",String(gallerySelectionMode));
+    els.galleryHint.textContent=gallerySelectionMode
+      ? "Tap photos to select them, then remove the selected photos."
+      : "Tap a photo to open it in the editor.";
     els.gallerySelectedCount.textContent=`${selected} selected`;
     els.gallerySelectAllBtn.textContent=allSelected?"Deselect all":"Select all";
     els.gallerySelectAllBtn.disabled=galleryRemoving||!items.length;
@@ -4036,6 +4071,11 @@
       button.append(image,check,name,meta);
       button.addEventListener("click",()=>{
         if(galleryRemoving)return;
+        if(!gallerySelectionMode){
+          closeGallery();
+          select(index);
+          return;
+        }
         if(gallerySelection.has(item.libraryId))gallerySelection.delete(item.libraryId);
         else gallerySelection.add(item.libraryId);
         button.setAttribute("aria-selected",String(gallerySelection.has(item.libraryId)));
@@ -4050,6 +4090,7 @@
     if(!items.length||busy)return;
     closeMobilePanel();
     galleryPreviousFocus=document.activeElement;
+    gallerySelectionMode=false;
     gallerySelection.clear();
     renderGallery();
     galleryOpen=true;
@@ -4062,7 +4103,8 @@
   }
   function closeGallery(){
     if(!galleryOpen||galleryRemoving)return;
-    galleryOpen=false;gallerySelection.clear();
+    galleryOpen=false;gallerySelectionMode=false;gallerySelection.clear();
+    els.galleryCard.classList.remove("selectionMode");
     document.body.classList.remove("galleryOpen");
     els.galleryOverlay.classList.remove("open");
     els.galleryOverlay.setAttribute("aria-hidden","true");
@@ -4124,8 +4166,14 @@
   els.openGalleryBtn.addEventListener("click",openGallery);
   els.galleryCloseBtn.addEventListener("click",closeGallery);
   els.galleryOverlay.addEventListener("click",event=>{if(event.target===els.galleryOverlay)closeGallery()});
+  els.gallerySelectModeBtn.addEventListener("click",()=>{
+    if(galleryRemoving||!items.length)return;
+    gallerySelectionMode=!gallerySelectionMode;
+    gallerySelection.clear();
+    renderGallery();
+  });
   els.gallerySelectAllBtn.addEventListener("click",()=>{
-    if(galleryRemoving)return;
+    if(galleryRemoving||!gallerySelectionMode)return;
     if(gallerySelection.size===items.length)gallerySelection.clear();
     else for(const item of items)gallerySelection.add(item.libraryId);
     renderGallery();

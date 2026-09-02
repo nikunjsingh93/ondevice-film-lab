@@ -51,7 +51,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 ## Features
 
 - Processes photos locally on your device
-- Imports individual photos or an entire DCIM folder; on Android, the photo chooser uses the document browser so available USB drives and file providers can be accessed
+- Imports individual photos or an entire DCIM folder; supported Android Chromium browsers use the multi-file system picker so available USB drives and document providers can be accessed
 - Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
 - Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step
 - Supports JPEG, PNG, and WebP input
@@ -64,7 +64,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Radial red/cyan chromatic aberration, set to 30% by default
 - Film grain enabled by default, with adjustable strength, size, and roughness
 - Original-versus-edited comparison preview
-- Vertically scrolling gallery for reviewing all imported photos, multi-selecting, and removing several at once
+- Vertically scrolling gallery where one tap opens a photo for editing, with a separate Select mode for multi-selecting and removing photos
 - Batch-first editing with optional per-photo overrides, Custom filmstrip badges, copy/paste edits, one-click reset, and session undo/redo
 - Preview zoom from 50% to 400%, with reset and drag-to-pan close inspection
 - Manual cropping with a movable, resizable rule-of-thirds frame, plus 90° rotation and fine ±15° straightening, baked into exports
