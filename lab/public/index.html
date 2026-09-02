@@ -6,20 +6,19 @@
   <meta name="theme-color" content="#111827">
   <title>OnDevice Film Lab Server</title>
   <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/styles.css?v=1.0.8">
+  <link rel="stylesheet" href="/styles.css?v=1.0.9">
 </head>
 <body>
   <div class="appShell">
     <header class="appHeader">
       <a class="brand" href="/" aria-label="OnDevice Film Lab Server home">
         <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
-        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.8</small></span>
+        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.9</small></span>
       </a>
       <span id="userGreeting" class="userGreeting" aria-live="polite"></span>
       <div class="headerActions">
         <button id="uploadButton" class="primary" type="button">+ Add photos</button>
         <button id="folderButton" type="button">Add folder</button>
-        <button id="selectButton" type="button" aria-pressed="false">Select</button>
         <a class="buttonLink" href="/settings">Settings</a>
       </div>
       <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple hidden>
@@ -60,11 +59,14 @@
             <option value="large">Large</option>
           </select>
         </label>
-        <div id="selectionActions" class="selectionActions" hidden>
-          <span id="selectedCount">0 selected</span>
-          <button id="selectAllButton" type="button">Select all</button>
-          <button id="downloadZipButton" type="button" disabled>Download .zip</button>
-          <button id="removeButton" class="danger" type="button" disabled>Remove selected</button>
+        <div class="gallerySelectionControls">
+          <button id="selectButton" type="button" aria-pressed="false">Select</button>
+          <div id="selectionActions" class="selectionActions" hidden>
+            <button id="selectAllButton" type="button">Select all</button>
+            <button id="downloadZipButton" type="button" disabled>Download .zip</button>
+            <button id="removeButton" class="danger" type="button" disabled>Remove selected</button>
+            <span id="selectedCount">0 selected</span>
+          </div>
         </div>
       </section>
 
@@ -102,6 +104,6 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script src="/app.js?v=1.0.8"></script>
+  <script src="/app.js?v=1.0.9"></script>
 </body>
 </html>

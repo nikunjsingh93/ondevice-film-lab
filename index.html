@@ -60,6 +60,19 @@
   .sidebarIntro{padding:2px 2px 1px}
   .brandTitle{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .brandLogo{width:42px;height:42px;border-radius:10px;flex:0 0 auto;display:block}
+  .webSettingsButton{display:none}
+  .webSettingsDialog{width:min(440px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:22px;border:1px solid #465875;border-radius:18px;background:#182130;color:var(--text);box-shadow:0 24px 80px #0009}
+  .webSettingsDialog::backdrop{background:#060911b8;backdrop-filter:blur(8px)}
+  .webSettingsHeader{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+  .webSettingsHeader h2{margin:0;font-size:21px}
+  .webSettingsHeader form{margin:0}
+  .webSettingsDialog .check{line-height:1.5}
+  .webSettingsDialog .notice{margin-top:12px}
+  @media(min-width:901px), (max-width:900px) and (orientation:landscape){
+    body.offlineEdition .brandTitle h1{flex:1;min-width:0}
+    body.offlineEdition .brandTitle .webSettingsButton{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;min-width:36px;height:36px;padding:7px;border-radius:10px}
+    body.offlineEdition .sidebar>.previewPreferences{display:none}
+  }
   .photoPicker{
     border:1px solid #46566e;
     border-radius:15px;
@@ -793,9 +806,12 @@
         <div class="brandTitle">
           <img class="brandLogo" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
           <h1>OnDevice Film Lab</h1>
+          <button id="webSettingsBtn" class="webSettingsButton" type="button" aria-label="Open settings" title="Settings" aria-haspopup="dialog" aria-controls="webSettingsDialog">
+            <svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.39 8.94L19.88 10.61L21.90 10.61L21.90 13.39L19.88 13.39L19.39 15.06L18.55 16.59L19.99 18.02L18.02 19.99L16.59 18.55L15.06 19.39L13.39 19.88L13.39 21.90L10.61 21.90L10.61 19.88L8.94 19.39L7.41 18.55L5.98 19.99L4.01 18.02L5.45 16.59L4.61 15.06L4.12 13.39L2.10 13.39L2.10 10.61L4.12 10.61L4.61 8.94L5.45 7.41L4.01 5.98L5.98 4.01L7.41 5.45L8.94 4.61L10.61 4.12L10.61 2.10L13.39 2.10L13.39 4.12L15.06 4.61L16.59 5.45L18.02 4.01L19.99 5.98L18.55 7.41Z"/><circle cx="12" cy="12" r="3.2"/></svg>
+          </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.6.8</div>
+        <div class="appVersion desktopAppVersion">Version 1.6.9</div>
       </div>
 
       <div class="photoPicker">
@@ -811,7 +827,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.6.8</div>
+        <div class="appVersion">Version 1.6.9</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1162,6 +1178,15 @@
     </main>
   </div>
 
+  <dialog id="webSettingsDialog" class="webSettingsDialog" aria-labelledby="webSettingsTitle">
+    <div class="webSettingsHeader">
+      <h2 id="webSettingsTitle">Settings</h2>
+      <form method="dialog"><button type="submit" aria-label="Close settings">Close</button></form>
+    </div>
+    <label class="check"><input id="webSettingsHoldOriginal" type="checkbox" role="switch"> Long press to see original</label>
+    <div class="notice">Show the full edited preview. Hold the photo with a mouse or finger to compare, then release. Turn off to use the split divider. Saved automatically on this device.</div>
+  </dialog>
+
   <div id="processingOverlay" class="processingOverlay" role="dialog" aria-modal="true" aria-labelledby="processingTitle" aria-describedby="processingDetail" aria-hidden="true">
     <div class="processingCard">
       <div class="processingSpinner" aria-hidden="true"></div>
@@ -1217,6 +1242,8 @@
 <script>
 (() => {
   "use strict";
+
+  if(!window.__FILMLAB_SERVER_MODE__)document.body.classList.add("offlineEdition");
 
   const $ = s => document.querySelector(s);
   const els = {
@@ -3603,6 +3630,17 @@
   }
 
   restoreSettings();
+  const webSettingsDialog=$("#webSettingsDialog");
+  const webSettingsHoldOriginal=$("#webSettingsHoldOriginal");
+  $("#webSettingsBtn").addEventListener("click",()=>{
+    if(window.__FILMLAB_SERVER_MODE__)return;
+    webSettingsHoldOriginal.checked=els.holdOriginal.checked;
+    webSettingsDialog.showModal();
+  });
+  webSettingsHoldOriginal.addEventListener("change",()=>{
+    els.holdOriginal.checked=webSettingsHoldOriginal.checked;
+    els.holdOriginal.dispatchEvent(new Event("change",{bubbles:true}));
+  });
   cancelOriginalHold=wireHoldPreview(els.viewer,()=>els.holdOriginal.checked,()=>cropOpen||straightenDragging||busy);
   els.holdOriginal.addEventListener("change",()=>{saveSettings();updatePreviewComparison()});
   window.addEventListener("storage",event=>{
@@ -4443,6 +4481,7 @@
   els.chromeToggleBtn.onclick=()=>setChromeHidden(!document.querySelector(".main").classList.contains("chromeHidden"));
 
   document.addEventListener("keydown",e=>{
+    if(webSettingsDialog.open)return;
     if(galleryOpen){
       if(e.key==="Escape"){e.preventDefault();closeGallery()}
       return;

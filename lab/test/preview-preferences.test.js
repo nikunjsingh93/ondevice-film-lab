@@ -52,6 +52,33 @@ test("web app inline scripts compile and preview preference is not a photo edit"
   assert.match(html, /globalSettingControls=\[els\.quality,els\.dateRename,els\.holdOriginal\]/);
 });
 
+test("desktop settings dialog opens with the saved preview preference and reuses its change handler", () => {
+  const dialog = { showModal() { this.open = true; } };
+  const toggle = new Events(), button = new Events();
+  const nodes = { "#webSettingsDialog": dialog, "#webSettingsHoldOriginal": toggle, "#webSettingsBtn": button };
+  const changes = [];
+  const els = { holdOriginal: { checked: true, dispatchEvent: event => changes.push(event.type) } };
+  const source = html.slice(html.indexOf('  const webSettingsDialog=$("#webSettingsDialog");'), html.indexOf('  cancelOriginalHold=wireHoldPreview'));
+  vm.runInNewContext(source, { $: selector => nodes[selector], els, window: {}, Event });
+  button.emit("click");
+  assert.equal(dialog.open, true);
+  assert.equal(toggle.checked, true);
+  toggle.checked = false;
+  toggle.emit("change");
+  assert.equal(els.holdOriginal.checked, false);
+  assert.deepEqual(changes, ["change"]);
+  assert.match(html, /body\.offlineEdition \.sidebar>\.previewPreferences\{display:none\}/);
+});
+
+test("Server Lab selection toggle is in gallery controls before Select all, not the header", () => {
+  const gallery = fs.readFileSync(path.resolve(__dirname, "../public/index.html"), "utf8");
+  const header = gallery.match(/<header[\s\S]*?<\/header>/)[0];
+  assert.doesNotMatch(header, /id="selectButton"/);
+  const controls = gallery.match(/<section class="libraryToolbar"[\s\S]*?<\/section>/)[0];
+  assert.ok(controls.indexOf('id="selectButton"') < controls.indexOf('id="selectAllButton"'));
+  assert.match(controls, /class="gallerySelectionControls"/);
+});
+
 for (const pointerType of ["mouse", "touch", "pen"]) {
   test(`${pointerType}: reveals only after holding and returns to edited on release`, () => {
     const h = harness();

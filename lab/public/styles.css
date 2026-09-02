@@ -27,7 +27,8 @@ main{padding:24px}
 .libraryToolbar{display:flex;align-items:center;gap:12px;min-height:66px;padding:12px 2px}
 .searchBox{display:flex;align-items:center;gap:9px;width:min(420px,100%);padding:0 13px;border:1px solid var(--line);border-radius:12px;background:#121b29}
 .searchBox svg{width:18px;fill:none;stroke:#8697ae;stroke-width:1.8}.searchBox input{width:100%;padding:11px 0;border:0;outline:0;background:transparent;color:var(--text)}
-.selectionActions{display:flex;align-items:center;gap:8px}.selectionActions span{color:var(--muted);font-size:12px}
+.gallerySelectionControls{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.selectionActions{display:contents}.selectionActions[hidden]{display:none}.selectionActions span{color:var(--muted);font-size:12px}
 .sortControl{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;font-weight:750}.sortControl select{padding:10px 34px 10px 11px}
 .userGreeting{color:#cbdcf0;font-size:13px;font-weight:700;overflow-wrap:anywhere;max-width:220px}
 .libraryToolbar{flex-wrap:wrap}
@@ -57,7 +58,7 @@ main{padding:24px}
 @media(max-width:760px){
   .appHeader{flex-wrap:wrap;padding-left:14px;padding-right:14px}.brand{flex:1}.brand img{width:40px;height:40px}.brand strong{font-size:15px}.headerActions{order:2;width:100%}.headerActions button,.headerActions .buttonLink{flex:1;justify-content:center;padding:9px 7px;font-size:12px}
   main{padding:14px}.libraryHero{grid-template-columns:1fr;padding:20px;gap:20px}.libraryStats{min-width:0;width:100%;grid-template-columns:repeat(3,1fr)}.libraryStats div{padding:11px 9px}.libraryStats strong{font-size:14px}.libraryHero p:not(.eyebrow){font-size:13px}
-  .libraryToolbar{align-items:stretch;flex-wrap:wrap}.searchBox{width:100%}.sortControl{width:100%;justify-content:space-between}.sortControl select{flex:1;max-width:220px}.selectionActions{width:100%;display:grid;grid-template-columns:1fr 1fr}.selectionActions span{grid-column:1/-1}.selectionActions button{padding:9px 7px;font-size:11px}
+  .libraryToolbar{align-items:stretch;flex-wrap:wrap}.searchBox{width:100%}.sortControl{width:100%;justify-content:space-between}.sortControl select{flex:1;max-width:220px}.gallerySelectionControls{width:100%;display:grid;grid-template-columns:1fr 1fr}.selectionActions span{grid-column:1/-1}.gallerySelectionControls button{padding:9px 7px;font-size:11px}
   .gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.photoCard{border-radius:11px}.photoInfo{padding:8px}.photoInfo strong{font-size:11px}.photoInfo span{font-size:9px}.emptyState{margin-top:4vh;padding:35px 18px}
   .dateGroupHeader{margin-top:14px;font-size:15px}
   .userGreeting{font-size:12px;max-width:40%;text-align:right}
