@@ -55,7 +55,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
 - Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step
 - Supports JPEG, PNG, and WebP input
-- Basic exposure, highlights, shadows, contrast, and saturation adjustments
+- Basic exposure, temperature, highlights, shadows, contrast, and saturation adjustments
 - Custom `.cube` LUT import with **No LUT** as the default, adjustable LUT strength, 1D and 3D LUT support, tetrahedral 3D interpolation, live preview, matching export, and on-device persistence
 - Adjustable de-sharpen strength, halo radius, and edge threshold
 - Old-film fade with adjustable strength, set to 30% by default

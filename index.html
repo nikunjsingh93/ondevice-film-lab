@@ -781,7 +781,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.4</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.5</div>
       </div>
 
       <div class="photoPicker">
@@ -797,7 +797,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.4</div>
+        <div class="appVersion">Version 1.5.5</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -875,6 +875,10 @@
           <div class="control">
             <label><span>Exposure</span><span id="exposureVal" class="value">0.0 EV</span></label>
             <input id="exposure" type="range" min="-100" max="100" value="0" aria-label="Exposure">
+          </div>
+          <div class="control">
+            <label><span>Temperature</span><span id="temperatureVal" class="value">0</span></label>
+            <input id="temperature" type="range" min="-100" max="100" value="0" aria-label="Temperature, cool to warm">
           </div>
           <div class="control">
             <label><span>Highlights</span><span id="highlightsVal" class="value">0%</span></label>
@@ -1202,7 +1206,7 @@
     mobileBackdrop: $("#mobileBackdrop"), desktopLibraryMenu: $("#desktopLibraryMenu"),
     filmstripAddBtn: $("#filmstripAddBtn"), libraryRemoveBtn: $("#libraryRemoveBtn"), libraryClearBtn: $("#libraryClearBtn"),
     libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
-    exposure: $("#exposure"), highlights: $("#highlights"), shadows: $("#shadows"),
+    exposure: $("#exposure"), temperature: $("#temperature"), highlights: $("#highlights"), shadows: $("#shadows"),
     contrast: $("#contrast"), saturation: $("#saturation"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
@@ -1212,7 +1216,7 @@
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"),
-    exposureVal: $("#exposureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
+    exposureVal: $("#exposureVal"), temperatureVal: $("#temperatureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
     contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
@@ -1598,7 +1602,7 @@
   }
 
   const photoSettingControls=[
-    els.exposure,els.highlights,els.shadows,els.contrast,els.saturation,
+    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
@@ -2341,16 +2345,19 @@
 
   function applyBasicAdjustments(canvas,settings=null){
     const exposureStops=settingNumber(settings,"exposure")/50;
+    const temperature=settingNumber(settings,"temperature")/100;
     const highlights=settingNumber(settings,"highlights")/100;
     const shadows=settingNumber(settings,"shadows")/100;
     const contrast=settingNumber(settings,"contrast")/100;
     const saturation=settingNumber(settings,"saturation")/100;
-    if(!exposureStops&&!highlights&&!shadows&&!contrast&&!saturation)return canvas;
+    if(!exposureStops&&!temperature&&!highlights&&!shadows&&!contrast&&!saturation)return canvas;
 
     const context=canvas.getContext("2d",{willReadFrequently:true});
     const image=context.getImageData(0,0,canvas.width,canvas.height);
     const pixels=image.data;
     const exposureMultiplier=Math.pow(2,exposureStops);
+    const temperatureRedGain=Math.exp(temperature*.34);
+    const temperatureBlueGain=Math.exp(-temperature*.34);
     const saturationFactor=1+saturation;
     const encodeLinear=value=>linearToSrgb[Math.round(clamp01(value)*4096)];
 
@@ -2358,10 +2365,25 @@
       // Exposure is applied in linear light, so each 1 EV step doubles or
       // halves scene brightness instead of merely adding gray to the JPEG.
       let red,green,blue;
-      if(exposureStops){
-        red=encodeLinear(srgbToLinear[pixels[index]]*exposureMultiplier);
-        green=encodeLinear(srgbToLinear[pixels[index+1]]*exposureMultiplier);
-        blue=encodeLinear(srgbToLinear[pixels[index+2]]*exposureMultiplier);
+      if(exposureStops||temperature){
+        let linearRed=srgbToLinear[pixels[index]]*exposureMultiplier;
+        let linearGreen=srgbToLinear[pixels[index+1]]*exposureMultiplier;
+        let linearBlue=srgbToLinear[pixels[index+2]]*exposureMultiplier;
+        if(temperature){
+          // Temperature behaves like a white-balance adjustment: positive
+          // values shift neutral tones toward amber, while negative values
+          // shift them toward blue. Work in linear RGB and preserve luminance
+          // so the control changes colour without acting like exposure.
+          const beforeLuma=.2126*linearRed+.7152*linearGreen+.0722*linearBlue;
+          linearRed*=temperatureRedGain;
+          linearBlue*=temperatureBlueGain;
+          const afterLuma=.2126*linearRed+.7152*linearGreen+.0722*linearBlue;
+          const lumaScale=afterLuma>1e-6?beforeLuma/afterLuma:1;
+          linearRed*=lumaScale;linearGreen*=lumaScale;linearBlue*=lumaScale;
+        }
+        red=encodeLinear(linearRed);
+        green=encodeLinear(linearGreen);
+        blue=encodeLinear(linearBlue);
       }else{
         red=pixels[index]/255;
         green=pixels[index+1]/255;
@@ -3410,6 +3432,7 @@
     const signedPercent=value=>`${value>0?"+":""}${value}%`;
     const exposureStops=+els.exposure.value/50;
     els.exposureVal.textContent=`${exposureStops>0?"+":""}${exposureStops.toFixed(1)} EV`;
+    els.temperatureVal.textContent=`${+els.temperature.value>0?"+":""}${els.temperature.value}`;
     els.highlightsVal.textContent=signedPercent(+els.highlights.value);
     els.shadowsVal.textContent=signedPercent(+els.shadows.value);
     els.contrastVal.textContent=signedPercent(+els.contrast.value);
