@@ -283,7 +283,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.1" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.2" }));
 
 app.get("/api/library", asyncRoute(async (_request, response) => {
   const counts = statements.countPhotos.get();

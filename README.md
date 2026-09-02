@@ -186,29 +186,59 @@ FILMLAB_STATE_PATH=/var/lib/ondevice-film-lab \
 docker compose -f docker-compose.lab.yml up -d --build
 ```
 
-The Compose configuration publishes Server Lab only on `127.0.0.1:3000`. On the Ubuntu server itself, check:
+The Compose configuration publishes Server Lab on port `3000` of the Ubuntu server. On the server itself, check:
 
 ```sh
 curl http://127.0.0.1:3000/api/health
 docker compose -f docker-compose.lab.yml logs -f film-lab
 ```
 
-For temporary LAN-only testing, change the port mapping in `docker-compose.lab.yml` from `127.0.0.1:3000:3000` to `3000:3000`, then open `http://SERVER-LAN-IP:3000`. The Tailscale HTTPS setup below is preferred for normal use.
+From another device on the same local network, open `http://UBUNTU-IP:3000`. You can find the server's local IP address with `hostname -I`. This exposes Film Lab to devices that can reach the Ubuntu server on the local network, so do not forward port `3000` on the router or expose it directly to the internet.
 
-### Deploy through Portainer
+### Create the Portainer stack
 
 1. Prepare the external data directory, marker, and internal state directory as described above.
 2. Push this repository, including `lab/` and `docker-compose.lab.yml`, to GitHub.
 3. In Portainer, open the Ubuntu **Docker Standalone** environment.
-4. Select **Stacks → Add stack → Git repository**.
-5. Name the stack `ondevice-film-lab`.
-6. Use repository URL `https://github.com/nikunjsingh93/ondevice-film-lab`.
-7. Choose the branch you deploy, normally `main`.
-8. Set **Compose path** to `docker-compose.lab.yml`.
-9. Add `FILMLAB_DATA_PATH` with the external directory, for example `/media/wvx/TOSH 4TB/OnDeviceFilmLab`.
-10. Add `FILMLAB_STATE_PATH` with value `/var/lib/ondevice-film-lab`.
+4. Select **Stacks** and then **Add stack**.
+5. Choose **Git repository**.
+6. Enter the stack name:
+
+   ```text
+   ondevice-film-lab
+   ```
+
+7. Enter the repository URL:
+
+   ```text
+   https://github.com/nikunjsingh93/ondevice-film-lab
+   ```
+
+8. Set the repository reference to:
+
+   ```text
+   refs/heads/main
+   ```
+
+   If Portainer asks only for a branch name, enter `main`.
+
+9. Set **Compose path** to:
+
+   ```text
+   docker-compose.lab.yml
+   ```
+
+10. Under **Environment variables**, add these two values without quotation marks:
+
+    ```ini
+    FILMLAB_DATA_PATH=/media/wvx/TOSH 4TB/OnDeviceFilmLab
+    FILMLAB_STATE_PATH=/var/lib/ondevice-film-lab
+    ```
+
 11. Optionally enable **GitOps updates** using polling or a Portainer webhook.
 12. Select **Deploy the stack**.
+
+After deployment, open `http://UBUNTU-IP:3000` on a device connected to the same network.
 
 The included GitHub Actions workflow builds `ghcr.io/nikunjsingh93/ondevice-film-lab-server:latest` after relevant pushes. After its first successful run, open the package on GitHub and make it **Public**, or configure Portainer with GitHub Container Registry credentials. A public package is simplest for a private Tailscale-only service because it allows downloading the software image without making the running photo library public.
 
