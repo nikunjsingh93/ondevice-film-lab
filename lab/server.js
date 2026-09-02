@@ -495,7 +495,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.3" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.4" }));
 app.use(authenticate);
 
 const loginFailures = new Map();

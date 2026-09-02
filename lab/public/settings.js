@@ -39,7 +39,7 @@
     $("#userList").innerHTML = result.users.map(user => `
       <article class="userCard" data-id="${user.id}">
         <div class="userHeading"><div><strong>${escapeHtml(user.username)}</strong><span>${user.isAdmin ? "Administrator" : user.mustChangePassword ? "Temporary password" : "Member"}</span></div><span>${formatBytes(user.usedBytes)} used</span></div>
-        ${user.isAdmin ? '<p class="settingsHelp">The administrator account has unlimited storage.</p>' : `<div class="userFields"><label>Username<input class="editUsername" value="${escapeHtml(user.username)}"></label><label>Storage in GB <small>Blank is unlimited</small><input class="editQuota" type="number" min="0.05" step="0.1" value="${quotaToGb(user.quotaBytes)}"></label><label>New temporary password <small>Optional</small><input class="editPassword" type="password" minlength="8"></label></div><div class="userActions"><button class="saveUser" type="button">Save</button><button class="removeUser danger" type="button">Remove</button></div>`}
+        ${user.isAdmin ? '<p class="settingsHelp">The administrator account has unlimited storage.</p>' : `<div class="userFields"><label>Username<input class="editUsername" value="${escapeHtml(user.username)}"></label><label>Storage in GB <small>Blank is unlimited</small><input class="editQuota" type="number" min="0.05" step="0.01" value="${quotaToGb(user.quotaBytes)}"></label><label>New temporary password <small>Optional</small><input class="editPassword" type="password" minlength="8"></label></div><div class="userActions"><button class="saveUser" type="button">Save</button><button class="removeUser danger" type="button">Remove</button></div>`}
       </article>`).join("");
   }
 
