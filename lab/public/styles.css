@@ -2,8 +2,8 @@
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;min-height:100vh;background:radial-gradient(circle at 5% -10%,#293054 0,transparent 34%),var(--bg);color:var(--text);font:15px/1.45 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-button,input{font:inherit}
-input{border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#101827;color:var(--text);outline:none}input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #78aee224}
+button,input,select{font:inherit}
+input,select{border:1px solid var(--line);border-radius:11px;padding:11px 12px;background:#101827;color:var(--text);outline:none}input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #78aee224}
 button{border:1px solid var(--line);border-radius:11px;padding:10px 14px;background:#202c40;color:var(--text);font-weight:700;cursor:pointer;transition:.16s ease}
 button:hover{border-color:#6283a8;background:#26364e}
 button:disabled{opacity:.45;cursor:not-allowed}
@@ -28,8 +28,10 @@ main{padding:24px}
 .searchBox{display:flex;align-items:center;gap:9px;width:min(420px,100%);padding:0 13px;border:1px solid var(--line);border-radius:12px;background:#121b29}
 .searchBox svg{width:18px;fill:none;stroke:#8697ae;stroke-width:1.8}.searchBox input{width:100%;padding:11px 0;border:0;outline:0;background:transparent;color:var(--text)}
 .selectionActions{display:flex;align-items:center;gap:8px}.selectionActions span{color:var(--muted);font-size:12px}
+.sortControl{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;font-weight:750}.sortControl select{padding:10px 34px 10px 11px}
 .sessionLabel{margin-left:auto;color:var(--muted);font-size:12px}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.dateGroupHeader{grid-column:1/-1;display:flex;align-items:center;gap:12px;margin:18px 0 0;color:#dce8f7;font-size:17px;letter-spacing:-.01em}.dateGroupHeader:first-child{margin-top:0}.dateGroupHeader::after{content:"";height:1px;flex:1;background:var(--line)}
 .photoCard{position:relative;min-width:0;overflow:hidden;border:1px solid #26364c;border-radius:15px;background:var(--panel);box-shadow:0 10px 30px #0003;cursor:pointer;transition:.18s ease}
 .photoCard:hover{transform:translateY(-2px);border-color:#57799f}
 .photoCard.selected{border-color:var(--accent);box-shadow:0 0 0 2px #78aee255}
@@ -50,8 +52,9 @@ main{padding:24px}
 @media(max-width:760px){
   .appHeader{flex-wrap:wrap;padding-left:14px;padding-right:14px}.brand{flex:1}.brand img{width:40px;height:40px}.brand strong{font-size:15px}.headerActions{order:2;width:100%}.headerActions button,.headerActions .buttonLink{flex:1;justify-content:center;padding:9px 7px;font-size:12px}
   main{padding:14px}.libraryHero{grid-template-columns:1fr;padding:20px;gap:20px}.libraryStats{min-width:0;width:100%;grid-template-columns:repeat(3,1fr)}.libraryStats div{padding:11px 9px}.libraryStats strong{font-size:14px}.libraryHero p:not(.eyebrow){font-size:13px}
-  .libraryToolbar{align-items:stretch;flex-wrap:wrap}.searchBox{width:100%}.selectionActions{width:100%}.selectionActions span{margin-right:auto}.sessionLabel{display:none}
+  .libraryToolbar{align-items:stretch;flex-wrap:wrap}.searchBox{width:100%}.sortControl{width:100%;justify-content:space-between}.sortControl select{flex:1;max-width:220px}.selectionActions{width:100%;display:grid;grid-template-columns:1fr 1fr}.selectionActions span{grid-column:1/-1}.selectionActions button{padding:9px 7px;font-size:11px}.sessionLabel{display:none}
   .gallery{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.photoCard{border-radius:11px}.photoInfo{padding:8px}.photoInfo strong{font-size:11px}.photoInfo span{font-size:9px}.emptyState{margin-top:4vh;padding:35px 18px}
+  .dateGroupHeader{margin-top:14px;font-size:15px}
   .authPage{padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom))}.authCard{padding:22px;border-radius:20px}.settingsMain{padding:14px}.settingsCard{padding:18px}.settingsForm,.newUserForm,.userFields{grid-template-columns:1fr}.settingsForm button,.newUserForm button{margin-top:5px}.newUserForm{padding:14px}.userHeading{align-items:start}.settingsShell .headerActions{width:auto;order:initial}.settingsShell .headerActions .buttonLink{padding:9px;font-size:11px}
 }
 @media(max-width:390px){.gallery{grid-template-columns:1fr 1fr}.libraryStats span{font-size:8px}.emptyState div{width:100%;flex-direction:column}.emptyState button{width:100%}}

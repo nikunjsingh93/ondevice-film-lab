@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#111827">
   <title>OnDevice Film Lab Server</title>
   <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=1.0.7">
 </head>
 <body>
   <div class="appShell">
     <header class="appHeader">
       <a class="brand" href="/" aria-label="OnDevice Film Lab Server home">
         <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
-        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.6</small></span>
+        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.0.7</small></span>
       </a>
       <div class="headerActions">
         <button id="uploadButton" class="primary" type="button">+ Add photos</button>
@@ -44,9 +44,17 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.2 4.2"/></svg>
           <input id="searchInput" type="search" placeholder="Search filenames" autocomplete="off">
         </label>
+        <label class="sortControl">
+          <span>Sort by</span>
+          <select id="sortSelect" aria-label="Sort gallery photos">
+            <option value="captured">Date taken</option>
+            <option value="imported">Date uploaded</option>
+          </select>
+        </label>
         <div id="selectionActions" class="selectionActions" hidden>
           <span id="selectedCount">0 selected</span>
           <button id="selectAllButton" type="button">Select all</button>
+          <button id="downloadZipButton" type="button" disabled>Download .zip</button>
           <button id="removeButton" class="danger" type="button" disabled>Remove selected</button>
         </div>
         <span id="sessionLabel" class="sessionLabel"></span>
@@ -86,6 +94,6 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=1.0.7"></script>
 </body>
 </html>

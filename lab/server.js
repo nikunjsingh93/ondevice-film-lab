@@ -6,6 +6,7 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { pipeline } = require("node:stream/promises");
 const Database = require("better-sqlite3");
+const archiver = require("archiver");
 const express = require("express");
 const multer = require("multer");
 const sharp = require("sharp");
@@ -268,11 +269,19 @@ function photoResponse(row) {
     importedAt: row.imported_at,
     edits: safeJson(row.edits_json),
     hasExport: Boolean(row.export_path),
+    isEdited: hasSavedEdits(row),
     thumbnailUrl: `/api/photos/${row.id}/thumbnail`,
     previewUrl: `/api/photos/${row.id}/preview`,
     originalUrl: `/api/photos/${row.id}/original`,
     exportUrl: row.export_path ? `/api/photos/${row.id}/export` : null
   };
+}
+
+function hasSavedEdits(row) {
+  const edits = safeJson(row?.edits_json, null);
+  if (row?.export_path) return true;
+  if (!edits || typeof edits !== "object" || Array.isArray(edits) || !Object.keys(edits).length) return false;
+  return Object.prototype.hasOwnProperty.call(edits, "isEdited") ? Boolean(edits.isEdited) : true;
 }
 
 function nearbyPhotos(userId, photoId, requestedLimit = 9) {
@@ -516,7 +525,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.6" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.7" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -647,14 +656,47 @@ app.get("/api/photos", (request, response) => {
   const limit = Math.max(1, Math.min(120, Number(request.query.limit) || 60));
   const offset = Math.max(0, Number(request.query.offset) || 0);
   const query = String(request.query.q || "").trim();
+  const sort = request.query.sort === "imported" ? "imported" : "captured";
+  const order = sort === "imported"
+    ? "imported_at DESC, id DESC"
+    : "COALESCE(captured_at, imported_at) DESC, imported_at DESC, id DESC";
   const rows = query
-    ? db.prepare("SELECT * FROM photos WHERE user_id = ? AND original_name LIKE ? ESCAPE '\\' ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?")
+    ? db.prepare(`SELECT * FROM photos WHERE user_id = ? AND original_name LIKE ? ESCAPE '\\' ORDER BY ${order} LIMIT ? OFFSET ?`)
       .all(request.user.id, `%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`, limit, offset)
-    : db.prepare("SELECT * FROM photos WHERE user_id = ? ORDER BY COALESCE(captured_at, imported_at) DESC LIMIT ? OFFSET ?").all(request.user.id, limit, offset);
+    : db.prepare(`SELECT * FROM photos WHERE user_id = ? ORDER BY ${order} LIMIT ? OFFSET ?`).all(request.user.id, limit, offset);
   const total = query
     ? db.prepare("SELECT COUNT(*) AS count FROM photos WHERE user_id = ? AND original_name LIKE ? ESCAPE '\\'").get(request.user.id, `%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`).count
     : statements.countPhotos.get(request.user.id).count;
-  response.json({ photos: rows.map(photoResponse), total, offset, limit, hasMore: offset + rows.length < total });
+  response.json({ photos: rows.map(photoResponse), total, offset, limit, sort, hasMore: offset + rows.length < total });
+});
+
+app.post("/api/photos/download.zip", (request, response, next) => {
+  try {
+    const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))].slice(0, 1000) : [];
+    if (!ids.length) return response.status(400).json({ error: "No photos selected" });
+    const placeholders = ids.map(() => "?").join(",");
+    const rows = db.prepare(`SELECT * FROM photos WHERE user_id = ? AND id IN (${placeholders}) ORDER BY COALESCE(captured_at, imported_at) DESC, id DESC`)
+      .all(request.user.id, ...ids);
+    if (!rows.length) return response.status(404).json({ error: "No selected photos were found" });
+
+    const archive = archiver("zip", { zlib: { level: 0 } });
+    const usedNames = new Map();
+    response.type("application/zip");
+    response.setHeader("Content-Disposition", `attachment; filename="OnDevice-Film-Lab-${rows.length}-photos.zip"`);
+    response.setHeader("Cache-Control", "no-store");
+    archive.on("warning", error => { if (error.code !== "ENOENT") console.warn("ZIP warning", error); });
+    archive.on("error", error => response.destroy(error));
+    archive.pipe(response);
+    for (const row of rows) {
+      const clean = path.basename(row.original_name).replace(/[^a-z0-9._' ()-]/gi, "_") || `${row.id}.jpg`;
+      const count = usedNames.get(clean.toLowerCase()) || 0;
+      usedNames.set(clean.toLowerCase(), count + 1);
+      const parsed = path.parse(clean);
+      const name = count ? `${parsed.name} (${count + 1})${parsed.ext}` : clean;
+      archive.file(resolveDataPath(row.stored_path), { name });
+    }
+    void archive.finalize();
+  } catch (error) { next(error); }
 });
 
 app.get("/api/photos/:id", (request, response) => {
@@ -844,7 +886,8 @@ function createEditorHtml(userId = "server") {
       }
       select(index);
     },
-    captureState(){return current>=0&&items[current]?storedStateFor(items[current]):null},
+    captureState(){return current>=0&&items[current]?{...storedStateFor(items[current]),isEdited:itemHasCustomEdits(items[current])}:null},
+    setSinglePhotoMode(){editScope="photo";updateEditScopeUI()},
     async renderCurrent(){
       if(current<0||!items[current])throw new Error("No photo is open");
       return processItem(items[current]);
@@ -869,15 +912,15 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.0.7"></script>\n</body>`);
   return html;
 }
 
-app.get("/editor", (request, response) => response.type("html").send(createEditorHtml(request.user.id)));
+app.get("/editor", (request, response) => response.set("Cache-Control", "no-store").type("html").send(createEditorHtml(request.user.id)));
 app.use("/branding", express.static(path.join(APP_ROOT, "branding"), { maxAge: "7d" }));
 app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" }));
 app.get("/manifest.webmanifest", (_request, response) => response.sendFile(path.join(APP_ROOT, "manifest.webmanifest")));
-app.use(express.static(PUBLIC_DIR, { extensions: ["html"], maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
+app.use(express.static(PUBLIC_DIR, { extensions: ["html"], maxAge: 0 }));
 
 app.use((error, request, response, _next) => {
   console.error(error);
@@ -916,5 +959,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits }
 };

@@ -43,7 +43,7 @@
 
   function cleanState(state) {
     if (!state) return null;
-    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {} };
+    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, isEdited: Boolean(state.isEdited) };
   }
 
   async function saveState(force = false) {
@@ -150,13 +150,13 @@
       meta.textContent = `${Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleDateString()} · ${formatBytes(entry.size)}`;
       const status = document.createElement("div");
       status.className = "rot";
-      status.textContent = entry.hasExport ? "Saved edit" : "";
+      status.textContent = entry.isEdited ? "Edited" : "";
       card.append(image, name, meta, status);
       const open = async () => {
         if (entry.id === photoId || openingPhoto) return;
         openingPhoto = true;
         card.setAttribute("aria-busy", "true");
-        try { await saveState(true); } catch (error) { notify(error.message, true); }
+        try { await saveState(); } catch (error) { notify(error.message, true); }
         location.href = `/editor?photo=${encodeURIComponent(entry.id)}`;
       };
       card.addEventListener("click", open);
@@ -182,12 +182,13 @@
       body.serverEdition .photoPicker{display:none!important}
       body.serverEdition #filmstripAddBtn,body.serverEdition #openGalleryBtn{display:none!important}
       body.serverEdition .serverCoreFilmstrip{display:none!important}
+      body.serverEdition .editScopeSwitch,body.serverEdition .editScopeHint{display:none!important}
       .serverLibraryButton{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
       .serverLibraryButton svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
       .serverSaveButton.saved{border-color:#4d947d!important;color:#b8f0d9!important}
       .serverEditorToast{position:fixed;z-index:1000;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:11px 16px;border:1px solid #496583;border-radius:12px;background:#172338;color:#f4f7fb;box-shadow:0 12px 38px #000a;white-space:nowrap}
       .serverEditorToast.failure{border-color:#8b4f58;color:#ffdadd}
-      @media(max-width:900px){.serverLibraryButton{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;flex:0 0 44px;padding:9px!important}.serverLibraryButton span{display:none}.serverEditorToast{max-width:calc(100% - 24px);white-space:normal;text-align:center}}
+      @media(max-width:900px){.mobileTitleRow>.serverLibraryButton{order:0}.mobileTitleRow>#mobileMenuBtn{order:1}.mobileTitleRow>.filename{order:2}.serverLibraryButton{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;flex:0 0 44px;padding:9px!important}.serverLibraryButton span{display:none}.serverEditorToast{max-width:calc(100% - 24px);white-space:normal;text-align:center}}
     `;
     document.head.appendChild(style);
     document.body.classList.add("serverEdition");
@@ -210,15 +211,28 @@
     button.onclick = async () => { await saveState().catch(() => {}); location.href = "/"; };
     const mobileTitleRow = toolbar?.querySelector(".mobileTitleRow");
     const mobileMenuButton = toolbar?.querySelector("#mobileMenuBtn");
-    if (mobileTitleRow && mobileMenuButton) mobileTitleRow.insertBefore(button, mobileMenuButton);
+    if (mobileTitleRow && mobileMenuButton) mobileTitleRow.prepend(button);
     else toolbar?.prepend(button);
     const heading = document.querySelector(".sidebarIntro h1");
     if (heading) heading.textContent = "OnDevice Film Lab Server";
     const intro = document.querySelector(".sidebarIntro .sub");
     if (intro) intro.textContent = "Editing from your private Ubuntu photo library. Changes are saved back to Server Lab.";
+    const outputButton = document.querySelector("#saveOneBtn");
+    if (outputButton) outputButton.textContent = "Download photo";
   }
 
-  async function saveRenderedPhoto() {
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename || "FilmLab.jpg";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+
+  async function downloadRenderedPhoto() {
     if (saving) return;
     const saveButton = document.querySelector("#saveOneBtn");
     saving = true;
@@ -226,31 +240,26 @@
     saveButton.textContent = "Processing…";
     saveButton.classList.remove("saved");
     try {
-      await saveState(true);
+      await saveState();
       const [blob, filename] = await Promise.all([bridge.renderCurrent(), bridge.currentOutputName()]);
-      const response = await fetch(`/api/photos/${encodeURIComponent(photoId)}/export`, {
-        method: "PUT",
-        headers: { "Content-Type": "image/jpeg", "X-FilmLab-Filename": filename },
-        body: blob
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || "The processed photo could not be saved");
-      saveButton.textContent = "Saved to server";
+      downloadBlob(blob, filename);
+      saveButton.textContent = "Downloaded";
       saveButton.classList.add("saved");
-      bridge.setStatus("Saved processed photo to Server Lab");
-      notify("Processed JPEG saved to Server Lab");
-      setTimeout(() => { if (!saving) return; saveButton.textContent = "Save to server"; saving = false; bridge.setBusy(false); }, 1100);
+      bridge.setStatus("Downloaded edited photo");
+      notify("Edited JPEG downloaded to this device");
+      setTimeout(() => { if (!saving) return; saveButton.textContent = "Download photo"; saving = false; bridge.setBusy(false); }, 1100);
     } catch (error) {
-      saveButton.textContent = "Save to server";
+      saveButton.textContent = "Download photo";
       saving = false;
       bridge.setBusy(false);
-      bridge.setStatus("Server save failed");
+      bridge.setStatus("Download failed");
       notify(error.message, true);
     }
   }
 
   async function initialize() {
     addServerChrome();
+    bridge.setSinglePhotoMode();
     if (!await syncProfilesInitially()) return;
     await syncServerLuts();
     const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}`);
@@ -261,13 +270,14 @@
     const blob = await response.blob();
     const file = new File([blob], photo.name, { type: photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
     await bridge.loadPhoto(file, photo.edits);
+    bridge.setSinglePhotoMode();
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
     loadServerFilmstrip().catch(error => notify(`Nearby photos could not be loaded: ${error.message}`, true));
 
     const saveButton = document.querySelector("#saveOneBtn");
-    saveButton.textContent = "Save to server";
+    saveButton.textContent = "Download photo";
     saveButton.classList.add("serverSaveButton");
-    saveButton.onclick = saveRenderedPhoto;
+    saveButton.onclick = downloadRenderedPhoto;
     const zipButton = document.querySelector("#zipBtn");
     if (zipButton) zipButton.hidden = true;
 
@@ -286,7 +296,8 @@
     }, 2200);
     window.addEventListener("pagehide", () => {
       const state = cleanState(bridge.captureState());
-      if (state) navigator.sendBeacon?.(`/api/photos/${encodeURIComponent(photoId)}/edits-beacon`, new Blob([JSON.stringify({ edits: state })], { type: "application/json" }));
+      const encoded = state ? JSON.stringify(state) : "";
+      if (state && encoded !== lastPhotoState) navigator.sendBeacon?.(`/api/photos/${encodeURIComponent(photoId)}/edits-beacon`, new Blob([JSON.stringify({ edits: state })], { type: "application/json" }));
     });
   }
 

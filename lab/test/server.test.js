@@ -51,15 +51,21 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_EDITOR__/);
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
-  assert.match(editor, /\/lab-editor\.js/);
+  assert.match(editor, /setSinglePhotoMode/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.0\.7/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
 test("persists non-destructive edit state", async () => {
   testApi.statements.updateEdits.run(JSON.stringify({ rotation: 90, settings: { fade: "25" } }), testApi.defaultAdmin.id, photoId);
-  const edits = JSON.parse(testApi.statements.byId.get(testApi.defaultAdmin.id, photoId).edits_json);
+  let row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
+  const edits = JSON.parse(row.edits_json);
   assert.equal(edits.rotation, 90);
   assert.equal(edits.settings.fade, "25");
+  assert.equal(testApi.hasSavedEdits(row), true);
+  testApi.statements.updateEdits.run(JSON.stringify({ rotation: 0, settings: {}, isEdited: false }), testApi.defaultAdmin.id, photoId);
+  row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
+  assert.equal(testApi.hasSavedEdits(row), false);
 });
 
 test("stores shared profile state", async () => {

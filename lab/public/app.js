@@ -4,8 +4,8 @@
   const elements = {
     photoInput: $("#photoInput"), folderInput: $("#folderInput"), uploadButton: $("#uploadButton"), folderButton: $("#folderButton"),
     emptyUploadButton: $("#emptyUploadButton"), emptyFolderButton: $("#emptyFolderButton"), selectButton: $("#selectButton"),
-    selectAllButton: $("#selectAllButton"), removeButton: $("#removeButton"), selectedCount: $("#selectedCount"),
-    selectionActions: $("#selectionActions"), searchInput: $("#searchInput"), gallery: $("#gallery"), emptyState: $("#emptyState"),
+    selectAllButton: $("#selectAllButton"), downloadZipButton: $("#downloadZipButton"), removeButton: $("#removeButton"), selectedCount: $("#selectedCount"),
+    selectionActions: $("#selectionActions"), searchInput: $("#searchInput"), sortSelect: $("#sortSelect"), gallery: $("#gallery"), emptyState: $("#emptyState"),
     loadMoreButton: $("#loadMoreButton"), photoCount: $("#photoCount"), librarySize: $("#librarySize"), freeSpace: $("#freeSpace"),
     sessionLabel: $("#sessionLabel"), dropOverlay: $("#dropOverlay"), progressOverlay: $("#progressOverlay"),
     progressTitle: $("#progressTitle"), progressText: $("#progressText"), progressBar: $("#progressBar"), progressPercent: $("#progressPercent"),
@@ -18,6 +18,8 @@
   let selectionMode = false;
   const selected = new Set();
   let uploadRequest = null;
+  let downloadController = null;
+  let sortMode = localStorage.getItem("filmLabServerSort") === "imported" ? "imported" : "captured";
   let searchTimer = 0;
   let toastTimer = 0;
 
@@ -67,19 +69,44 @@
     elements.selectionActions.hidden = !selectionMode;
     elements.selectedCount.textContent = `${selected.size} selected`;
     elements.removeButton.disabled = !selected.size;
+    elements.downloadZipButton.disabled = !selected.size;
     elements.selectAllButton.textContent = selected.size && selected.size === photos.length ? "Deselect all" : "Select all";
     document.querySelectorAll(".photoCard").forEach(card => card.classList.toggle("selected", selected.has(card.dataset.id)));
   }
 
+  function galleryDate(photo) {
+    return sortMode === "imported" ? photo.importedAt : (photo.capturedAt || photo.importedAt);
+  }
+
+  function dateGroup(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || Number.isNaN(date.getTime())) return { key: "unknown", label: "Unknown date" };
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const today = new Date();
+    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const startDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const daysAgo = Math.round((startToday - startDate) / 86400000);
+    const label = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : new Intl.DateTimeFormat(undefined, {
+      month: "long", day: "numeric", ...(date.getFullYear() === today.getFullYear() ? {} : { year: "numeric" })
+    }).format(date);
+    return { key, label };
+  }
+
   function renderGallery() {
     elements.emptyState.hidden = total > 0 || Boolean(elements.searchInput.value.trim());
-    elements.gallery.innerHTML = photos.map(photo => `
+    let previousGroup = "";
+    elements.gallery.innerHTML = photos.map(photo => {
+      const group = dateGroup(galleryDate(photo));
+      const heading = group.key === previousGroup ? "" : `<h2 class="dateGroupHeader">${escapeHtml(group.label)}</h2>`;
+      previousGroup = group.key;
+      return `${heading}
       <article class="photoCard${selected.has(photo.id) ? " selected" : ""}" data-id="${photo.id}" tabindex="0" role="button" aria-label="${selectionMode ? "Select" : "Open"} ${escapeHtml(photo.name)}">
         <img src="${photo.thumbnailUrl}" alt="" loading="lazy" decoding="async">
-        ${photo.hasExport ? '<span class="editedBadge">EDITED</span>' : ""}
+        ${photo.isEdited ? '<span class="editedBadge">EDITED</span>' : ""}
         ${selectionMode ? '<span class="selectMark">✓</span>' : ""}
-        <div class="photoInfo"><strong>${escapeHtml(photo.name)}</strong><span>${formatDate(photo.capturedAt)} · ${formatBytes(photo.size)}</span>${photo.exportUrl ? `<a class="downloadEdit" href="${photo.exportUrl}" download>Download finished JPEG</a>` : ""}</div>
-      </article>`).join("");
+        <div class="photoInfo"><strong>${escapeHtml(photo.name)}</strong><span>${formatDate(galleryDate(photo))} · ${formatBytes(photo.size)}</span></div>
+      </article>`;
+    }).join("");
     elements.loadMoreButton.hidden = !hasMore;
     updateSelection();
   }
@@ -87,7 +114,7 @@
   async function loadPhotos(reset = false) {
     const offset = reset ? 0 : photos.length;
     const query = elements.searchInput.value.trim();
-    const result = await jsonRequest(`/api/photos?offset=${offset}&limit=60&q=${encodeURIComponent(query)}`);
+    const result = await jsonRequest(`/api/photos?offset=${offset}&limit=60&q=${encodeURIComponent(query)}&sort=${sortMode}`);
     photos = reset ? result.photos : photos.concat(result.photos);
     total = result.total;
     hasMore = result.hasMore;
@@ -186,6 +213,47 @@
     } catch (error) { notify(error.message); }
   }
 
+  async function downloadSelectedZip() {
+    if (!selected.size || downloadController) return;
+    downloadController = new AbortController();
+    elements.progressOverlay.hidden = false;
+    elements.progressTitle.textContent = "Preparing download…";
+    setProgress(15, `Collecting ${selected.size} ${selected.size === 1 ? "photo" : "photos"}`);
+    try {
+      const response = await fetch("/api/photos/download.zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...selected] }),
+        signal: downloadController.signal
+      });
+      if (response.status === 401) { location.replace("/login"); return; }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Download failed (${response.status})`);
+      }
+      setProgress(85, "Finishing ZIP file");
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match?.[1] || "OnDevice-Film-Lab-photos.zip";
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      setProgress(100, "Download ready");
+      notify(`Downloaded ${selected.size} ${selected.size === 1 ? "photo" : "photos"}`);
+    } catch (error) {
+      notify(error.name === "AbortError" ? "Download cancelled" : error.message);
+    } finally {
+      downloadController = null;
+      elements.progressOverlay.hidden = true;
+    }
+  }
+
   function handleCard(card) {
     const id = card?.dataset.id;
     if (!id) return;
@@ -202,15 +270,22 @@
   elements.emptyFolderButton.onclick = chooseFolder;
   elements.photoInput.onchange = event => uploadFiles(event.target.files);
   elements.folderInput.onchange = event => uploadFiles(event.target.files);
-  elements.cancelUploadButton.onclick = () => uploadRequest?.abort();
+  elements.cancelUploadButton.onclick = () => { uploadRequest?.abort(); downloadController?.abort(); };
   elements.selectButton.onclick = () => { selectionMode = !selectionMode; selected.clear(); renderGallery(); };
   elements.selectAllButton.onclick = () => { if (selected.size === photos.length) selected.clear(); else photos.forEach(photo => selected.add(photo.id)); updateSelection(); };
+  elements.downloadZipButton.onclick = downloadSelectedZip;
   elements.removeButton.onclick = removeSelected;
   elements.loadMoreButton.onclick = () => loadPhotos(false).catch(error => notify(error.message));
   elements.gallery.addEventListener("click", event => handleCard(event.target.closest(".photoCard")));
   elements.gallery.addEventListener("click", event => { if (event.target.closest(".downloadEdit")) event.stopImmediatePropagation(); }, true);
   elements.gallery.addEventListener("keydown", event => { if ((event.key === "Enter" || event.key === " ") && event.target.closest(".photoCard")) { event.preventDefault(); handleCard(event.target.closest(".photoCard")); } });
   elements.searchInput.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadPhotos(true).catch(error => notify(error.message)), 250); });
+  elements.sortSelect.value = sortMode;
+  elements.sortSelect.addEventListener("change", () => {
+    sortMode = elements.sortSelect.value === "imported" ? "imported" : "captured";
+    localStorage.setItem("filmLabServerSort", sortMode);
+    loadPhotos(true).catch(error => notify(error.message));
+  });
 
   let dragDepth = 0;
   document.addEventListener("dragenter", event => { event.preventDefault(); dragDepth++; elements.dropOverlay.hidden = false; });
