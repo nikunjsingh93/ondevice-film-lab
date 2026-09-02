@@ -1,0 +1,66 @@
+name: Deploy offline web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "manifest.webmanifest"
+      - "sw.js"
+      - "branding/**"
+      - "icons/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# The build only reads source. Deployment receives the two Pages permissions
+# explicitly, rather than relying on repository-wide token defaults.
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Prepare offline app
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/filmlab-pages"
+          cp index.html manifest.webmanifest sw.js "$RUNNER_TEMP/filmlab-pages/"
+          cp -R branding icons "$RUNNER_TEMP/filmlab-pages/"
+          test -s "$RUNNER_TEMP/filmlab-pages/index.html"
+          test -s "$RUNNER_TEMP/filmlab-pages/icons/icon-192.png"
+
+      # Publish only browser assets, never Server Lab code, data, or dependencies.
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/filmlab-pages
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

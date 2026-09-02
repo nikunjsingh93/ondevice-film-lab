@@ -103,6 +103,20 @@ Imported working photos and their individual edits are kept in the browser's on-
 
 OnDevice Film Lab works in modern versions of Safari, Chrome, Edge, and Firefox. Folder selection and download behavior can vary by browser and operating system. For large batches on older phones, process fewer photos at a time if memory is limited.
 
+## GitHub Pages deployment (offline web app)
+
+The `Deploy offline web app` workflow in `.github/workflows/pages.yml` publishes only the offline app's HTML, service worker, manifest, branding, and icons. Server Lab continues to use its separate Docker image workflow.
+
+One-time setup after pushing this workflow to `main`:
+
+1. Open the repository's **Settings → Pages**.
+2. Under **Build and deployment → Source**, select **GitHub Actions**, not **Deploy from a branch**. No additional workflow template is needed.
+3. Open **Actions → Deploy offline web app → Run workflow**, choose `main`, and run it. Later offline-app changes on `main` deploy automatically.
+
+If an older `pages-build-deployment` run reports `Ensure GITHUB_TOKEN has permission "id-token: write"`, use the workflow above instead of rerunning that generated workflow. Its deployment job explicitly grants `pages: write` and `id-token: write`, as required by GitHub Pages. No personal access token or new repository secret is required. The Node.js deprecation warning in the older workflow is separate from the deployment error; the new workflow uses current Node.js 24-compatible actions.
+
+If the new deployment still fails, inspect its deploy-step log and check any `github-pages` environment restrictions or organization policy. The screenshot annotation alone cannot distinguish those from a temporary GitHub token-service problem.
+
 ## Run locally
 
 Download or clone this repository. You can open `index.html` directly for basic use, with no installation or build process. To test PWA installation and offline support, serve the repository through `localhost` because browsers do not enable service workers for files opened directly from disk.
