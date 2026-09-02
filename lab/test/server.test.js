@@ -49,6 +49,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.equal(nearby[0].filmstrip_total, 1);
   const editor = testApi.createEditorHtml();
   assert.match(editor, /window\.__FILMLAB_SERVER_EDITOR__/);
+  assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /\/lab-editor\.js/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));

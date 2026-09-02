@@ -516,7 +516,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.5" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.6" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -828,6 +828,7 @@ app.get("/api/session", (request, response) => {
 function createEditorHtml(userId = "server") {
   let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
   const accountKey = String(userId).replace(/[^a-z0-9-]/gi, "");
+  html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
     async loadPhoto(file,state){

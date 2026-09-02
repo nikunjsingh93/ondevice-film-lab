@@ -187,7 +187,7 @@
       .serverSaveButton.saved{border-color:#4d947d!important;color:#b8f0d9!important}
       .serverEditorToast{position:fixed;z-index:1000;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:11px 16px;border:1px solid #496583;border-radius:12px;background:#172338;color:#f4f7fb;box-shadow:0 12px 38px #000a;white-space:nowrap}
       .serverEditorToast.failure{border-color:#8b4f58;color:#ffdadd}
-      @media(max-width:900px){.serverLibraryButton{padding:9px!important}.serverLibraryButton span{display:none}.serverEditorToast{max-width:calc(100% - 24px);white-space:normal;text-align:center}}
+      @media(max-width:900px){.serverLibraryButton{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;flex:0 0 44px;padding:9px!important}.serverLibraryButton span{display:none}.serverEditorToast{max-width:calc(100% - 24px);white-space:normal;text-align:center}}
     `;
     document.head.appendChild(style);
     document.body.classList.add("serverEdition");
@@ -208,7 +208,10 @@
     button.title = "Return to Server Lab library";
     button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/><path d="M8 12h12"/></svg><span>Library</span>';
     button.onclick = async () => { await saveState().catch(() => {}); location.href = "/"; };
-    toolbar?.prepend(button);
+    const mobileTitleRow = toolbar?.querySelector(".mobileTitleRow");
+    const mobileMenuButton = toolbar?.querySelector("#mobileMenuBtn");
+    if (mobileTitleRow && mobileMenuButton) mobileTitleRow.insertBefore(button, mobileMenuButton);
+    else toolbar?.prepend(button);
     const heading = document.querySelector(".sidebarIntro h1");
     if (heading) heading.textContent = "OnDevice Film Lab Server";
     const intro = document.querySelector(".sidebarIntro .sub");
