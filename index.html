@@ -781,7 +781,7 @@
           <h1>OnDevice Film Lab</h1>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.5.6</div>
+        <div class="appVersion desktopAppVersion">Version 1.5.7</div>
       </div>
 
       <div class="photoPicker">
@@ -797,7 +797,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.5.6</div>
+        <div class="appVersion">Version 1.5.7</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1713,6 +1713,15 @@
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
     (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
   const isAndroid=/Android/i.test(navigator.userAgent);
+  if(isAndroid){
+    // Advertising only image MIME types makes modern Android/Chrome prefer
+    // the visual-media picker. A general openable-file request routes to the
+    // document picker instead, where USB drives and installed document
+    // providers (including file managers with SMB support) can appear. The
+    // app still validates every selected file as JPEG, PNG, or WebP on import.
+    els.fileInput.accept="*/*";
+    els.fileInput.setAttribute("aria-label","Choose photos from files, USB storage, camera, or a document provider");
+  }
 
   function setStatus(s){ els.status.textContent = s; }
   function closeAppDialog(result){

@@ -51,7 +51,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 ## Features
 
 - Processes photos locally on your device
-- Imports individual photos or an entire DCIM folder
+- Imports individual photos or an entire DCIM folder; on Android, the photo chooser uses the document browser so available USB drives and file providers can be accessed
 - Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
 - Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step
 - Supports JPEG, PNG, and WebP input
