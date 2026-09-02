@@ -6,7 +6,9 @@ const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-test-"));
+const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-state-test-"));
 process.env.DATA_DIR = dataDirectory;
+process.env.STATE_DIR = stateDirectory;
 const { db, testApi } = require("../server");
 const logoPath = path.resolve(__dirname, "../../branding/ondevice-film-lab-logo-v4.png");
 let photoId = "";
@@ -19,6 +21,8 @@ async function uploadFixture(name = "logo.png") {
 
 test("starts with an empty library", () => {
   assert.equal(testApi.statements.countPhotos.get().count, 0);
+  assert.equal(testApi.DATABASE_PATH, path.join(stateDirectory, "film-lab.db"));
+  assert.ok(fs.existsSync(testApi.DATABASE_PATH));
 });
 
 test("imports a photo, generates derivatives, and detects a duplicate", async () => {
@@ -66,4 +70,5 @@ test("removes selected photos and their files", async () => {
 test.after(() => {
   db.close();
   fs.rmSync(dataDirectory, { recursive: true, force: true });
+  fs.rmSync(stateDirectory, { recursive: true, force: true });
 });

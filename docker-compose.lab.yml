@@ -10,6 +10,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATA_DIR: /data
+      STATE_DIR: /state
       MAX_UPLOAD_MB: 150
       TRUST_TAILSCALE_HEADERS: "true"
       REQUIRE_STORAGE_MARKER: "true"
@@ -19,6 +20,9 @@ services:
       - type: bind
         source: ${FILMLAB_DATA_PATH:?Set FILMLAB_DATA_PATH to the prepared external-drive directory}
         target: /data
+      - type: bind
+        source: ${FILMLAB_STATE_PATH:?Set FILMLAB_STATE_PATH to a directory on local Linux storage}
+        target: /state
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -14,6 +14,7 @@ const exifReader = require("exif-reader");
 const APP_ROOT = path.resolve(__dirname, "..");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));
+const STATE_DIR = path.resolve(process.env.STATE_DIR || DATA_DIR);
 const PORT = Math.max(1, Math.min(65535, Number(process.env.PORT) || 3000));
 const MAX_UPLOAD_BYTES = Math.max(10, Number(process.env.MAX_UPLOAD_MB) || 150) * 1024 * 1024;
 const TRUST_TAILSCALE_HEADERS = String(process.env.TRUST_TAILSCALE_HEADERS || "true") === "true";
@@ -31,11 +32,12 @@ const directories = {
 if (REQUIRE_STORAGE_MARKER && !fs.existsSync(STORAGE_MARKER)) {
   throw new Error(`External storage marker is missing at ${STORAGE_MARKER}. Refusing to write to a possibly unmounted internal directory.`);
 }
-for (const directory of [DATA_DIR, ...Object.values(directories)]) {
+for (const directory of [DATA_DIR, STATE_DIR, ...Object.values(directories)]) {
   fs.mkdirSync(directory, { recursive: true });
 }
 
-const db = new Database(path.join(DATA_DIR, "film-lab.db"));
+const DATABASE_PATH = path.join(STATE_DIR, "film-lab.db");
+const db = new Database(DATABASE_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 db.exec(`
@@ -281,7 +283,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.0" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.1" }));
 
 app.get("/api/library", asyncRoute(async (_request, response) => {
   const counts = statements.countPhotos.get();
@@ -525,6 +527,7 @@ function startServer(port = PORT, host = "0.0.0.0") {
   server = app.listen(port, host, () => {
     console.log(`OnDevice Film Lab Server listening on http://${host}:${port}`);
     console.log(`Library storage: ${DATA_DIR}`);
+    console.log(`Database storage: ${DATABASE_PATH}`);
   });
   return server;
 }
@@ -547,5 +550,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, directories, statements, importPhoto, deletePhotoIds, createEditorHtml }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, directories, statements, importPhoto, deletePhotoIds, createEditorHtml }
 };

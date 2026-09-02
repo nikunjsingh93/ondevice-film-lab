@@ -141,50 +141,38 @@ Server Lab needs a connection to the Ubuntu server. Continue using the GitHub Pa
 
 ### Storage layout
 
-The container stores everything beneath `/data`. Bind that path to an external drive on the Ubuntu host. A recommended host path is:
+Server Lab separates the large photo library from its SQLite state. Bind `/data` to the external drive and `/state` to the Ubuntu system SSD:
 
 ```text
-/srv/ondevice-film-lab/
+/external-drive/OnDeviceFilmLab/
 ├── originals/      # Original uploads; never modified
 ├── previews/       # Lightweight editing previews
 ├── thumbnails/     # Gallery images
 ├── exports/        # Finished Film Lab JPEGs
-├── luts/           # Reserved shared LUT storage
-└── film-lab.db     # Library metadata and edit state
+└── luts/           # Shared LUT storage
+
+/var/lib/ondevice-film-lab/
+└── film-lab.db     # Library metadata and edit state on Linux storage
 ```
 
-For a drive that remains connected to Ubuntu, `ext4` is recommended. Identify the correct partition and its UUID before changing any mount configuration:
-
-```sh
-lsblk -f
-sudo blkid /dev/sdX1
-```
-
-Replace `/dev/sdX1` with the exact external-drive partition. Do not format a drive containing photographs. Create the permanent mount point:
-
-```sh
-sudo mkdir -p /srv/ondevice-film-lab
-```
-
-Add an `/etc/fstab` entry using the real UUID and filesystem reported by `lsblk`. Example for an ext4 drive:
+The external drive can use exFAT when it is already mounted reliably by the server. For example:
 
 ```text
-UUID=YOUR-REAL-DRIVE-UUID /srv/ondevice-film-lab ext4 defaults,nofail,x-systemd.device-timeout=10 0 2
+/media/wvx/TOSH 4TB/OnDeviceFilmLab
 ```
 
-Test the entry before rebooting, give the container's unprivileged user access, and create Server Lab's storage marker:
+Create only the two base directories, the external-drive safety marker, and suitable ownership. Server Lab creates the media subdirectories itself:
 
 ```sh
-sudo mount -a
-findmnt /srv/ondevice-film-lab
-sudo chown -R 1000:1000 /srv/ondevice-film-lab
-sudo touch /srv/ondevice-film-lab/.filmlab-storage
-sudo chown 1000:1000 /srv/ondevice-film-lab/.filmlab-storage
+mkdir -p "/media/wvx/TOSH 4TB/OnDeviceFilmLab"
+touch "/media/wvx/TOSH 4TB/OnDeviceFilmLab/.filmlab-storage"
+sudo mkdir -p /var/lib/ondevice-film-lab
+sudo chown 1000:1000 /var/lib/ondevice-film-lab
 ```
 
-The container requires this marker. If the external drive is disconnected and `/srv/ondevice-film-lab` is only an empty directory on the internal drive, Server Lab refuses to start instead of accidentally filling internal storage.
+The container requires the marker. If the external drive is disconnected, Server Lab refuses to start instead of accidentally filling internal storage. Replace the example external path with your actual mounted-drive path when needed.
 
-The database is small, but it is intentionally kept with the library so the photo files and their edit records can be backed up together. Do not place `film-lab.db` on an SMB or NFS mount; SQLite expects reliable local filesystem locking.
+Keep `/state` on a local Linux filesystem such as the Ubuntu SSD's ext4 filesystem. SQLite expects reliable filesystem locking and should not be placed on exFAT, SMB, or NFS storage. Back up both the photo library and `/var/lib/ondevice-film-lab` together.
 
 ### Test Server Lab with Docker Compose
 
@@ -193,7 +181,9 @@ On a machine with Docker and Docker Compose installed:
 ```sh
 git clone https://github.com/nikunjsingh93/ondevice-film-lab.git
 cd ondevice-film-lab
-FILMLAB_DATA_PATH=/srv/ondevice-film-lab docker compose -f docker-compose.lab.yml up -d --build
+FILMLAB_DATA_PATH="/media/wvx/TOSH 4TB/OnDeviceFilmLab" \
+FILMLAB_STATE_PATH=/var/lib/ondevice-film-lab \
+docker compose -f docker-compose.lab.yml up -d --build
 ```
 
 The Compose configuration publishes Server Lab only on `127.0.0.1:3000`. On the Ubuntu server itself, check:
@@ -207,7 +197,7 @@ For temporary LAN-only testing, change the port mapping in `docker-compose.lab.y
 
 ### Deploy through Portainer
 
-1. Mount the external drive at `/srv/ondevice-film-lab` and set its ownership as described above.
+1. Prepare the external data directory, marker, and internal state directory as described above.
 2. Push this repository, including `lab/` and `docker-compose.lab.yml`, to GitHub.
 3. In Portainer, open the Ubuntu **Docker Standalone** environment.
 4. Select **Stacks → Add stack → Git repository**.
@@ -215,9 +205,10 @@ For temporary LAN-only testing, change the port mapping in `docker-compose.lab.y
 6. Use repository URL `https://github.com/nikunjsingh93/ondevice-film-lab`.
 7. Choose the branch you deploy, normally `main`.
 8. Set **Compose path** to `docker-compose.lab.yml`.
-9. Add the environment variable `FILMLAB_DATA_PATH` with value `/srv/ondevice-film-lab`.
-10. Optionally enable **GitOps updates** using polling or a Portainer webhook.
-11. Select **Deploy the stack**.
+9. Add `FILMLAB_DATA_PATH` with the external directory, for example `/media/wvx/TOSH 4TB/OnDeviceFilmLab`.
+10. Add `FILMLAB_STATE_PATH` with value `/var/lib/ondevice-film-lab`.
+11. Optionally enable **GitOps updates** using polling or a Portainer webhook.
+12. Select **Deploy the stack**.
 
 The included GitHub Actions workflow builds `ghcr.io/nikunjsingh93/ondevice-film-lab-server:latest` after relevant pushes. After its first successful run, open the package on GitHub and make it **Public**, or configure Portainer with GitHub Container Registry credentials. A public package is simplest for a private Tailscale-only service because it allows downloading the software image without making the running photo library public.
 

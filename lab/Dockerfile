@@ -6,7 +6,8 @@ RUN npm ci --omit=dev
 FROM node:22-bookworm-slim
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    STATE_DIR=/state
 WORKDIR /app
 COPY --from=dependencies /app/lab/node_modules ./lab/node_modules
 COPY index.html manifest.webmanifest sw.js ./
