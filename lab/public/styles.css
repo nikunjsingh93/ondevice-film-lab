@@ -38,7 +38,7 @@ main{padding:24px}
 .downloadEdit{display:inline-block;margin-top:8px;color:#9bc8ee;font-size:10px;font-weight:750;text-decoration:none}.downloadEdit:hover{text-decoration:underline}
 .editedBadge{position:absolute;top:9px;right:9px;padding:5px 8px;border-radius:999px;background:#111927dd;color:#9bc8ee;font-size:9px;font-weight:800;letter-spacing:.08em}
 .selectMark{position:absolute;top:9px;left:9px;display:grid;place-items:center;width:29px;height:29px;border:2px solid #e6edf8;border-radius:50%;background:#0a101bbb;color:#08121e;font-weight:900}.selected .selectMark{border-color:var(--accent);background:var(--accent)}
-.emptyState{display:grid;justify-items:center;text-align:center;margin:8vh auto 0;max-width:620px;padding:45px 24px;border:1px dashed #3a4d68;border-radius:22px;background:#121a28}.emptyState img{width:70px;border-radius:18px}.emptyState h2{margin:17px 0 4px}.emptyState p{max-width:500px;margin:0 0 20px;color:var(--muted)}.emptyState div{display:flex;gap:9px}
+.emptyState{display:grid;justify-items:center;text-align:center;margin:8vh auto 0;max-width:620px;padding:45px 24px;border:1px dashed #3a4d68;border-radius:22px;background:#121a28}.emptyState[hidden]{display:none}.emptyState img{width:70px;border-radius:18px}.emptyState h2{margin:17px 0 4px}.emptyState p{max-width:500px;margin:0 0 20px;color:var(--muted)}.emptyState div{display:flex;gap:9px}
 .loadMoreWrap{display:flex;justify-content:center;padding:26px}
 .dropOverlay,.modalOverlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#070b12cc;backdrop-filter:blur(9px)}
 .dropOverlay{border:4px solid var(--accent);font-size:28px}.dropOverlay[hidden],.modalOverlay[hidden]{display:none}

@@ -15,6 +15,9 @@
   let autosaveTimer = 0;
   let saving = false;
   let photo = null;
+  let serverFilmstripCount = null;
+  let serverFilmstripThumbs = null;
+  let openingPhoto = false;
 
   function notify(message, failure = false) {
     let toast = document.querySelector(".serverEditorToast");
@@ -114,11 +117,71 @@
     notify(result.duplicate ? "LUT is already in Server Lab" : "LUT saved for all Server Lab devices");
   }
 
+  const formatBytes = bytes => {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    const units = ["KB", "MB", "GB"];
+    let number = value / 1024, unit = 0;
+    while (number >= 1024 && unit < units.length - 1) { number /= 1024; unit++; }
+    return `${number >= 10 ? number.toFixed(0) : number.toFixed(1)} ${units[unit]}`;
+  };
+
+  function renderServerFilmstrip(nearby, total = nearby.length) {
+    if (!serverFilmstripThumbs) return;
+    serverFilmstripCount.textContent = `Photos (${Number(total).toLocaleString()})`;
+    const fragment = document.createDocumentFragment();
+    for (const entry of nearby) {
+      const card = document.createElement("div");
+      card.className = `thumb${entry.id === photoId ? " active" : ""}`;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", entry.id === photoId ? `${entry.name}, currently open` : `Open ${entry.name}`);
+      const image = document.createElement("img");
+      image.src = entry.thumbnailUrl;
+      image.alt = "";
+      image.loading = "lazy";
+      image.decoding = "async";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = entry.name;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const date = new Date(entry.capturedAt || entry.importedAt);
+      meta.textContent = `${Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleDateString()} · ${formatBytes(entry.size)}`;
+      const status = document.createElement("div");
+      status.className = "rot";
+      status.textContent = entry.hasExport ? "Saved edit" : "";
+      card.append(image, name, meta, status);
+      const open = async () => {
+        if (entry.id === photoId || openingPhoto) return;
+        openingPhoto = true;
+        card.setAttribute("aria-busy", "true");
+        try { await saveState(true); } catch (error) { notify(error.message, true); }
+        location.href = `/editor?photo=${encodeURIComponent(entry.id)}`;
+      };
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", event => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        open();
+      });
+      fragment.appendChild(card);
+    }
+    serverFilmstripThumbs.replaceChildren(fragment);
+    serverFilmstripThumbs.querySelector(".active")?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "center" });
+  }
+
+  async function loadServerFilmstrip() {
+    const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}/filmstrip?limit=9`);
+    renderServerFilmstrip(result.photos || [photo], result.total);
+  }
+
   function addServerChrome() {
     const style = document.createElement("style");
     style.textContent = `
       body.serverEdition .photoPicker{display:none!important}
       body.serverEdition #filmstripAddBtn,body.serverEdition #openGalleryBtn{display:none!important}
+      body.serverEdition .serverCoreFilmstrip{display:none!important}
       .serverLibraryButton{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
       .serverLibraryButton svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
       .serverSaveButton.saved{border-color:#4d947d!important;color:#b8f0d9!important}
@@ -128,6 +191,16 @@
     `;
     document.head.appendChild(style);
     document.body.classList.add("serverEdition");
+    const coreFilmstrip = document.querySelector(".filmstripWrap");
+    if (coreFilmstrip) {
+      coreFilmstrip.classList.add("serverCoreFilmstrip");
+      const serverFilmstrip = document.createElement("section");
+      serverFilmstrip.className = "filmstripWrap serverFilmstrip";
+      serverFilmstrip.innerHTML = '<div class="filmstripHead"><div class="filmstripHeadLeft"><span class="serverFilmstripCount">Photos (1)</span></div><span>Nearby photos</span></div><div class="thumbs serverFilmstripThumbs" aria-label="Nearby library photos"></div>';
+      coreFilmstrip.insertAdjacentElement("afterend", serverFilmstrip);
+      serverFilmstripCount = serverFilmstrip.querySelector(".serverFilmstripCount");
+      serverFilmstripThumbs = serverFilmstrip.querySelector(".serverFilmstripThumbs");
+    }
     const toolbar = document.querySelector(".toolbar");
     const button = document.createElement("button");
     button.type = "button";
@@ -179,12 +252,14 @@
     await syncServerLuts();
     const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}`);
     photo = result.photo;
+    renderServerFilmstrip([photo], 1);
     const response = await fetch(photo.originalUrl);
     if (!response.ok) throw new Error("The original photo could not be loaded from Server Lab");
     const blob = await response.blob();
     const file = new File([blob], photo.name, { type: photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
     await bridge.loadPhoto(file, photo.edits);
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
+    loadServerFilmstrip().catch(error => notify(`Nearby photos could not be loaded: ${error.message}`, true));
 
     const saveButton = document.querySelector("#saveOneBtn");
     saveButton.textContent = "Save to server";

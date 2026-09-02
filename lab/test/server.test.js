@@ -43,6 +43,10 @@ test("imports a photo, generates derivatives, and detects a duplicate", async ()
 
 test("lists photos and injects the shared editor bridge", async () => {
   assert.equal(testApi.statements.countPhotos.get(testApi.defaultAdmin.id).count, 1);
+  const nearby = testApi.nearbyPhotos(testApi.defaultAdmin.id, photoId, 9);
+  assert.equal(nearby.length, 1);
+  assert.equal(nearby[0].id, photoId);
+  assert.equal(nearby[0].filmstrip_total, 1);
   const editor = testApi.createEditorHtml();
   assert.match(editor, /window\.__FILMLAB_SERVER_EDITOR__/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);

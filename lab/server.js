@@ -275,6 +275,27 @@ function photoResponse(row) {
   };
 }
 
+function nearbyPhotos(userId, photoId, requestedLimit = 9) {
+  const limit = Math.max(3, Math.min(15, Number(requestedLimit) || 9));
+  const half = Math.floor(limit / 2);
+  return db.prepare(`
+    WITH ordered AS (
+      SELECT photos.*,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(captured_at, imported_at) DESC, imported_at DESC, id DESC) AS filmstrip_position,
+        COUNT(*) OVER () AS filmstrip_total
+      FROM photos
+      WHERE user_id = ?
+    ), target AS (
+      SELECT filmstrip_position, filmstrip_total FROM ordered WHERE id = ?
+    ), bounds AS (
+      SELECT MAX(1, MIN(filmstrip_position - ?, filmstrip_total - ? + 1)) AS start_position FROM target
+    )
+    SELECT ordered.* FROM ordered, bounds
+    WHERE filmstrip_position BETWEEN start_position AND start_position + ? - 1
+    ORDER BY filmstrip_position
+  `).all(userId, photoId, half, limit, limit);
+}
+
 function inferExtension(file, detectedFormat = "") {
   if (detectedFormat === "png") return ".png";
   if (detectedFormat === "webp") return ".webp";
@@ -495,7 +516,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.4" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.0.5" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -640,6 +661,12 @@ app.get("/api/photos/:id", (request, response) => {
   const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
   response.json({ photo: photoResponse(row) });
+});
+
+app.get("/api/photos/:id/filmstrip", (request, response) => {
+  const rows = nearbyPhotos(request.user.id, request.params.id, request.query.limit);
+  if (!rows.length) return response.status(404).json({ error: "Photo not found" });
+  response.json({ photos: rows.map(photoResponse), total: rows[0].filmstrip_total });
 });
 
 function sendPhotoFile(column, download = false) {
@@ -888,5 +915,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, createEditorHtml }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml }
 };
