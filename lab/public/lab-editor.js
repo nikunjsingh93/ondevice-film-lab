@@ -20,6 +20,7 @@
   let serverFilmstripThumbs = null;
   let openingPhoto = false;
   let nearbyPhotos = [];
+  const deletedPhotoIds = new Set();
   window.addEventListener("pageshow", event => {
     if (event.persisted) {
       openingPhoto = false;
@@ -57,6 +58,7 @@
   }
 
   async function saveState(force = false) {
+    if (!photoId || deletedPhotoIds.has(photoId)) return;
     const state = cleanState(bridge.captureState());
     if (!state) return;
     const encoded = JSON.stringify(state);
@@ -154,12 +156,14 @@
     return `${number >= 10 ? number.toFixed(0) : number.toFixed(1)} ${units[unit]}`;
   };
 
-  async function openServerPhoto(id, pushHistory = true) {
+  async function openServerPhoto(id, pushHistory = true, savePrevious = true) {
     if (id === photoId || openingPhoto) return;
     openingPhoto = true;
     document.body.classList.add("serverPhotoLoading");
     if (typeof clearTimeout !== "undefined") clearTimeout(autosaveTimer);
-    try { await saveState(true); } catch (error) { notify(error.message, true); }
+    if (savePrevious && photoId && !deletedPhotoIds.has(photoId)) {
+      try { await saveState(true); } catch (error) { notify(error.message, true); }
+    }
     photoId = id;
     latestThumbDataUrl = null;
     if (pushHistory && typeof history !== "undefined" && history.pushState) {
@@ -198,6 +202,43 @@
     } finally {
       document.body.classList.remove("serverPhotoLoading");
       openingPhoto = false;
+    }
+  }
+
+  async function removeServerPhoto(targetId) {
+    if (openingPhoto) return;
+    try {
+      notify("Removing photo…");
+      const result = await requestJson("/api/photos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [targetId] })
+      });
+      const count = Array.isArray(result?.removed) ? result.removed.length : Number(result?.removed || 0);
+      if (count < 1) {
+        notify("Photo could not be removed", true);
+        return;
+      }
+      deletedPhotoIds.add(targetId);
+      if (typeof clearTimeout !== "undefined") clearTimeout(autosaveTimer);
+      notify("Photo removed");
+
+      if (targetId === photoId) {
+        lastPhotoState = "";
+        const remaining = nearbyPhotos.filter(e => e.id !== targetId);
+        const currentIndex = nearbyPhotos.findIndex(e => e.id === targetId);
+        const nextPhoto = remaining[currentIndex] || remaining[currentIndex - 1] || remaining[0];
+        if (nextPhoto) {
+          openServerPhoto(nextPhoto.id, true, false);
+        } else {
+          window.location.href = "/";
+        }
+      } else {
+        await loadServerFilmstrip();
+      }
+    } catch (error) {
+      console.warn("Could not remove photo:", error);
+      notify("Could not remove photo", true);
     }
   }
 
@@ -244,6 +285,29 @@
       status.textContent = entry.isEdited ? "Edited" : "";
       card.append(image, name, meta, status);
       if (entry.isRaw) { const badge=document.createElement("span");badge.className="rawBadge";badge.textContent="RAW";card.appendChild(badge); }
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "thumbRemoveBtn";
+      removeBtn.type = "button";
+      removeBtn.setAttribute("aria-label", `Remove ${entry.name}`);
+      removeBtn.setAttribute("title", `Remove ${entry.name}`);
+      removeBtn.innerHTML = "&times;";
+      removeBtn.addEventListener("click", async event => {
+        event.stopPropagation();
+        const dialogFn = bridge?.showAppDialog || window.showAppDialog;
+        const confirmed = dialogFn
+          ? await dialogFn({
+              title: "Remove photo?",
+              message: `Remove “${entry.name}” from your private library? This cannot be undone.`,
+              confirmText: "Remove photo",
+              cancelText: "Cancel",
+              destructive: true
+            })
+          : window.confirm(`Remove “${entry.name}” from your private library?`);
+        if (!confirmed) return;
+        await removeServerPhoto(entry.id);
+      });
+      removeBtn.addEventListener("pointerdown", event => event.stopPropagation());
+      card.appendChild(removeBtn);
       const open = () => openServerPhoto(entry.id);
       card.addEventListener("click", open);
       card.addEventListener("keydown", event => {
@@ -283,7 +347,18 @@
       .serverLibraryButton svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
       .serverSaveButton.saved{border-color:#4d947d!important;color:#b8f0d9!important}
       .serverEditorToast{position:fixed;z-index:1000;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:11px 16px;border:1px solid #496583;border-radius:12px;background:#172338;color:#f4f7fb;box-shadow:0 12px 38px #000a;white-space:nowrap}
-      .serverEditorToast.failure{border-color:#8b4f58;color:#ffdadd}
+      .thumbRemoveBtn{
+        position:absolute;right:5px;bottom:5px;width:18px;height:18px;padding:0;margin:0;
+        border:none;border-radius:50%;background:rgba(14,20,30,.82);color:#c7dbed;
+        font-size:13px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;
+        cursor:pointer;z-index:4;box-shadow:0 1px 4px rgba(0,0,0,.45);touch-action:manipulation;
+        transition:background .15s ease,color .15s ease,transform .15s ease;
+      }
+      .thumbRemoveBtn::before{content:"";position:absolute;inset:-6px}
+      .thumbRemoveBtn:hover,.thumbRemoveBtn:focus-visible{background:#e04545;color:#fff;transform:scale(1.15);outline:none}
+      .serverFilmstripThumbs .thumb .name,
+      .serverFilmstripThumbs .thumb .meta,
+      .serverFilmstripThumbs .thumb .rot{padding-right:22px}
       @media(max-width:900px){.mobileTitleRow>.serverLibraryButton{order:0}.mobileTitleRow>#mobileMenuBtn{order:1}.mobileTitleRow>.filename{order:2}.serverLibraryButton{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important;flex:0 0 44px;padding:9px!important}.serverLibraryButton span{display:none}.serverEditorToast{max-width:calc(100% - 24px);white-space:normal;text-align:center}}
     `;
     document.head.appendChild(style);
@@ -444,6 +519,7 @@
       syncProfileChanges().catch(error => console.warn("Profiles could not be synchronized", error));
     }, 2200);
     window.addEventListener("pagehide", () => {
+      if (!photoId || deletedPhotoIds.has(photoId)) return;
       const state = cleanState(bridge.captureState());
       const encoded = state ? JSON.stringify(state) : "";
       if (state && encoded !== lastPhotoState) navigator.sendBeacon?.(`/api/photos/${encodeURIComponent(photoId)}/edits-beacon`, new Blob([JSON.stringify({ edits: state })], { type: "application/json" }));

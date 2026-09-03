@@ -53,7 +53,9 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.25/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.26/);
+  assert.match(editor, /showAppDialog/);
+  assert.match(editor, /\.thumbRemoveBtn/);
   assert.match(editor, /filmLabThumbRefresh/);
   assert.match(editor, /viewport-fit=cover/);
   assert.match(editor, /padding-top:max\(15px,var\(--lab-safe-area-top,env\(safe-area-inset-top,0px\)\)\)/);
@@ -172,6 +174,7 @@ test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState inclu
     requestJson: async (url, opts) => {
       capturedPayload = JSON.parse(opts.body);
     },
+    deletedPhotoIds: new Set(),
     clearTimeout: () => {},
     setTimeout: () => 0
   };
@@ -194,7 +197,7 @@ test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState inclu
 
 test("openServerPhoto navigates in-place using history.pushState and loads photo without full page reload", async () => {
   const source = fs.readFileSync(path.resolve(__dirname, "../public/lab-editor.js"), "utf8");
-  const openStart = source.indexOf("  async function openServerPhoto(id, pushHistory = true) {");
+  const openStart = source.indexOf("  async function openServerPhoto(");
   const openEnd = source.indexOf("\n  document.addEventListener(\"keydown\",", openStart);
   assert.ok(openStart > 0 && openEnd > openStart);
 
@@ -214,6 +217,7 @@ test("openServerPhoto navigates in-place using history.pushState and loads photo
   };
   const context = {
     photoId: "photo-1",
+    deletedPhotoIds: new Set(),
     openingPhoto: false,
     autosaveTimer: 0,
     clearTimeout: () => {},
@@ -255,6 +259,45 @@ test("openServerPhoto navigates in-place using history.pushState and loads photo
   assert.equal(loadingClassRemoved, true);
   assert.equal(cards[0].active, false);
   assert.equal(cards[1].active, true);
+});
+
+test("removeServerPhoto deletes photo and navigates to adjacent photo", async () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../public/lab-editor.js"), "utf8");
+  const removeStart = source.indexOf("  async function removeServerPhoto(targetId) {");
+  const removeEnd = source.indexOf("\n  document.addEventListener(\"keydown\",", removeStart);
+  assert.ok(removeStart > 0 && removeEnd > removeStart);
+
+  let deletedIds = null;
+  let openedPhotoId = null;
+  let notified = [];
+
+  const context = {
+    openingPhoto: false,
+    photoId: "photo-1",
+    nearbyPhotos: [
+      { id: "photo-1", name: "P1.jpg" },
+      { id: "photo-2", name: "P2.jpg" }
+    ],
+    notify: msg => notified.push(msg),
+    requestJson: async (url, opts) => {
+      deletedIds = JSON.parse(opts.body).ids;
+      return { removed: 1 };
+    },
+    deletedPhotoIds: new Set(),
+    openServerPhoto: async (id, pushHistory, savePrevious) => {
+      openedPhotoId = id;
+      assert.equal(savePrevious, false);
+    },
+    loadServerFilmstrip: async () => {},
+    window: { location: { href: "" } }
+  };
+
+  vm.runInNewContext(source.slice(removeStart, removeEnd), context);
+  await context.removeServerPhoto("photo-1");
+
+  assert.deepEqual(deletedIds, ["photo-1"]);
+  assert.equal(openedPhotoId, "photo-2");
+  assert.ok(notified.includes("Photo removed"));
 });
 
 test("editor loads new photos with neutral settings and preserves saved edits", async () => {
