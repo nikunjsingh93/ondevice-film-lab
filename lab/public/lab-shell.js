@@ -43,7 +43,7 @@
     pageDocument = frame.contentDocument;
     current.searchParams.delete("labFrame");
     history.replaceState(null, "", current.pathname + current.search + current.hash);
-    document.title = pageDocument.title || "OnDevice Film Lab";
+    document.title = pageDocument.title || "Lab Server";
 
     // A capturing listener replaces the editor's per-document fullscreen action.
     pageDocument.addEventListener("click", event => {

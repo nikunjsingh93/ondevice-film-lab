@@ -270,7 +270,7 @@
     if (mobileTitleRow && mobileMenuButton) mobileTitleRow.prepend(button);
     else toolbar?.prepend(button);
     const heading = document.querySelector(".sidebarIntro h1");
-    if (heading) heading.textContent = "OnDevice Film Lab Server";
+    if (heading) heading.textContent = "Lab Server";
     const intro = document.querySelector(".sidebarIntro .sub");
     if (intro) intro.textContent = "Editing from your private Ubuntu photo library. Changes are saved back to Server Lab.";
     const outputButton = document.querySelector("#saveOneBtn");

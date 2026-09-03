@@ -3,9 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
-  <title>OnDevice Film Lab</title>
-  <link rel="icon" href="/icons/icon-192.png">
+  <meta name="theme-color" content="#111111">
+  <title>Lab Server</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="application-name" content="Lab Server">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Lab Server">
+  <link rel="apple-touch-icon" href="/lab-icons/apple-touch-icon.png">
+  <link rel="icon" href="/lab-icons/icon-192.png">
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
     /* System-bar insets belong to the top-level window, not its iframe.
@@ -13,9 +18,9 @@
     body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
     #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.6" defer></script>
+  <script src="/lab-shell.js?v=1.4.7" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>
-<body><iframe id="labPage" title="OnDevice Film Lab" allow="fullscreen" allowfullscreen></iframe></body>
+<body><iframe id="labPage" title="Lab Server" allow="fullscreen" allowfullscreen></iframe></body>
 </html>
