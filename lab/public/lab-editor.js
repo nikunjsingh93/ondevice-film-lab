@@ -8,6 +8,7 @@
   }
 
   const accountKey = String(window.__FILMLAB_ACCOUNT_ID__ || "server");
+  const copiedEditsKey = `filmLabCopiedEdits-${accountKey}`;
   const profileKey = `ondevice-film-lab-camera-profiles-v1-${accountKey}`;
   const profileSessionKey = `filmLabProfilesLoaded-${accountKey}`;
   let lastPhotoState = "";
@@ -312,9 +313,24 @@
     }
   }
 
+  function restoreEditClipboard() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(copiedEditsKey) || "null");
+      if (saved?.version === 1) bridge.restoreCopiedEdits(saved.settings);
+    } catch { /* Ignore unavailable storage or an invalid saved clipboard. */ }
+  }
+
+  function saveEditClipboard() {
+    const settings = bridge.getCopiedEdits();
+    if (!settings) return;
+    try { sessionStorage.setItem(copiedEditsKey, JSON.stringify({ version: 1, settings })); }
+    catch { notify("Copied edits could not be kept for the next photo. Browser session storage is unavailable.", true); }
+  }
+
   async function initialize() {
     addServerChrome();
     bridge.setSinglePhotoMode();
+    restoreEditClipboard();
     if (!await syncProfilesInitially()) return;
     await syncServerLuts();
     const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}`);
@@ -345,8 +361,9 @@
       if (file) uploadServerLut(file).catch(error => notify(error.message, true));
     }, true);
     document.addEventListener("click", event => {
-      if (event.target.closest("#leftBtn,#rightBtn,#cropApplyBtn,#cropResetBtn,#straightenReset,#resetPhotoEditsBtn,#undoEditsBtn,#redoEditsBtn,.sectionResetButton")) setTimeout(queueStateSave, 30);
-    }, true);
+      if (event.target.closest("#copyEditsBtn")) saveEditClipboard();
+      if (event.target.closest("#pasteEditsBtn,#leftBtn,#rightBtn,#cropApplyBtn,#cropResetBtn,#straightenReset,#resetPhotoEditsBtn,#undoEditsBtn,#redoEditsBtn,.sectionResetButton")) setTimeout(queueStateSave, 30);
+    });
     setInterval(() => {
       saveState().catch(error => notify(error.message, true));
       syncProfileChanges().catch(error => console.warn("Profiles could not be synchronized", error));
