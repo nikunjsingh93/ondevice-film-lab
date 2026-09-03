@@ -8,9 +8,12 @@
   <link rel="icon" href="/icons/icon-192.png">
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
-    #labPage{display:block;width:100%;height:100%;height:100dvh;border:0;background:#0b111b}
+    /* System-bar insets belong to the top-level window, not its iframe.
+       Reserve them here so every Lab page receives the usable viewport. */
+    body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+    #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.5" defer></script>
+  <script src="/lab-shell.js?v=1.4.6" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>
