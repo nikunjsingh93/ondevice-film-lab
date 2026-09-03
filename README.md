@@ -26,11 +26,11 @@ This repository now contains two editions:
 ### Server Lab
 
 <p align="center">
-  <img src="screenshots/lab-gallery.png" alt="Server Lab photo library and gallery" width="94%">
+  <img src="screenshots/lab-sign-in.png" alt="Server Lab sign-in page" width="94%">
 </p>
 
 <p align="center">
-  <img src="screenshots/lab-sign-in.png" alt="Server Lab sign-in page" width="94%">
+  <img src="screenshots/lab-gallery.png" alt="Server Lab photo library and gallery" width="94%">
 </p>
 
 ## Supported photos
