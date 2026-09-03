@@ -67,3 +67,7 @@ main{padding:24px}
   .authPage{padding:max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom))}.authCard{padding:22px;border-radius:20px}.settingsMain{padding:14px}.settingsCard{padding:18px}.settingsForm,.newUserForm,.userFields{grid-template-columns:1fr}.settingsForm button,.newUserForm button{margin-top:5px}.newUserForm{padding:14px}.userHeading{align-items:start}.settingsShell .headerActions{width:auto;order:initial}.settingsShell .headerActions .buttonLink{padding:9px;font-size:11px}
 }
 @media(max-width:390px){.gallery{grid-template-columns:1fr 1fr}.libraryStats span{font-size:8px}.emptyState div{width:100%;flex-direction:column}.emptyState button{width:100%}}
+
+.rawBadge{position:absolute;top:9px;left:9px;z-index:3;padding:3px 5px;border:1px solid #ffffff70;border-radius:5px;background:#101722df;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none}
+
+.photoCard:has(.rawBadge) .selectMark{top:38px}

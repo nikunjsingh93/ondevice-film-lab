@@ -11,6 +11,8 @@ const express = require("express");
 const multer = require("multer");
 const sharp = require("sharp");
 const exifReader = require("exif-reader");
+const PhotoFormats = require("../photo-formats");
+const PhotoCodecs = require("../photo-codecs");
 
 const APP_ROOT = path.resolve(__dirname, "..");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -92,6 +94,8 @@ const photoTableSql = `CREATE TABLE photos (
   original_name TEXT NOT NULL,
   stored_path TEXT NOT NULL,
   preview_path TEXT NOT NULL,
+  working_path TEXT,
+  working_byte_size INTEGER NOT NULL DEFAULT 0,
   thumbnail_path TEXT NOT NULL,
   export_path TEXT,
   export_name TEXT,
@@ -166,13 +170,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS photos_user_captured ON photos(user_id, captured_at DESC);
 `);
 
+// Existing libraries gain optional full-resolution decoded sources without rewriting originals.
+const photoColumns = db.prepare("PRAGMA table_info(photos)").all().map(column => column.name);
+if (!photoColumns.includes("working_path")) db.exec("ALTER TABLE photos ADD COLUMN working_path TEXT");
+if (!photoColumns.includes("working_byte_size")) db.exec("ALTER TABLE photos ADD COLUMN working_byte_size INTEGER NOT NULL DEFAULT 0");
+
 const statements = {
   insertPhoto: db.prepare(`
     INSERT INTO photos (
-      id, user_id, content_hash, original_name, stored_path, preview_path, thumbnail_path,
+      id, user_id, content_hash, original_name, stored_path, preview_path, thumbnail_path, working_path, working_byte_size,
       mime_type, byte_size, preview_byte_size, thumbnail_byte_size, width, height, captured_at, imported_at, edits_json
     ) VALUES (
-      @id, @user_id, @content_hash, @original_name, @stored_path, @preview_path, @thumbnail_path,
+      @id, @user_id, @content_hash, @original_name, @stored_path, @preview_path, @thumbnail_path, @working_path, @working_byte_size,
       @mime_type, @byte_size, @preview_byte_size, @thumbnail_byte_size, @width, @height, @captured_at, @imported_at, '{}'
     )
   `),
@@ -182,7 +191,7 @@ const statements = {
   updateExport: db.prepare("UPDATE photos SET export_path = ?, export_name = ?, export_byte_size = ? WHERE user_id = ? AND id = ?"),
   deletePhoto: db.prepare("DELETE FROM photos WHERE user_id = ? AND id = ?"),
   countPhotos: db.prepare("SELECT COUNT(*) AS count, COALESCE(SUM(byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
-  usagePhotos: db.prepare("SELECT COALESCE(SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
+  usagePhotos: db.prepare("SELECT COALESCE(SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size + working_byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
   usageLuts: db.prepare("SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM luts WHERE user_id = ?"),
   getState: db.prepare("SELECT value_json, updated_at FROM app_state WHERE user_id = ? AND key = ?"),
   setState: db.prepare(`
@@ -211,6 +220,7 @@ function userDirectories(userId) {
     root,
     originals: path.join(root, "originals"),
     previews: path.join(root, "previews"),
+    working: path.join(root, "working"),
     thumbnails: path.join(root, "thumbnails"),
     exports: path.join(root, "exports"),
     luts: path.join(root, "luts"),
@@ -270,6 +280,8 @@ function photoResponse(row) {
     edits: safeJson(row.edits_json),
     hasExport: Boolean(row.export_path),
     isEdited: hasSavedEdits(row),
+    isRaw: PhotoFormats.isRaw(row.original_name),
+    editUrl: row.working_path ? `/api/photos/${row.id}/working` : null,
     thumbnailUrl: `/api/photos/${row.id}/thumbnail`,
     previewUrl: `/api/photos/${row.id}/preview`,
     originalUrl: `/api/photos/${row.id}/original`,
@@ -306,19 +318,12 @@ function nearbyPhotos(userId, photoId, requestedLimit = 9) {
 }
 
 function inferExtension(file, detectedFormat = "") {
-  if (detectedFormat === "png") return ".png";
-  if (detectedFormat === "webp") return ".webp";
-  if (["jpeg", "jpg"].includes(detectedFormat)) return ".jpg";
   const extension = path.extname(file.originalname || "").toLowerCase();
-  if ([".jpg", ".jpeg", ".png", ".webp"].includes(extension)) return extension === ".jpeg" ? ".jpg" : extension;
-  if (file.mimetype === "image/png") return ".png";
-  if (file.mimetype === "image/webp") return ".webp";
-  return ".jpg";
+  if (PhotoFormats.mime(file.originalname)) return extension;
+  return {jpeg:'.jpg',png:'.png',webp:'.webp',gif:'.gif',avif:'.avif',heif:'.heic',tiff:'.tiff'}[detectedFormat] || '.jpg';
 }
 
-function supportedUpload(file) {
-  return /^image\/(jpeg|png|webp)$/i.test(file.mimetype || "") || /\.(jpe?g|png|webp)$/i.test(file.originalname || "");
-}
+function supportedUpload(file) { return PhotoFormats.supported(file); }
 
 function lutResponse(row) {
   return { id: row.id, name: row.name, fileName: row.file_name, size: row.byte_size, createdAt: row.created_at, url: `/api/luts/${row.id}` };
@@ -366,14 +371,14 @@ async function deletePhotoIds(ids, userId) {
   });
   transaction(rows);
   for (const row of rows) {
-    await Promise.allSettled([row.stored_path, row.preview_path, row.thumbnail_path, row.export_path]
+    await Promise.allSettled([row.stored_path, row.preview_path, row.thumbnail_path, row.export_path, row.working_path]
       .filter(Boolean).map(filename => removeIfPresent(resolveDataPath(filename))));
   }
   return rows.length;
 }
 
 async function importPhoto(file, user) {
-  if (!supportedUpload(file)) throw new Error(`${file.originalname} is not a supported JPEG, PNG, or WebP photo.`);
+  if (!supportedUpload(file)) throw new Error(`${file.originalname} is not a supported photo format.`);
   const hash = await hashFile(file.path);
   const duplicate = statements.byHash.get(user.id, hash);
   if (duplicate) {
@@ -381,9 +386,17 @@ async function importPhoto(file, user) {
     return { duplicate: true, photo: photoResponse(duplicate) };
   }
 
-  const metadata = await sharp(file.path, { failOn: "warning" }).metadata();
+  const kind = PhotoFormats.kind(file);
+  let workingBuffer = null, decodedCapture = null;
+  if (kind) {
+    const bytes = await fsp.readFile(file.path);
+    const decoded = await PhotoCodecs.decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), kind);
+    workingBuffer = await sharp(Buffer.from(decoded.data), { raw: { width: decoded.width, height: decoded.height, channels: 4 } }).png().toBuffer();
+    if (decoded.captureTime) decodedCapture = new Date(decoded.captureTime);
+  }
+  const metadata = await sharp(workingBuffer || file.path, { failOn: "warning" }).metadata();
   if (!metadata.width || !metadata.height) throw new Error(`${file.originalname} could not be decoded.`);
-  const captureDate = exifCaptureDate(metadata) || new Date();
+  const captureDate = decodedCapture || exifCaptureDate(metadata) || new Date();
   const year = String(captureDate.getFullYear()).padStart(4, "0");
   const month = String(captureDate.getMonth() + 1).padStart(2, "0");
   const id = crypto.randomUUID();
@@ -394,16 +407,18 @@ async function importPhoto(file, user) {
   const originalPath = path.join(originalDirectory, `${id}${extension}`);
   const previewPath = path.join(directories.previews, `${id}.jpg`);
   const thumbnailPath = path.join(directories.thumbnails, `${id}.jpg`);
+  const workingPath = workingBuffer ? path.join(directories.working, `${id}.png`) : null;
 
   await fsp.rename(file.path, originalPath);
   try {
-    const source = sharp(originalPath, { failOn: "none" }).rotate();
+    if (workingPath) await fsp.writeFile(workingPath, workingBuffer);
+    const source = sharp(workingBuffer || originalPath, { failOn: "none" }).rotate();
     await Promise.all([
       source.clone().resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88, mozjpeg: true }).toFile(previewPath),
       source.clone().resize({ width: 520, height: 360, fit: "cover", position: "attention", withoutEnlargement: true }).jpeg({ quality: 78, mozjpeg: true }).toFile(thumbnailPath)
     ]);
     const [previewStats, thumbnailStats] = await Promise.all([fsp.stat(previewPath), fsp.stat(thumbnailPath)]);
-    const quotaFailure = quotaError(user, file.size + previewStats.size + thumbnailStats.size);
+    const quotaFailure = quotaError(user, file.size + previewStats.size + thumbnailStats.size + (workingBuffer?.length || 0));
     if (quotaFailure) throw quotaFailure;
     const row = {
       id,
@@ -413,7 +428,9 @@ async function importPhoto(file, user) {
       stored_path: relativeDataPath(originalPath),
       preview_path: relativeDataPath(previewPath),
       thumbnail_path: relativeDataPath(thumbnailPath),
-      mime_type: metadata.format === "png" ? "image/png" : metadata.format === "webp" ? "image/webp" : "image/jpeg",
+      working_path: workingPath ? relativeDataPath(workingPath) : null,
+      working_byte_size: workingBuffer?.length || 0,
+      mime_type: PhotoFormats.mime(file.originalname) || file.mimetype || "application/octet-stream",
       byte_size: file.size,
       preview_byte_size: previewStats.size,
       thumbnail_byte_size: thumbnailStats.size,
@@ -425,7 +442,7 @@ async function importPhoto(file, user) {
     statements.insertPhoto.run(row);
     return { duplicate: false, photo: photoResponse(statements.byId.get(user.id, id)) };
   } catch (error) {
-    await Promise.allSettled([removeIfPresent(originalPath), removeIfPresent(previewPath), removeIfPresent(thumbnailPath)]);
+    await Promise.allSettled([removeIfPresent(originalPath), removeIfPresent(previewPath), removeIfPresent(thumbnailPath), removeIfPresent(workingPath)]);
     throw error;
   }
 }
@@ -525,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.3.0" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.0" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -589,7 +606,7 @@ app.use(requireAuth);
 
 app.get("/api/admin/users", requireReadyAccount, requireAdmin, (request, response) => {
   const rows = db.prepare(`SELECT users.id,users.username,users.role,users.quota_bytes,users.must_change_password,users.created_at,
-    COALESCE((SELECT SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size) FROM photos WHERE photos.user_id=users.id),0) +
+    COALESCE((SELECT SUM(byte_size + preview_byte_size + thumbnail_byte_size + export_byte_size + working_byte_size) FROM photos WHERE photos.user_id=users.id),0) +
     COALESCE((SELECT SUM(byte_size) FROM luts WHERE luts.user_id=users.id),0) AS used_bytes
     FROM users ORDER BY role='admin' DESC, username COLLATE NOCASE`).all();
   response.json({ users: rows.map(row => ({ ...publicUser(row), usedBytes: row.used_bytes, createdAt: row.created_at })) });
@@ -725,6 +742,7 @@ function sendPhotoFile(column, download = false) {
 }
 
 app.get("/api/photos/:id/original", sendPhotoFile("stored_path"));
+app.get("/api/photos/:id/working", sendPhotoFile("working_path"));
 app.get("/api/photos/:id/preview", sendPhotoFile("preview_path"));
 app.get("/api/photos/:id/thumbnail", sendPhotoFile("thumbnail_path"));
 app.get("/api/photos/:id/export", sendPhotoFile("export_path", true));
@@ -886,7 +904,8 @@ function createEditorHtml(userId = "server") {
   html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
-    async loadPhoto(file,state){
+    async loadPhoto(file,state,decoded=false){
+      if(decoded)photoSources.set(file,{blob:file});
       await addFiles([file]);
       const index=items.length-1,item=items[index];
       if(!item)throw new Error("The photo could not be opened");
@@ -930,7 +949,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.3.0"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.0"></script>\n</body>`);
   return html;
 }
 
@@ -938,6 +957,9 @@ app.get("/editor", (request, response) => response.set("Cache-Control", "no-stor
 app.use("/branding", express.static(path.join(APP_ROOT, "branding"), { maxAge: "7d" }));
 app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" }));
 app.get("/manifest.webmanifest", (_request, response) => response.sendFile(path.join(APP_ROOT, "manifest.webmanifest")));
+app.get("/photo-formats.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-formats.js")));
+app.get("/photo-codecs.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-codecs.js")));
+app.use("/codecs", express.static(path.join(APP_ROOT, "codecs"), { maxAge: 0 }));
 app.use(express.static(PUBLIC_DIR, { extensions: ["html"], maxAge: 0 }));
 
 app.use((error, request, response, _next) => {

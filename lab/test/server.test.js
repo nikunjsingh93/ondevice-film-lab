@@ -53,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.3\.0/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.0/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
@@ -71,7 +71,7 @@ test("persists non-destructive edit state", async () => {
 
 test("editor loads new photos with neutral settings and preserves saved edits", async () => {
   const html = testApi.createEditorHtml();
-  const source = html.slice(html.indexOf("    async loadPhoto(file,state){"), html.indexOf("    captureState(){"));
+  const source = html.slice(html.indexOf("    async loadPhoto(file,state,decoded=false){"), html.indexOf("    captureState(){"));
   const batchSettings = { amount: "0", fade: "0", grainEnabled: false, dateStamp: false };
   const initialPhotoSettings = { amount: "50", fade: "30", grainEnabled: true, dateStamp: true };
   const maskState = { settings: { fade: "25" }, masks: [{ id: "mask", settings: { exposure: "40" }, strokes: [{ radius: .1, points: [{ x: .2, y: .3 }] }] }] };
@@ -126,6 +126,26 @@ test("removes selected photos and their files", async () => {
   assert.equal(testApi.statements.byId.get(testApi.defaultAdmin.id, photoId), undefined);
   assert.equal(testApi.statements.countPhotos.get(testApi.defaultAdmin.id).count, 0);
   assert.equal(await testApi.deletePhotoIds([memberPhotoId], member.id), 1);
+});
+
+test("RAW imports preserve the original and account for the full working image", async () => {
+  const original = require("./fixtures/dng")();
+  const incoming = path.join(testApi.userDirectories(testApi.defaultAdmin.id).incoming, "sensor.upload");
+  fs.writeFileSync(incoming, original);
+  const before = testApi.userUsage(testApi.defaultAdmin.id);
+  const result = await testApi.importPhoto({ path: incoming, originalname: "sensor.DNG", mimetype: "application/octet-stream", size: original.length }, testApi.defaultAdmin);
+  assert.equal(result.photo.isRaw, true);
+  assert.equal(result.photo.editUrl, `/api/photos/${result.photo.id}/working`);
+  const row = testApi.statements.byId.get(testApi.defaultAdmin.id, result.photo.id);
+  assert.equal(row.width, 128); assert.equal(row.height, 96);
+  assert.deepEqual(fs.readFileSync(path.join(dataDirectory, row.stored_path)), original);
+  assert.ok(row.working_byte_size > 0);
+  assert.equal(testApi.userUsage(testApi.defaultAdmin.id) - before, row.byte_size + row.preview_byte_size + row.thumbnail_byte_size + row.working_byte_size);
+  const working = path.join(dataDirectory, row.working_path);
+  assert.ok(fs.existsSync(working));
+  await testApi.deletePhotoIds([result.photo.id], testApi.defaultAdmin.id);
+  assert.equal(fs.existsSync(working), false);
+  assert.equal(testApi.userUsage(testApi.defaultAdmin.id), before);
 });
 
 test.after(() => {

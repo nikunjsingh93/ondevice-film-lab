@@ -7,6 +7,9 @@ on:
       - "index.html"
       - "manifest.webmanifest"
       - "sw.js"
+      - "photo-formats.js"
+      - "photo-codecs.js"
+      - "codecs/**"
       - "branding/**"
       - "icons/**"
       - ".github/workflows/pages.yml"
@@ -38,8 +41,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/filmlab-pages"
-          cp index.html manifest.webmanifest sw.js "$RUNNER_TEMP/filmlab-pages/"
-          cp -R branding icons "$RUNNER_TEMP/filmlab-pages/"
+          cp index.html manifest.webmanifest sw.js photo-formats.js photo-codecs.js "$RUNNER_TEMP/filmlab-pages/"
+          cp -R branding icons codecs "$RUNNER_TEMP/filmlab-pages/"
           test -s "$RUNNER_TEMP/filmlab-pages/index.html"
           test -s "$RUNNER_TEMP/filmlab-pages/icons/icon-192.png"
 

@@ -23,6 +23,16 @@ This repository now contains two editions:
 
 <p align="center"><em>Original on the left · Edited on the right</em></p>
 
+## Supported photos
+
+Both editions import JPG/JPEG, PNG, WebP, HEIC/HEIF, TIFF, BMP, GIF and AVIF. GIF imports use a still frame; AVIF requires browser support in the offline edition.
+
+RAW imports include Adobe DNG, Canon CR2/CR3/CRW, Sony ARW/SR2/SRF, Fujifilm RAF, Panasonic Lumix RW2/RAW, Nikon NEF/NRW, Olympus ORF, Pentax PEF and other LibRaw formats. A **RAW** badge appears at the top left in the gallery and filmstrip. Support depends on the camera model and compression variant; an unsupported file displays an import error without preventing other photos from being added.
+
+RAW files are developed at full resolution with camera white balance into an 8-bit sRGB working image. This is an actual RAW decode, not the embedded JPEG preview. HEIC, TIFF and BMP are also converted to a PNG working image. The original file is preserved unchanged, and the working image is saved so subsequent editing does not repeat decoding. Server storage allowances include the working image. Exports remain JPEG. Large RAW files need more time, memory and storage; decoded images are limited to 100 megapixels.
+
+Decoders are bundled locally and cached with the offline app. Their sources, versions and licenses are listed in [codecs/SOURCES.md](codecs/SOURCES.md).
+
 ## Install the app
 
 Install OnDevice Film Lab from the live link above. Once it has loaded successfully, the installed app can open and process photos without an internet connection.
@@ -323,4 +333,4 @@ Stop Server Lab briefly or use SQLite's online backup facilities before copying 
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE). Bundled third-party codecs retain their own [licenses](codecs/SOURCES.md).

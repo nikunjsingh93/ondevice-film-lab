@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#111827">
   <title>OnDevice Film Lab Server</title>
   <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/styles.css?v=1.3.0">
+  <link rel="stylesheet" href="/styles.css?v=1.4.0">
 </head>
 <body>
   <div class="appShell">
     <header class="appHeader">
       <a class="brand" href="/" aria-label="OnDevice Film Lab Server home">
         <img src="/branding/ondevice-film-lab-logo-v4.png" alt="">
-        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.3.0</small></span>
+        <span><strong>OnDevice Film Lab</strong><small>SERVER LAB · 1.4.0</small></span>
       </a>
       <span id="userGreeting" class="userGreeting" aria-live="polite"></span>
       <div class="headerActions">
@@ -21,8 +21,8 @@
         <button id="folderButton" type="button">Add folder</button>
         <a class="buttonLink" href="/settings">Settings</a>
       </div>
-      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple hidden>
-      <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple hidden>
+      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple hidden>
+      <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple hidden>
     </header>
 
     <main>
@@ -104,6 +104,7 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-  <script src="/app.js?v=1.3.0"></script>
+  <script src="/photo-formats.js"></script>
+  <script src="/app.js?v=1.4.0"></script>
 </body>
 </html>

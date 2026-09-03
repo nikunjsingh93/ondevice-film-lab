@@ -100,6 +100,7 @@
       return `${heading}
       <article class="photoCard${selected.has(photo.id) ? " selected" : ""}" data-id="${photo.id}" tabindex="0" role="button" aria-label="${selectionMode ? "Select" : "Open"} ${escapeHtml(photo.name)}">
         <img src="${photo.thumbnailUrl}" alt="" loading="lazy" decoding="async">
+        ${photo.isRaw ? '<span class="rawBadge">RAW</span>' : ""}
         ${photo.isEdited ? '<span class="editedBadge">EDITED</span>' : ""}
         ${selectionMode ? '<span class="selectMark">✓</span>' : ""}
         <div class="photoInfo"><strong>${escapeHtml(photo.name)}</strong><span>${formatDate(galleryDate(photo))} · ${formatBytes(photo.size)}</span></div>
@@ -153,8 +154,8 @@
   }
 
   async function uploadFiles(fileList) {
-    const files = [...fileList].filter(file => /^image\/(jpeg|png|webp)$/i.test(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name));
-    if (!files.length) return notify("No supported JPEG, PNG or WebP photos were selected.");
+    const files = [...fileList].filter(file => PhotoFormats.supported(file));
+    if (!files.length) return notify("No supported photos were selected.");
     elements.progressOverlay.hidden = false;
     elements.progressTitle.textContent = "Adding photos…";
     setProgress(0, `Preparing ${files.length} ${files.length === 1 ? "photo" : "photos"}`);

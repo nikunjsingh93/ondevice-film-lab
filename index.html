@@ -823,6 +823,8 @@
   .maskEditing .compareBox .softLayer,.maskEditing .compareBox .divider,.maskEditing .compareBox .compareLabel{display:none!important}
   .mobileTools{overflow-x:auto}
   .mobileTools button{flex-shrink:0}
+  .galleryItem:has(.rawBadge) .galleryCheck{top:38px}
+  .rawBadge{position:absolute;top:9px;left:9px;z-index:3;padding:3px 5px;border:1px solid #ffffff70;border-radius:5px;background:#101722df;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none}
 </style>
 </head>
 <body>
@@ -844,7 +846,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.9.1</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.0</div>
       </div>
 
       <div class="photoPicker">
@@ -858,9 +860,9 @@
           <button id="removePhotoBtn" type="button" disabled>Remove current photo</button>
           <button id="clearPhotosBtn" type="button" disabled>Clear all photos</button>
         </div>
-        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
-        <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.9.1</div>
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
+        <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
+        <div class="appVersion">Version 1.10.0</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1279,6 +1281,8 @@
   </div>
 </div>
 
+<script src="./photo-formats.js"></script>
+<script src="./photo-codecs.js"></script>
 <script>
 (() => {
   "use strict";
@@ -1444,7 +1448,9 @@
       const ownedFile=fileFromStoredPhoto(stored);
       const previousUrl=item.thumbUrl;
       item.file=ownedFile;
-      item.thumbUrl=URL.createObjectURL(ownedFile);
+      if(stored.captureTime)ownedFile._captureDate=new Date(stored.captureTime);
+      if(stored.workingBlob)photoSources.set(ownedFile,{blob:stored.workingBlob,thumbBlob:stored.thumbBlob});
+      item.thumbUrl=URL.createObjectURL(stored.thumbBlob||stored.workingBlob||ownedFile);
       const itemIndex=items.indexOf(item);
       const thumbnail=itemIndex>=0?els.thumbs.children[itemIndex]?.querySelector("img"):null;
       if(thumbnail)thumbnail.src=item.thumbUrl;
@@ -1465,6 +1471,8 @@
         photos.put({
           id:item.libraryId,
           file:item.file,
+          workingBlob:photoSources.get(item.file)?.blob||null,
+          thumbBlob:photoSources.get(item.file)?.thumbBlob||null,
           name:item.file.name,
           type:item.file.type,
           lastModified:item.file.lastModified,
@@ -2014,7 +2022,8 @@
     updateHistoryButtons();
   }
 
-  const supported = f => /^image\/(jpeg|png|webp)$/i.test(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name);
+  const supported = f => PhotoFormats.supported(f);
+  els.fileInput.accept=PhotoFormats.accept;els.folderInput.accept=PhotoFormats.accept;
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
     (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
   const isAndroid=/Android/i.test(navigator.userAgent);
@@ -2024,7 +2033,7 @@
     // MIME type: the document picker ignores it, while the Photos picker no
     // longer considers the request image-only. Keep the real image types so
     // Files can still filter the selectable files correctly.
-    els.fileInput.accept="image/jpeg,image/png,image/webp,type/nonexistent";
+    els.fileInput.accept=PhotoFormats.accept;
     els.fileInput.setAttribute("aria-label","Choose photos from files, USB storage, camera, or a document provider");
   }
 
@@ -2123,6 +2132,7 @@
   els.processingCancelBtn.addEventListener("click",()=>{
     if(processingCancelRequested)return;
     processingCancelRequested=true;
+    photoDecodeAbort?.abort();
     els.processingCancelBtn.disabled=true;
     els.processingCancelBtn.textContent="Cancelling…";
     setProcessingStage("Cancelling export…","Finishing the current step safely");
@@ -2344,7 +2354,37 @@
     });
   }
 
+  const photoSources=new WeakMap();
+  const photoSourceJobs=new WeakMap();
+  let photoDecodeAbort=null;
+  async function preparePhotoSource(file){
+    if(photoSources.has(file))return photoSources.get(file);
+    const kind=PhotoFormats.kind(file);if(!kind)return null;
+    if(photoSourceJobs.has(file))return photoSourceJobs.get(file);
+    const job=(async()=>{
+      const decoded=await PhotoCodecs.decode(await file.arrayBuffer(),kind,{signal:photoDecodeAbort?.signal});
+      const canvas=document.createElement('canvas');canvas.width=decoded.width;canvas.height=decoded.height;
+      canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(decoded.data),decoded.width,decoded.height),0,0);
+      const blob=await canvasToBlob(canvas,'image/png',1);
+      const thumb=document.createElement('canvas'),scale=Math.min(1,520/Math.max(canvas.width,canvas.height));
+      thumb.width=Math.max(1,Math.round(canvas.width*scale));thumb.height=Math.max(1,Math.round(canvas.height*scale));
+      thumb.getContext('2d').drawImage(canvas,0,0,thumb.width,thumb.height);
+      const thumbBlob=await canvasToBlob(thumb,'image/jpeg',.84);
+      const result={blob,thumbBlob};photoSources.set(file,result);
+      if(decoded.captureTime)file._captureDate=new Date(decoded.captureTime);
+      return result;
+    })();
+    photoSourceJobs.set(file,job);
+    try{return await job}finally{photoSourceJobs.delete(file)}
+  }
+  async function photoDecodeSource(file){return (await preparePhotoSource(file))?.blob||file}
+  function appendRawBadge(container,name){
+    if(!PhotoFormats.isRaw(name))return;
+    const badge=document.createElement('span');badge.className='rawBadge';badge.textContent='RAW';badge.setAttribute('aria-label','RAW photo');container.appendChild(badge);
+  }
+
   async function decode(file){
+    file=await photoDecodeSource(file);
     if ("createImageBitmap" in window){
       try { return await createImageBitmap(file, { imageOrientation:"from-image" }); }
       catch(firstError){
@@ -2358,6 +2398,7 @@
   }
 
   async function decodeForProcessing(file){
+    file=await photoDecodeSource(file);
     // Android's createImageBitmap JPEG path can expose block-alignment rows
     // that are not part of the visible photograph. HTMLImageElement uses the
     // browser's display-image path, which already respects the JPEG's visible
@@ -2451,6 +2492,7 @@
   }
 
   async function decodePreview(file,maxDim){
+    file=await photoDecodeSource(file);
     const encoded=await encodedImageSize(file);
     const sourceLong=encoded?Math.max(encoded.width,encoded.height):0;
     if(encoded&&sourceLong>maxDim){
@@ -4488,6 +4530,7 @@
     transforms.textContent=labels.join(" · ");
     const badge=document.createElement("span");badge.className="customBadge";badge.textContent="Custom";badge.hidden=true;
     row.append(image,name,meta,transforms,badge);
+    appendRawBadge(row,item.file.name);
     row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
     els.thumbs.appendChild(row);
     updateThumbCustomBadge(items.length-1);
@@ -4508,6 +4551,8 @@
       for(const stored of photos){
         if(!stored.file)continue;
         const file=fileFromStoredPhoto(stored);
+        if(stored.captureTime)file._captureDate=new Date(stored.captureTime);
+        if(stored.workingBlob)photoSources.set(file,{blob:stored.workingBlob,thumbBlob:stored.thumbBlob});
         const state=stateById.get(stored.id)||{};
         const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
         const restoredSettings={...cloneSettings(batchSettings),...(state.settings?cloneSettings(state.settings):{})};
@@ -4521,7 +4566,7 @@
           crop:state.crop||null,
           masks:JSON.parse(JSON.stringify(state.masks||[])),
           settings:restoredSettings,
-          thumbUrl:URL.createObjectURL(file),
+          thumbUrl:URL.createObjectURL(stored.thumbBlob||stored.workingBlob||file),
           captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate
         };
         appendLibraryItem(item);
@@ -4556,33 +4601,39 @@
 
   async function addFiles(list){
     await libraryRestorePromise;
+    if(busy)return;
     const files=[...list].filter(supported);
-    if(!files.length){ setStatus("No supported photos found"); return; }
+    if(!files.length){setStatus("No supported photos found");return}
     requestPersistentStorage();
     const known=new Set(items.map(x=>x.file.name+"|"+x.file.size+"|"+x.file.lastModified));
-    const added=[];
-    for(const f of files){
-      const key=f.name+"|"+f.size+"|"+f.lastModified;
-      if(known.has(key)) continue;
-      known.add(key);
-      const captureDate=await getCaptureDate(f);
-      const it={
-        libraryId:createLibraryId(),libraryOrder:Date.now()+added.length/1000,
-        file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
-        thumbUrl:URL.createObjectURL(f),captureDate
-      };
-      appendLibraryItem(it);added.push(it);
-    }
-    els.count.textContent=`Photos (${items.length})`;
-    updateButtons();
-    if(current<0 && items.length) select(0);
-    if(!added.length){setStatus("Those photos are already added");return}
-    clearEditHistory();
-    setStatus(`Saving ${added.length} photo${added.length===1?"":"s"} on this device…`);
-    const persisted=await persistImportedItems(added);
-    setStatus(persisted
-      ? `Added ${added.length} photo${added.length===1?"":"s"} • kept after refresh`
-      : `Added ${added.length} photo${added.length===1?"":"s"} • could not keep after refresh`);
+    const added=[],errors=[];
+    const converting=files.some(file=>PhotoFormats.kind(file)&&!photoSources.has(file));
+    setBusy(true);
+    if(converting){photoDecodeAbort=new AbortController();showProcessing(files.length)}
+    try{
+      for(const [index,f] of files.entries()){
+        if(processingCancelRequested)break;
+        const key=f.name+"|"+f.size+"|"+f.lastModified;if(known.has(key))continue;
+        try{
+          if(converting){setProcessingStage("Opening photo…",f.name);setProgress(index,files.length)}
+          const source=await preparePhotoSource(f);
+          if(processingCancelRequested)break;
+          const captureDate=await getCaptureDate(f);
+          const it={libraryId:createLibraryId(),libraryOrder:Date.now()+added.length/1000,
+            file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
+            thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||f),captureDate};
+          appendLibraryItem(it);added.push(it);known.add(key);
+        }catch(error){if(error.name==='AbortError')break;errors.push(`${f.name}: ${error.message}`)}
+      }
+    }finally{photoDecodeAbort=null;if(converting)hideProcessing();setBusy(false)}
+    els.count.textContent=`Photos (${items.length})`;updateButtons();
+    if(current<0&&items.length)select(0);
+    if(added.length){
+      clearEditHistory();setStatus(`Saving ${added.length} photos on this device…`);
+      const persisted=await persistImportedItems(added);
+      setStatus(persisted?`Added ${added.length} photo${added.length===1?'':'s'} • kept after refresh`:`Added ${added.length} photos • could not keep after refresh`);
+    }else setStatus(errors.length?'No photos could be opened':'No new photos added');
+    if(errors.length)await showAppDialog({title:'Some photos could not be opened',message:errors.slice(0,5).join('\n'),confirmText:'OK'});
   }
 
   function updateGalleryActions(){
@@ -4626,6 +4677,7 @@
       const date=item.captureDate;
       meta.textContent=`${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())} • ${(item.file.size/1024/1024).toFixed(1)} MB`;
       button.append(image,check,name,meta);
+      appendRawBadge(button,item.file.name);
       button.addEventListener("click",()=>{
         if(galleryRemoving)return;
         if(!gallerySelectionMode){

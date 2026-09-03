@@ -180,6 +180,7 @@
       status.className = "rot";
       status.textContent = entry.isEdited ? "Edited" : "";
       card.append(image, name, meta, status);
+      if (entry.isRaw) { const badge=document.createElement("span");badge.className="rawBadge";badge.textContent="RAW";card.appendChild(badge); }
       const open = () => openServerPhoto(entry.id);
       card.addEventListener("click", open);
       card.addEventListener("keydown", event => {
@@ -319,11 +320,11 @@
     const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}`);
     photo = result.photo;
     renderServerFilmstrip([photo], 1);
-    const response = await fetch(photo.originalUrl);
+    const response = await fetch(photo.editUrl || photo.originalUrl);
     if (!response.ok) throw new Error("The original photo could not be loaded from Server Lab");
     const blob = await response.blob();
-    const file = new File([blob], photo.name, { type: photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
-    await bridge.loadPhoto(file, photo.edits);
+    const file = new File([blob], photo.name, { type: photo.editUrl ? "image/png" : photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
+    await bridge.loadPhoto(file, photo.edits, Boolean(photo.editUrl));
     document.body.classList.remove("serverPhotoLoading");
     bridge.setSinglePhotoMode();
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));

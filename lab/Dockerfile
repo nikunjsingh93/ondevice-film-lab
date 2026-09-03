@@ -10,7 +10,8 @@ ENV NODE_ENV=production \
     STATE_DIR=/state
 WORKDIR /app
 COPY --from=dependencies /app/lab/node_modules ./lab/node_modules
-COPY index.html manifest.webmanifest sw.js ./
+COPY index.html manifest.webmanifest sw.js photo-formats.js photo-codecs.js ./
+COPY codecs ./codecs
 COPY branding ./branding
 COPY icons ./icons
 COPY lab ./lab
