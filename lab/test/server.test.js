@@ -53,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.7/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.8/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 

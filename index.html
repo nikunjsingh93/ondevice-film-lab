@@ -13,6 +13,12 @@
 <link rel="manifest" href="./manifest.webmanifest" />
 <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
+<script>
+// iOS standalone can retain the browser toolbar deduction in dynamic viewport units.
+if (window.self === window.top && navigator.standalone === true) {
+  document.documentElement.classList.add("iosStandalone");
+}
+</script>
 <style>
   :root{
     --bg:#10141c; --panel:#1a202c; --panel2:#222b3a; --line:#344156;
@@ -821,6 +827,12 @@
   .mobileTools button{flex-shrink:0}
   .galleryItem:has(.rawBadge) .galleryCheck{top:38px}
   .rawBadge{position:absolute;top:9px;left:9px;z-index:3;padding:3px 5px;border:1px solid #ffffff70;border-radius:5px;background:#101722df;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none}
+  /* Installed iPhone windows have no browser toolbar. Use the full viewport
+     and let the existing app padding reserve only the system safe areas. */
+  @media(max-width:900px){
+    html.iosStandalone{height:100vh;height:100lvh}
+    html.iosStandalone body,html.iosStandalone .app{height:100%}
+  }
   /* Remove the two outer editor cards while keeping mobile drawers opaque. */
   .layout>.main,.layout>.sidebar:not(.mobileOpen){border:0;border-radius:0;box-shadow:none;background:transparent}
   @media(min-width:901px){
@@ -852,7 +864,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.2</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.3</div>
       </div>
 
       <div class="photoPicker">
@@ -868,7 +880,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.2</div>
+        <div class="appVersion">Version 1.10.3</div>
       </div>
 
       <div id="profileBar" class="profileBar">

@@ -8,17 +8,26 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="application-name" content="Lab Server">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Lab Server">
   <link rel="apple-touch-icon" href="/lab-icons/apple-touch-icon.png">
   <link rel="icon" href="/lab-icons/icon-192.png">
+  <script>
+// iOS standalone can retain the browser toolbar deduction in dynamic viewport units.
+if (window.self === window.top && navigator.standalone === true) {
+  document.documentElement.classList.add("iosStandalone");
+}
+</script>
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
     /* System-bar insets belong to the top-level window, not its iframe.
        Reserve them here so every Lab page receives the usable viewport. */
     body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+    html.iosStandalone{height:100vh;height:100lvh}
+    html.iosStandalone body{height:100%}
     #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.7" defer></script>
+  <script src="/lab-shell.js?v=1.4.8" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>
