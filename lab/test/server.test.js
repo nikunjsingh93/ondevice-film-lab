@@ -53,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.0/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.1/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
@@ -146,6 +146,32 @@ test("RAW imports preserve the original and account for the full working image",
   await testApi.deletePhotoIds([result.photo.id], testApi.defaultAdmin.id);
   assert.equal(fs.existsSync(working), false);
   assert.equal(testApi.userUsage(testApi.defaultAdmin.id), before);
+});
+
+test("date selection includes unloaded photos, respects local day boundaries, search and account", () => {
+  const insert = db.prepare(`INSERT INTO photos (id,user_id,content_hash,original_name,stored_path,preview_path,thumbnail_path,mime_type,byte_size,width,height,captured_at,imported_at)
+    VALUES (?,?,?,?,'unused','unused','unused','image/jpeg',0,1,1,?,?)`);
+  const userId = testApi.defaultAdmin.id;
+  const add = (id, captured, imported = "2026-03-10T04:00:00.000Z", owner = userId, name = "trip.jpg") => insert.run(id,owner,id,name,captured,imported);
+  db.exec("SAVEPOINT date_test");
+  try {
+    // New York's spring-forward date is 23 hours, including both exact edges.
+    const range = {start:"2026-03-08T05:00:00.000Z",end:"2026-03-09T04:00:00.000Z",sort:"captured"};
+    for(let i=0;i<130;i++) add(`day-${i}`,range.start);
+    add("last", "2026-03-09T03:59:59.999Z");
+    add("before", "2026-03-08T04:59:59.999Z");
+    add("after", range.end);
+    add("other-user",range.start,undefined,member.id);
+    add("search",range.start,undefined,userId,"100%_trip.jpg");
+    add("fallback",null,range.start);
+    const ids = testApi.dateSelectionIds(userId,range);
+    assert.equal(ids.length,133);
+    assert.ok(ids.includes("day-129"));assert.ok(ids.includes("last"));assert.ok(ids.includes("fallback"));
+    assert.ok(!ids.includes("before"));assert.ok(!ids.includes("after"));assert.ok(!ids.includes("other-user"));
+    assert.deepEqual(testApi.dateSelectionIds(userId,{...range,q:"100%_"}),["search"]);
+    assert.deepEqual(testApi.dateSelectionIds(userId,{...range,sort:"imported"}),["fallback"]);
+    assert.throws(()=>testApi.dateSelectionIds(userId,{start:"bad",end:range.end}),/valid gallery date/);
+  } finally {db.exec("ROLLBACK TO date_test; RELEASE date_test");}
 });
 
 test.after(() => {

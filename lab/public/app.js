@@ -12,6 +12,8 @@
     cancelUploadButton: $("#cancelUploadButton"), dialogOverlay: $("#dialogOverlay"), dialogTitle: $("#dialogTitle"),
     dialogMessage: $("#dialogMessage"), dialogCancel: $("#dialogCancel"), dialogConfirm: $("#dialogConfirm"), toast: $("#toast")
   };
+  const dateSelections = new Map();
+  let selectionRevision = 0;
   let photos = [];
   let total = 0;
   let hasMore = false;
@@ -68,8 +70,16 @@
     elements.selectedCount.textContent = `${selected.size} selected`;
     elements.removeButton.disabled = !selected.size;
     elements.downloadZipButton.disabled = !selected.size;
-    elements.selectAllButton.textContent = selected.size && selected.size === photos.length ? "Deselect all" : "Select all";
+    elements.selectAllButton.textContent = photos.length && photos.every(photo => selected.has(photo.id)) ? "Deselect all" : "Select all";
     document.querySelectorAll(".photoCard").forEach(card => card.classList.toggle("selected", selected.has(card.dataset.id)));
+    document.querySelectorAll(".dateGroupSelect").forEach(button => {
+      const ids = dateSelections.get(button.dataset.date);
+      const all = Boolean(ids?.length && ids.every(id => selected.has(id)));
+      const some = ids ? ids.some(id => selected.has(id)) : photos.some(photo => dateGroup(galleryDate(photo)).key === button.dataset.date && selected.has(photo.id));
+      button.setAttribute("aria-pressed", all ? "true" : some ? "mixed" : "false");
+      button.setAttribute("aria-label", `${all ? "Deselect" : "Select"} all photos from ${button.dataset.label}`);
+      button.querySelector(".dateGroupAction").textContent = all ? "Deselect all" : "Select all";
+    });
   }
 
   function galleryDate(photo) {
@@ -87,7 +97,7 @@
     const label = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : new Intl.DateTimeFormat(undefined, {
       month: "long", day: "numeric", ...(date.getFullYear() === today.getFullYear() ? {} : { year: "numeric" })
     }).format(date);
-    return { key, label };
+    return { key, label, start: startDate.toISOString(), end: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).toISOString() };
   }
 
   function renderGallery() {
@@ -95,7 +105,10 @@
     let previousGroup = "";
     elements.gallery.innerHTML = photos.map(photo => {
       const group = dateGroup(galleryDate(photo));
-      const heading = group.key === previousGroup ? "" : `<h2 class="dateGroupHeader">${escapeHtml(group.label)}</h2>`;
+      const label = selectionMode
+        ? `<button type="button" class="dateGroupSelect" data-date="${group.key}" data-label="${escapeHtml(group.label)}" data-start="${group.start || ""}" data-end="${group.end || ""}" aria-pressed="false"><span class="dateGroupCheck" aria-hidden="true"></span><span>${escapeHtml(group.label)}</span><span class="dateGroupAction">Select all</span></button>`
+        : escapeHtml(group.label);
+      const heading = group.key === previousGroup ? "" : `<h2 class="dateGroupHeader">${label}</h2>`;
       previousGroup = group.key;
       return `${heading}
       <article class="photoCard${selected.has(photo.id) ? " selected" : ""}" data-id="${photo.id}" tabindex="0" role="button" aria-label="${selectionMode ? "Select" : "Open"} ${escapeHtml(photo.name)}">
@@ -110,7 +123,36 @@
     updateSelection();
   }
 
+  async function toggleDateGroup(button) {
+    if (!selectionMode || button.disabled) return;
+    const revision = selectionRevision;
+    const key = button.dataset.date;
+    button.disabled = true;
+    try {
+      let ids = dateSelections.get(key);
+      if (!ids) {
+        const query = new URLSearchParams({ sort: sortMode, q: elements.searchInput.value.trim(), start: button.dataset.start, end: button.dataset.end });
+        if (key === "unknown") query.set("unknown", "1");
+        const result = await jsonRequest(`/api/photo-date-selection?${query}`);
+        if (revision !== selectionRevision || !selectionMode) return;
+        ids = result.ids;
+        dateSelections.set(key, ids);
+      }
+      const deselect = ids.length && ids.every(id => selected.has(id));
+      ids.forEach(id => deselect ? selected.delete(id) : selected.add(id));
+      updateSelection();
+    } catch (error) { notify(error.message); }
+    finally { button.disabled = false; }
+  }
+
+  function resetDateSelection() {
+    selectionRevision++;
+    dateSelections.clear();
+    selected.clear();
+  }
+
   async function loadPhotos(reset = false) {
+    if (reset) resetDateSelection();
     const offset = reset ? 0 : photos.length;
     const query = elements.searchInput.value.trim();
     const result = await jsonRequest(`/api/photos?offset=${offset}&limit=60&q=${encodeURIComponent(query)}&sort=${sortMode}`);
@@ -270,15 +312,19 @@
   elements.photoInput.onchange = event => uploadFiles(event.target.files);
   elements.folderInput.onchange = event => uploadFiles(event.target.files);
   elements.cancelUploadButton.onclick = () => { uploadRequest?.abort(); downloadController?.abort(); };
-  elements.selectButton.onclick = () => { selectionMode = !selectionMode; selected.clear(); renderGallery(); };
-  elements.selectAllButton.onclick = () => { if (selected.size === photos.length) selected.clear(); else photos.forEach(photo => selected.add(photo.id)); updateSelection(); };
+  elements.selectButton.onclick = () => { selectionMode = !selectionMode; resetDateSelection(); renderGallery(); };
+  elements.selectAllButton.onclick = () => { if (photos.length && photos.every(photo => selected.has(photo.id))) selected.clear(); else photos.forEach(photo => selected.add(photo.id)); updateSelection(); };
   elements.downloadZipButton.onclick = downloadSelectedZip;
   elements.removeButton.onclick = removeSelected;
   elements.loadMoreButton.onclick = () => loadPhotos(false).catch(error => notify(error.message));
-  elements.gallery.addEventListener("click", event => handleCard(event.target.closest(".photoCard")));
+  elements.gallery.addEventListener("click", event => {
+    const dateButton = event.target.closest(".dateGroupSelect");
+    if (dateButton) { toggleDateGroup(dateButton); return; }
+    handleCard(event.target.closest(".photoCard"));
+  });
   elements.gallery.addEventListener("click", event => { if (event.target.closest(".downloadEdit")) event.stopImmediatePropagation(); }, true);
   elements.gallery.addEventListener("keydown", event => { if ((event.key === "Enter" || event.key === " ") && event.target.closest(".photoCard")) { event.preventDefault(); handleCard(event.target.closest(".photoCard")); } });
-  elements.searchInput.addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadPhotos(true).catch(error => notify(error.message)), 250); });
+  elements.searchInput.addEventListener("input", () => { resetDateSelection(); clearTimeout(searchTimer); searchTimer = setTimeout(() => loadPhotos(true).catch(error => notify(error.message)), 250); });
   elements.sortSelect.value = sortMode;
   function applyGridSize(value) {
     const size = ["small", "medium", "large"].includes(value) ? value : "medium";

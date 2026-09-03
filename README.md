@@ -327,6 +327,10 @@ The offline and Server Lab editions live in this one repository. Normal editor c
 
 The gallery/backend code is under `lab/`, while `docker-compose.lab.yml` defines the Ubuntu deployment.
 
+### Selecting photos by date
+
+In the Server Lab gallery, choose **Select**, then click **Today**, **Yesterday**, or any date heading to select every matching photo for that day, including photos beyond the loaded page. Click the heading again to deselect that day. Date selection follows the gallery’s capture/import date sort, current search, and your device’s local timezone.
+
 ### Backups
 
 Stop Server Lab briefly or use SQLite's online backup facilities before copying a live database. At minimum, regularly back up both `/media/wvx/TOSH 4TB/OnDeviceFilmLab` and `/var/lib/ondevice-film-lab` to a second physical disk or another machine. The external drive by itself is storage, not a backup.

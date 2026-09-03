@@ -71,3 +71,13 @@ main{padding:24px}
 .rawBadge{position:absolute;top:9px;left:9px;z-index:3;padding:3px 5px;border:1px solid #ffffff70;border-radius:5px;background:#101722df;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none}
 
 .photoCard:has(.rawBadge) .selectMark{top:38px}
+
+.dateGroupSelect{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.dateGroupSelect:hover{border-color:var(--accent)}
+.dateGroupSelect:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.dateGroupSelect[aria-pressed="true"]{border-color:var(--accent);background:#263d54}
+.dateGroupSelect:disabled{opacity:.6;cursor:wait}
+.dateGroupCheck{display:grid;place-items:center;width:19px;height:19px;border:1px solid currentColor;border-radius:5px;font-size:13px}
+.dateGroupSelect[aria-pressed="true"] .dateGroupCheck::after{content:"✓"}
+.dateGroupSelect[aria-pressed="mixed"] .dateGroupCheck::after{content:"−"}
+.dateGroupAction{font-size:11px;font-weight:500;color:var(--muted);margin-left:4px}

@@ -364,7 +364,7 @@ async function removeIfPresent(filename) {
 }
 
 async function deletePhotoIds(ids, userId) {
-  const uniqueIds = [...new Set(ids.map(String))].slice(0, 1000);
+  const uniqueIds = [...new Set(ids.map(String))];
   const rows = uniqueIds.map(id => statements.byId.get(userId, id)).filter(Boolean);
   const transaction = db.transaction(records => {
     for (const row of records) statements.deletePhoto.run(userId, row.id);
@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.0" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.1" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -669,6 +669,29 @@ app.get("/api/library", asyncRoute(async (_request, response) => {
   response.json({ photos: counts.count, originalBytes: counts.bytes, usedBytes, quotaBytes: _request.user.quota_bytes, storage });
 }));
 
+function dateSelectionIds(userId, { start, end, unknown, sort, q = "" }) {
+  const dateColumn = sort === "imported" ? "imported_at" : "COALESCE(captured_at, imported_at)";
+  const params = [userId];
+  let dateFilter;
+  if (unknown === "1") dateFilter = `julianday(${dateColumn}) IS NULL`;
+  else {
+    const startTime = Date.parse(start), endTime = Date.parse(end);
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || endTime - startTime > 27 * 3600000) {
+      const error = new Error("Choose a valid gallery date"); error.status = 400; throw error;
+    }
+    dateFilter = `julianday(${dateColumn}) >= julianday(?) AND julianday(${dateColumn}) < julianday(?)`;
+    params.push(new Date(startTime).toISOString(), new Date(endTime).toISOString());
+  }
+  const query = String(q).trim();
+  const nameFilter = query ? " AND original_name LIKE ? ESCAPE '\\'" : "";
+  if (query) params.push(`%${query.replace(/[\\%_]/g, value => `\\${value}`)}%`);
+  return db.prepare(`SELECT id FROM photos WHERE user_id = ? AND ${dateFilter}${nameFilter}`).all(...params).map(row => row.id);
+}
+
+app.get("/api/photo-date-selection", (request, response) => {
+  response.json({ ids: dateSelectionIds(request.user.id, request.query) });
+});
+
 app.get("/api/photos", (request, response) => {
   const limit = Math.max(1, Math.min(120, Number(request.query.limit) || 60));
   const offset = Math.max(0, Number(request.query.offset) || 0);
@@ -689,11 +712,10 @@ app.get("/api/photos", (request, response) => {
 
 app.post("/api/photos/download.zip", (request, response, next) => {
   try {
-    const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))].slice(0, 1000) : [];
+    const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))] : [];
     if (!ids.length) return response.status(400).json({ error: "No photos selected" });
-    const placeholders = ids.map(() => "?").join(",");
-    const rows = db.prepare(`SELECT * FROM photos WHERE user_id = ? AND id IN (${placeholders}) ORDER BY COALESCE(captured_at, imported_at) DESC, id DESC`)
-      .all(request.user.id, ...ids);
+    const rows = db.prepare(`SELECT * FROM photos WHERE user_id = ? AND id IN (SELECT value FROM json_each(?)) ORDER BY COALESCE(captured_at, imported_at) DESC, id DESC`)
+      .all(request.user.id, JSON.stringify(ids));
     if (!rows.length) return response.status(404).json({ error: "No selected photos were found" });
 
     const archive = archiver("zip", { zlib: { level: 0 } });
@@ -807,7 +829,7 @@ app.put("/api/photos/:id/export", express.raw({ type: ["image/jpeg", "applicatio
 }));
 
 app.delete("/api/photos", asyncRoute(async (request, response) => {
-  const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))].slice(0, 1000) : [];
+  const ids = Array.isArray(request.body?.ids) ? [...new Set(request.body.ids.map(String))] : [];
   if (!ids.length) return response.status(400).json({ error: "No photos selected" });
   response.json({ removed: await deletePhotoIds(ids, request.user.id) });
 }));
@@ -949,7 +971,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.0"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.1"></script>\n</body>`);
   return html;
 }
 
@@ -999,5 +1021,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits, dateSelectionIds }
 };
