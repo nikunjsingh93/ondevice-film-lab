@@ -12,7 +12,7 @@ This repository now contains two editions:
 ## Screenshots Desktop and Mobile
 
 <p align="center">
-  <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="70%">&nbsp;&nbsp;&nbsp;&nbsp;<img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="23%">
+  <img src="screenshots/desktop-editor.png" alt="OnDevice Film Lab desktop editor" width="75%">&nbsp;&nbsp;&nbsp;&nbsp;<img src="screenshots/mobile-editor.png" alt="OnDevice Film Lab mobile editor" width="19.5%">
 </p>
 
 ### Before and after
