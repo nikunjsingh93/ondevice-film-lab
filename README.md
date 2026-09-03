@@ -23,6 +23,16 @@ This repository now contains two editions:
 
 <p align="center"><em>Original on the left · Edited on the right</em></p>
 
+### Server Lab
+
+<p align="center">
+  <img src="screenshots/lab-gallery.png" alt="Server Lab photo library and gallery" width="94%">
+</p>
+
+<p align="center">
+  <img src="screenshots/lab-sign-in.png" alt="Server Lab sign-in page" width="94%">
+</p>
+
 ## Supported photos
 
 Both editions import JPG/JPEG, PNG, WebP, HEIC/HEIF, TIFF, BMP, GIF and AVIF. GIF imports use a still frame; AVIF requires browser support in the offline edition.
