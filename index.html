@@ -296,6 +296,8 @@ if (window.self === window.top && navigator.standalone === true) {
     touch-action:auto;
     box-shadow:0 8px 35px #0007
   }
+  .compareBox.uneditedPreview .divider,.compareBox.uneditedPreview .before{display:none!important}
+  .compareBox.uneditedPreview .after{display:block!important}
   .previewPreferences{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
   .previewPreferences .check{line-height:1.4}
   /* Safari needs the prefixed selection rule on the canvas and labels too.
@@ -871,7 +873,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.5</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.6</div>
       </div>
 
       <div class="photoPicker">
@@ -887,7 +889,7 @@ if (window.self === window.top && navigator.standalone === true) {
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.5</div>
+        <div class="appVersion">Version 1.10.6</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1977,6 +1979,21 @@ if (window.self === window.top && navigator.standalone === true) {
   }
   function itemHasCustomEdits(item){
     return !!item&&((item.masks||[]).length>0||item.rotation!==0||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||!settingsMatch(item.settings,batchSettings));
+  }
+  // Test active effects, not differences from a saved profile. Auxiliary
+  // controls (grain size, LUT strength with no LUT, grading hue) alone do nothing.
+  function settingsHavePreviewEdits(settings){
+    const nonzero=id=>Number.isFinite(+settings[id])&&+settings[id]!==0;
+    const strengths=["amount","chromaNoise","fade","bloom","halation","chromatic","vignette","lightLeaks"];
+    if(strengths.some(id=>+settings[id]>0))return true;
+    if(["exposure","temperature","highlights","shadows","contrast","saturation"].some(nonzero))return true;
+    if(Object.keys(colorSettingDefaults).some(id=>!/^colorGrade.*Hue$/.test(id)&&nonzero(id)))return true;
+    if(settings.dateStamp||(settings.grainEnabled&&+settings.grainStrength>0))return true;
+    return customLuts.has(String(settings.lutSelect||"none"))&&+settings.lutStrength>0;
+  }
+  function previewHasEdits(item,settings){
+    return settingsHavePreviewEdits(settings)||!!(item.rotation%360)||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||
+      (item.masks||[]).some(mask=>mask.enabled!==false&&mask.strokes?.some(stroke=>!stroke.erase&&stroke.points?.length)&&settingsHavePreviewEdits(mask.settings||{}));
   }
   function captureEditHistoryState(){
     return {
@@ -3458,7 +3475,7 @@ if (window.self === window.top && navigator.standalone === true) {
     box.classList.toggle("holdOriginalMode",enabled);
     box.tabIndex=enabled?0:-1;
     box.setAttribute("role","group");
-    box.setAttribute("aria-label",enabled?"Edited photo. Hold to see original, or hold Space when focused.":"Original and edited photo comparison");
+    box.setAttribute("aria-label",box.classList.contains("uneditedPreview")?"Original photo, no edits applied.":enabled?"Edited photo. Hold to see original, or hold Space when focused.":"Original and edited photo comparison");
   }
 
   // One delegated gesture handler survives preview replacement without keeping
@@ -3744,6 +3761,8 @@ if (window.self === window.top && navigator.standalone === true) {
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
       const box=document.createElement("div"); box.className="compareBox";
+      const hasEdits=previewHasEdits(it,settings);
+      box.classList.toggle("uneditedPreview",!hasEdits);
 
       // Full base = edited result. Left clipped overlay = original.
       // Therefore dragging LEFT reveals more of the finished edit.
@@ -3761,7 +3780,7 @@ if (window.self === window.top && navigator.standalone === true) {
       box.appendChild(divider);
 
       const before=document.createElement("div"); before.className="compareLabel before"; before.textContent="Original";
-      const after=document.createElement("div"); after.className="compareLabel after"; after.textContent="Edited";
+      const after=document.createElement("div"); after.className="compareLabel after"; after.textContent=hasEdits?"Edited":"Original";
       box.append(before,after);
       if(editingCrop)box.appendChild(createCropOverlay(box));
       surface.appendChild(box);
