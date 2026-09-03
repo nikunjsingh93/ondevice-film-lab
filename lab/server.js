@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.1" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.2" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -653,6 +653,14 @@ app.delete("/api/admin/users/:id", requireReadyAccount, requireAdmin, asyncRoute
   await fsp.rm(path.join(DATA_DIR, ".incoming", target.id), { recursive: true, force: true });
   response.json({ ok: true });
 }));
+
+// Keep the outer document alive while gallery, editor and settings navigate.
+// Fullscreen therefore ends only when the user exits it, not on photo changes.
+function sendLabShell(request, response, next) {
+  if (request.query.labFrame === "1" || request.get("Sec-Fetch-Dest") === "iframe") return next();
+  response.set("Cache-Control", "no-store").sendFile(path.join(PUBLIC_DIR, "lab-shell.html"));
+}
+app.get(["/", "/index.html", "/editor", "/settings", "/settings.html"], requireReadyAccount, sendLabShell);
 
 app.get("/settings", requireReadyAccount, (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "settings.html")));
 app.get("/settings.js", requireReadyAccount, (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "settings.js")));
@@ -971,7 +979,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.1"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.2"></script>\n</body>`);
   return html;
 }
 

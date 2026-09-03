@@ -327,6 +327,10 @@ The offline and Server Lab editions live in this one repository. Normal editor c
 
 The gallery/backend code is under `lab/`, while `docker-compose.lab.yml` defines the Ubuntu deployment.
 
+### Fullscreen in Server Lab
+
+Fullscreen stays active while switching photos or moving between the editor, library and settings. Use **Exit full screen** or the browser’s Escape shortcut to leave it.
+
 ### Selecting photos by date
 
 In the Server Lab gallery, choose **Select**, then click **Today**, **Yesterday**, or any date heading to select every matching photo for that day, including photos beyond the loaded page. Click the heading again to deselect that day. Date selection follows the gallery’s capture/import date sort, current search, and your device’s local timezone.
