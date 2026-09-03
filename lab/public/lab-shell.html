@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=contain">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#111111">
   <title>Lab Server</title>
   <link rel="manifest" href="/manifest.webmanifest">
@@ -21,8 +21,9 @@ if (window.self === window.top && navigator.standalone === true) {
 </script>
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
-    /* Android uses viewport-fit=contain so Chrome reserves system-bar space.
-       iOS standalone retains cover and its full-height viewport workaround.
+    /* Match the offline app: the outer shell draws edge-to-edge and reserves
+       system bars once before its embedded page begins.
+       iOS standalone retains its full-height viewport workaround.
        System-bar insets belong to the top-level window, not its iframe.
        Reserve them here so every Lab page receives the usable viewport. */
     body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
@@ -30,7 +31,7 @@ if (window.self === window.top && navigator.standalone === true) {
     html.iosStandalone body{height:100%}
     #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.18" defer></script>
+  <script src="/lab-shell.js?v=1.4.19" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>

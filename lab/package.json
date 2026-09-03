@@ -1,6 +1,6 @@
 {
   "name": "ondevice-film-lab-server",
-  "version": "1.4.18",
+  "version": "1.4.19",
   "private": true,
   "description": "Self-hosted shared photo library for OnDevice Film Lab",
   "main": "server.js",

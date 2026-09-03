@@ -10,19 +10,6 @@
   }
   const frame = document.querySelector("#labPage");
   let pageDocument = null;
-  const android = /Android/i.test(globalThis.navigator?.userAgent || "");
-  const viewport = document.querySelector('meta[name="viewport"]');
-
-  // Chromium can temporarily carry an iframe's edge-to-edge state across a
-  // navigation in an installed Android app. Flip it back to the shell's safe
-  // viewport after every page change and when the app becomes visible again.
-  function restoreAndroidSafeViewport() {
-    if (!android || !viewport) return;
-    viewport.content = "width=device-width,initial-scale=1,viewport-fit=auto";
-    (globalThis.requestAnimationFrame || (callback => callback()))(() => {
-      viewport.content = "width=device-width,initial-scale=1,viewport-fit=contain";
-    });
-  }
 
   function syncFullscreen() {
     if (!pageDocument) return;
@@ -53,7 +40,6 @@
     catch { pageDocument = null; return; }
     if (current.origin !== location.origin || current.protocol === "about:") return;
     pageDocument = frame.contentDocument;
-    restoreAndroidSafeViewport();
     current.searchParams.delete("labFrame");
     history.replaceState(null, "", current.pathname + current.search + current.hash);
     document.title = pageDocument.title || "Lab Server";
@@ -79,7 +65,5 @@
     syncFullscreen();
   });
   document.addEventListener("fullscreenchange", syncFullscreen);
-  window.addEventListener?.("pageshow", restoreAndroidSafeViewport);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) restoreAndroidSafeViewport(); });
   frame.src = initial.pathname + initial.search + initial.hash;
 })();
