@@ -53,9 +53,44 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.22/);
-  assert.match(editor, /viewport-fit=contain/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.23/);
+  assert.match(editor, /viewport-fit=cover/);
+  assert.match(editor, /padding-top:max\(15px,var\(--lab-safe-area-top,env\(safe-area-inset-top,0px\)\)\)/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
+});
+
+test("Android requests bypass lab shell iframe wrapper", () => {
+  let nextCalled = false;
+  let sentFile = "";
+  const mockReq = {
+    query: {},
+    get(header) {
+      if (header.toLowerCase() === "user-agent") return "Mozilla/5.0 (Linux; Android 14; Pixel 8)";
+      return "";
+    }
+  };
+  const mockRes = {
+    set() { return this; },
+    sendFile(file) { sentFile = file; return this; }
+  };
+  testApi.sendLabShell(mockReq, mockRes, () => { nextCalled = true; });
+  assert.equal(nextCalled, true);
+  assert.equal(sentFile, "");
+
+  // Desktop non-iframe request receives lab-shell.html
+  let desktopNextCalled = false;
+  let desktopSentFile = "";
+  const desktopReq = {
+    query: {},
+    get() { return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"; }
+  };
+  const desktopRes = {
+    set() { return this; },
+    sendFile(file) { desktopSentFile = file; return this; }
+  };
+  testApi.sendLabShell(desktopReq, desktopRes, () => { desktopNextCalled = true; });
+  assert.equal(desktopNextCalled, false);
+  assert.match(desktopSentFile, /lab-shell\.html$/);
 });
 
 test("persists non-destructive edit state", async () => {

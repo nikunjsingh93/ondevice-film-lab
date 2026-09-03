@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.22" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.23" }));
 app.get("/manifest.webmanifest", (_request, response) => response.set("Cache-Control", "no-cache").sendFile(path.join(PUBLIC_DIR, "manifest.webmanifest")));
 app.use("/lab-icons", express.static(path.join(PUBLIC_DIR, "lab-icons"), { maxAge: 0 }));
 app.use(authenticate);
@@ -662,6 +662,8 @@ app.delete("/api/admin/users/:id", requireReadyAccount, requireAdmin, asyncRoute
 // Fullscreen therefore ends only when the user exits it, not on photo changes.
 function sendLabShell(request, response, next) {
   if (request.query.labFrame === "1" || request.get("Sec-Fetch-Dest") === "iframe") return next();
+  const ua = request.get("user-agent") || "";
+  if (/Android/i.test(ua)) return next();
   response.set("Cache-Control", "no-store").sendFile(path.join(PUBLIC_DIR, "lab-shell.html"));
 }
 app.get(["/", "/index.html", "/editor", "/settings", "/settings.html"], requireReadyAccount, sendLabShell);
@@ -925,10 +927,7 @@ function createEditorHtml(userId = "server") {
   // The Lab shell owns them; embedded pages consume zero inset instead.
   html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,
     (value, side) => `var(--lab-safe-area-${side},${value})`);
-  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.22"></script>');
-  // The Android editor is a top-level page, so it must not draw its toolbar
-  // beneath the system status bar. The outer Lab shell remains edge-to-edge.
-  html = html.replace("viewport-fit=cover", "viewport-fit=contain");
+  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.23"></script>');
   html = html.replace(/<title>[^<]*<\/title>/, "<title>Lab Server</title>")
     .replace(/(\.\/)?icons\//g, "/lab-icons/")
     .replace(/branding\/ondevice-film-lab-logo-v4\.png/g, "lab-icons/icon-512.png")
@@ -939,10 +938,14 @@ function createEditorHtml(userId = "server") {
   // Include the loading state in the response so it is present before scripts run.
   html = html.replace("</head>", `<style>
     @media(max-width:900px){
-      html.labEmbedded,html.labEmbedded body,html.labEmbedded .app{height:100%}
-      /* Match the library header's minimum top breathing room inside the
-         persistent shell after an Android editor navigation. */
-      html.labEmbedded .app{padding-top:max(15px,var(--lab-safe-area-top,0px))}
+      html,body{height:100%;overflow:hidden}
+      .app{
+        height:100%;
+        padding-top:max(15px,var(--lab-safe-area-top,env(safe-area-inset-top,0px)));
+        padding-right:var(--lab-safe-area-right,env(safe-area-inset-right,0px));
+        padding-bottom:max(0px,var(--lab-safe-area-bottom,env(safe-area-inset-bottom,0px)));
+        padding-left:var(--lab-safe-area-left,env(safe-area-inset-left,0px));
+      }
     }
     .serverPhotoLoader{display:none}
     body.serverPhotoLoading .viewerShell{position:relative}
@@ -1009,7 +1012,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.22"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.23"></script>\n</body>`);
   return html;
 }
 
@@ -1059,5 +1062,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits, dateSelectionIds }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits, dateSelectionIds, sendLabShell }
 };

@@ -194,7 +194,11 @@
       fragment.appendChild(card);
     }
     serverFilmstripThumbs.replaceChildren(fragment);
-    serverFilmstripThumbs.querySelector(".active")?.scrollIntoView({ behavior: "instant", block: "nearest", inline: "center" });
+    const activeThumb = serverFilmstripThumbs.querySelector(".active");
+    if (activeThumb) {
+      const targetLeft = activeThumb.offsetLeft - (serverFilmstripThumbs.clientWidth - activeThumb.offsetWidth) / 2;
+      serverFilmstripThumbs.scrollTo({ left: Math.max(0, targetLeft), behavior: "instant" });
+    }
   }
 
   async function loadServerFilmstrip() {
@@ -330,6 +334,9 @@
   }
 
   async function initialize() {
+    window.scrollTo(0, 0);
+    window.addEventListener("resize", () => window.scrollTo(0, 0), { passive: true });
+    window.addEventListener("orientationchange", () => window.scrollTo(0, 0), { passive: true });
     addServerChrome();
     bridge.setSinglePhotoMode();
     restoreEditClipboard();

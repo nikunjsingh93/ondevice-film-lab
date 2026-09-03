@@ -5,7 +5,7 @@
   "description": "Your private photo library and film editing lab.",
   "start_url": "/",
   "scope": "/",
-  "display": "fullscreen",
+  "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#111111",
   "orientation": "any",
