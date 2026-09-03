@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.11" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.12" }));
 app.get("/manifest.webmanifest", (_request, response) => response.set("Cache-Control", "no-cache").sendFile(path.join(PUBLIC_DIR, "manifest.webmanifest")));
 app.use("/lab-icons", express.static(path.join(PUBLIC_DIR, "lab-icons"), { maxAge: 0 }));
 app.use(authenticate);
@@ -599,6 +599,7 @@ app.put("/api/account", requireAuth, (request, response) => {
 
 app.get("/login", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "login.html")));
 app.get("/login.html", (_request, response) => response.redirect("/login"));
+app.get("/lab-viewport.js", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "lab-viewport.js")));
 app.get("/auth.js", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "auth.js")));
 app.get(["/theme.css", "/theme.js"], (request, response) => response.sendFile(path.join(APP_ROOT, request.path.slice(1))));
 app.get("/styles.css", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "styles.css")));
@@ -920,6 +921,11 @@ app.get("/api/session", (request, response) => {
 
 function createEditorHtml(userId = "server") {
   let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
+  // iOS exposes system insets inside frames as well as in their parent.
+  // The Lab shell owns them; embedded pages consume zero inset instead.
+  html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,
+    (value, side) => `var(--lab-safe-area-${side},${value})`);
+  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.12"></script>');
   html = html.replace("viewport-fit=cover", "viewport-fit=contain");
   html = html.replace(/<title>[^<]*<\/title>/, "<title>Lab Server</title>")
     .replace(/(\.\/)?icons\//g, "/lab-icons/")
@@ -930,6 +936,9 @@ function createEditorHtml(userId = "server") {
   const accountKey = String(userId).replace(/[^a-z0-9-]/gi, "");
   // Include the loading state in the response so it is present before scripts run.
   html = html.replace("</head>", `<style>
+    @media(max-width:900px){
+      html.labEmbedded,html.labEmbedded body,html.labEmbedded .app{height:100%}
+    }
     .serverPhotoLoader{display:none}
     body.serverPhotoLoading .viewerShell{position:relative}
     body.serverPhotoLoading #viewer{visibility:hidden}
@@ -995,7 +1004,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.11"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.12"></script>\n</body>`);
   return html;
 }
 
