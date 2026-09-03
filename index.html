@@ -150,6 +150,7 @@ if (window.self === window.top && navigator.standalone === true) {
   .colorGradeTabs button{min-width:0;min-height:40px;padding:6px 2px;font-size:11px}
   .colorGradeTabs button[aria-selected="true"]{background:var(--accent);color:#101824;font-weight:750}
   .colorPanel[hidden]{display:none!important}
+  .colorGradeSwatch{width:48px;height:32px;margin:8px 0 2px;border:1px solid var(--line);border-radius:7px;box-shadow:inset 0 0 0 1px #0005}
   .colorPanel h5{margin:5px 0;font-size:12px;color:var(--muted)}
   .colorMixTabs button:focus-visible,.colorGradeTabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .control label{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}
@@ -873,7 +874,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.6</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.8</div>
       </div>
 
       <div class="photoPicker">
@@ -889,7 +890,7 @@ if (window.self === window.top && navigator.standalone === true) {
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.6</div>
+        <div class="appVersion">Version 1.10.8</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -1763,6 +1764,12 @@ if (window.self === window.top && navigator.standalone === true) {
         const control=wrapper.querySelector("input");
         els[key]=control;els[key+"Val"]=wrapper.querySelector(".value");
         colorSettingControls.push(control);panel.appendChild(wrapper);
+        if(isGrade&&isHue){
+          const swatch=document.createElement("div");swatch.className="colorGradeSwatch";swatch.id=id+"Swatch";swatch.title=`${name} grading color`;
+          // Grade panels are built in Hue/Saturation/Luminance order, so this
+          // is appended immediately before the Hue wrapper.
+          panel.appendChild(swatch);panel.appendChild(wrapper);els[key+"Swatch"]=swatch;
+        }
       }
       tab.addEventListener("click",()=>{
         [...tabs.children].forEach(button=>{
@@ -4014,6 +4021,12 @@ if (window.self === window.top && navigator.standalone === true) {
       els[control.id+"Val"].textContent=control.id.startsWith("colorGrade")&&control.id.endsWith("Hue")
         ? `${value}°` : `${value>0?"+":""}${value}`;
     }
+    for(const name of colorGradeRanges){
+      const hue=+els["colorGrade"+name+"Hue"].value;
+      const saturation=+els["colorGrade"+name+"Saturation"].value;
+      const luminance=+els["colorGrade"+name+"Luminance"].value;
+      els["colorGrade"+name+"HueSwatch"].style.background=`hsl(${hue} ${saturation}% ${50+luminance/2}%)`;
+    }
     const exposureStops=+els.exposure.value/50;
     els.exposureVal.textContent=`${exposureStops>0?"+":""}${exposureStops.toFixed(1)} EV`;
     els.temperatureVal.textContent=`${+els.temperature.value>0?"+":""}${els.temperature.value}`;
@@ -4449,6 +4462,8 @@ if (window.self === window.top && navigator.standalone === true) {
   const portraitMobileLayout=()=>window.matchMedia("(max-width:900px) and (orientation:portrait)").matches;
   function closeDesktopLibraryMenu(){
     els.desktopLibraryMenu.hidden=true;
+    els.libraryChoosePhotosBtn.hidden=false;els.libraryChooseFolderBtn.hidden=false;
+    els.libraryClearBtn.hidden=false;
     els.filmstripAddBtn.setAttribute("aria-expanded","false");
     document.querySelectorAll(".emptyAddPhotosBtn").forEach(button=>button.setAttribute("aria-expanded","false"));
   }
@@ -4464,7 +4479,8 @@ if (window.self === window.top && navigator.standalone === true) {
     els.desktopLibraryMenu.style.top=`${top}px`;
   }
   function openPhotoLibraryMenu(trigger){
-    if(portraitMobileLayout()){
+    const photoActions=trigger?.classList.contains("thumb");
+    if(portraitMobileLayout()&&!photoActions){
       closeDesktopLibraryMenu();
       openMobilePanel("menu","Add Photos");
       return;
@@ -4472,6 +4488,10 @@ if (window.self === window.top && navigator.standalone === true) {
     const opening=els.desktopLibraryMenu.hidden;
     closeDesktopLibraryMenu();
     if(!opening)return;
+    els.libraryChoosePhotosBtn.hidden=photoActions;
+    els.libraryChooseFolderBtn.hidden=photoActions;
+    els.libraryClearBtn.hidden=photoActions;
+    if(photoActions)els.libraryRemoveBtn.disabled=false;
     els.desktopLibraryMenu.hidden=false;
     trigger.setAttribute("aria-expanded","true");
     requestAnimationFrame(()=>positionDesktopLibraryMenu(trigger));
@@ -4578,6 +4598,20 @@ if (window.self === window.top && navigator.standalone === true) {
     row.append(image,name,meta,transforms,badge);
     appendRawBadge(row,item.file.name);
     row.addEventListener("click",()=>select([...els.thumbs.children].indexOf(row)));
+    let holdTimer=0;
+    const openThumbActions=event=>{
+      event.preventDefault();
+      const index=[...els.thumbs.children].indexOf(row);
+      if(index<0)return;
+      select(index);
+      openPhotoLibraryMenu(row);
+    };
+    row.addEventListener("contextmenu",openThumbActions);
+    row.addEventListener("pointerdown",event=>{
+      if(event.pointerType!=="touch")return;
+      holdTimer=setTimeout(()=>openThumbActions(event),550);
+    });
+    ["pointerup","pointercancel","pointermove"].forEach(type=>row.addEventListener(type,()=>{clearTimeout(holdTimer);holdTimer=0}));
     els.thumbs.appendChild(row);
     updateThumbCustomBadge(items.length-1);
   }

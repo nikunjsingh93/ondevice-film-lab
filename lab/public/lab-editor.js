@@ -168,7 +168,9 @@
       const image = document.createElement("img");
       image.src = entry.thumbnailUrl;
       image.alt = "";
-      image.loading = "lazy";
+      // Keep nearby cards decoded while the filmstrip is visible so swiping
+      // left or right does not wait for a second network/render pass.
+      image.loading = "eager";
       image.decoding = "async";
       const name = document.createElement("div");
       name.className = "name";
@@ -196,7 +198,7 @@
   }
 
   async function loadServerFilmstrip() {
-    const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}/filmstrip?limit=9`);
+    const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}/filmstrip?limit=50`);
     renderServerFilmstrip(result.photos || [photo], result.total);
   }
 
