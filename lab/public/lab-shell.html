@@ -18,6 +18,9 @@ if (window.self === window.top && navigator.standalone === true) {
   document.querySelector('meta[name="viewport"]').content = "width=device-width,initial-scale=1,viewport-fit=cover";
   document.documentElement.classList.add("iosStandalone");
 }
+if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches && /Android/i.test(navigator.userAgent)) {
+  document.documentElement.classList.add("androidStandalone");
+}
 </script>
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
@@ -28,9 +31,12 @@ if (window.self === window.top && navigator.standalone === true) {
     body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
     html.iosStandalone{height:100vh;height:100lvh}
     html.iosStandalone body{height:100%}
+    /* Some Android Chrome launches restore the edge-to-edge flag after the
+       shell has laid out. Keep a minimum status-bar clearance on every resume. */
+    html.androidStandalone body{padding-top:max(env(safe-area-inset-top,0px),24px)}
     #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.13" defer></script>
+  <script src="/lab-shell.js?v=1.4.15" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>

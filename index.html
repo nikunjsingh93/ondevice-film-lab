@@ -3507,6 +3507,15 @@ if (window.self === window.top && navigator.standalone === true) {
       active={box,id:event.pointerId,x:event.clientX,y:event.clientY};
       timer=setTimeout(reveal,300);
     });
+    // Mobile browsers do not expose a native double-click gesture for the
+    // canvas. Toggle a comfortable 250% inspection zoom on double-tap.
+    let lastTap=0;
+    viewer.addEventListener("pointerup",event=>{
+      if(event.pointerType!=="touch"||event.target.closest?.(".compareBox")===null)return;
+      const now=Date.now();
+      if(now-lastTap<360){event.preventDefault();setPreviewZoom(previewZoom>1?1:2.5);lastTap=0}
+      else lastTap=now;
+    });
     document.addEventListener("pointermove",event=>{
       if(active&&event.pointerId===active.id&&Math.hypot(event.clientX-active.x,event.clientY-active.y)>10)reset();
     });
