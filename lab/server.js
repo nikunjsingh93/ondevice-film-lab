@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.15" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.16" }));
 app.get("/manifest.webmanifest", (_request, response) => response.set("Cache-Control", "no-cache").sendFile(path.join(PUBLIC_DIR, "manifest.webmanifest")));
 app.use("/lab-icons", express.static(path.join(PUBLIC_DIR, "lab-icons"), { maxAge: 0 }));
 app.use(authenticate);
@@ -925,7 +925,7 @@ function createEditorHtml(userId = "server") {
   // The Lab shell owns them; embedded pages consume zero inset instead.
   html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,
     (value, side) => `var(--lab-safe-area-${side},${value})`);
-  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.15"></script>');
+  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.16"></script>');
   html = html.replace("viewport-fit=cover", "viewport-fit=contain");
   html = html.replace(/<title>[^<]*<\/title>/, "<title>Lab Server</title>")
     .replace(/(\.\/)?icons\//g, "/lab-icons/")
@@ -1004,7 +1004,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.15"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.16"></script>\n</body>`);
   return html;
 }
 

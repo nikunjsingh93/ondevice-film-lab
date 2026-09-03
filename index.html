@@ -874,7 +874,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.8</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.9</div>
       </div>
 
       <div class="photoPicker">
@@ -890,7 +890,7 @@ if (window.self === window.top && navigator.standalone === true) {
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.8</div>
+        <div class="appVersion">Version 1.10.9</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -3507,13 +3507,20 @@ if (window.self === window.top && navigator.standalone === true) {
       active={box,id:event.pointerId,x:event.clientX,y:event.clientY};
       timer=setTimeout(reveal,300);
     });
-    // Mobile browsers do not expose a native double-click gesture for the
-    // canvas. Toggle a comfortable 250% inspection zoom on double-tap.
-    let lastTap=0;
+    // Use the native desktop double-click and a matching touch double-tap.
+    // The short guard prevents browsers that synthesize dblclick after touch
+    // from toggling twice and ending at the wrong zoom level.
+    const togglePreviewZoom=()=>setPreviewZoom(previewZoom>1?1:2.5);
+    let lastTap=0,ignoreDoubleClickUntil=0;
+    viewer.addEventListener("dblclick",event=>{
+      if(Date.now()<ignoreDoubleClickUntil||!event.target.closest?.(".compareBox"))return;
+      event.preventDefault();
+      togglePreviewZoom();
+    });
     viewer.addEventListener("pointerup",event=>{
-      if(event.pointerType!=="touch"||event.target.closest?.(".compareBox")===null)return;
+      if(event.pointerType!=="touch"||!event.target.closest?.(".compareBox"))return;
       const now=Date.now();
-      if(now-lastTap<360){event.preventDefault();setPreviewZoom(previewZoom>1?1:2.5);lastTap=0}
+      if(now-lastTap<360){event.preventDefault();ignoreDoubleClickUntil=now+500;togglePreviewZoom();lastTap=0}
       else lastTap=now;
     });
     document.addEventListener("pointermove",event=>{
