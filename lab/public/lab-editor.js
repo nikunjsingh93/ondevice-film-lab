@@ -18,6 +18,12 @@
   let serverFilmstripCount = null;
   let serverFilmstripThumbs = null;
   let openingPhoto = false;
+  window.addEventListener("pageshow", event => {
+    if (event.persisted) {
+      openingPhoto = false;
+      document.body.classList.remove("serverPhotoLoading");
+    }
+  });
 
   function notify(message, failure = false) {
     let toast = document.querySelector(".serverEditorToast");
@@ -155,6 +161,7 @@
       const open = async () => {
         if (entry.id === photoId || openingPhoto) return;
         openingPhoto = true;
+        document.body.classList.add("serverPhotoLoading");
         card.setAttribute("aria-busy", "true");
         try { await saveState(); } catch (error) { notify(error.message, true); }
         location.href = `/editor?photo=${encodeURIComponent(entry.id)}`;
@@ -302,6 +309,7 @@
     const blob = await response.blob();
     const file = new File([blob], photo.name, { type: photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
     await bridge.loadPhoto(file, photo.edits);
+    document.body.classList.remove("serverPhotoLoading");
     bridge.setSinglePhotoMode();
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
     loadServerFilmstrip().catch(error => notify(`Nearby photos could not be loaded: ${error.message}`, true));
@@ -335,6 +343,12 @@
 
   initialize().catch(error => {
     console.error(error);
+    const viewer = document.querySelector("#viewer");
+    const message = document.createElement("div");
+    message.className = "empty";
+    message.textContent = "Could not load this photo. Please return to the library and try again.";
+    viewer?.replaceChildren(message);
+    document.body.classList.remove("serverPhotoLoading");
     notify(error.message, true);
     bridge.setStatus(error.message);
   });

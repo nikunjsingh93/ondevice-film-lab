@@ -870,12 +870,26 @@ app.get("/api/session", (request, response) => {
 function createEditorHtml(userId = "server") {
   let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
   const accountKey = String(userId).replace(/[^a-z0-9-]/gi, "");
+  // Include the loading state in the response so it is present before scripts run.
+  html = html.replace("</head>", `<style>
+    .serverPhotoLoader{display:none}
+    body.serverPhotoLoading .viewerShell{position:relative}
+    body.serverPhotoLoading #viewer{visibility:hidden}
+    body.serverPhotoLoading .serverPhotoLoader{display:flex;position:absolute;inset:0;z-index:30;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg,#101722);color:var(--muted);font-size:14px}
+    .serverPhotoSpinner{width:30px;height:30px;border:3px solid #40516a;border-top-color:var(--accent,#c7dbed);border-radius:50%;animation:serverPhotoSpin .8s linear infinite}
+    @keyframes serverPhotoSpin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.serverPhotoSpinner{animation:none}}
+  </style></head>`);
+  html = html.replace("<body>", '<body class="serverPhotoLoading">');
+  html = html.replace('<div class="viewerShell">', '<div class="viewerShell"><div class="serverPhotoLoader" role="status" aria-live="polite"><span class="serverPhotoSpinner" aria-hidden="true"></span><span>Loading photo…</span></div>');
+  html = html.replace("    makePreview(i);\n  }", "    return makePreview(i);\n  }");
   html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
     async loadPhoto(file,state){
       await addFiles([file]);
       const index=items.length-1,item=items[index];
+      if(!item)throw new Error("The photo could not be opened");
       if(state&&item){
         item.rotation=Number(state.rotation)||0;
         item.straighten=Number(state.straighten)||0;
@@ -886,7 +900,7 @@ function createEditorHtml(userId = "server") {
         loadPhotoSettings(item.settings);
         refreshThumb(index);
       }
-      select(index);
+      await select(index);
     },
     captureState(){return current>=0&&items[current]?{...storedStateFor(items[current]),isEdited:itemHasCustomEdits(items[current])}:null},
     setSinglePhotoMode(){editScope="photo";updateEditScopeUI()},
