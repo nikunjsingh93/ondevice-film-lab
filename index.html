@@ -813,6 +813,9 @@
     .thumb img{height:58px}
     .galleryGrid{grid-template-columns:repeat(auto-fill,minmax(145px,1fr))}
   }
+  .maskBrushModes{display:flex;gap:4px;padding:4px;margin:12px 0;background:#101722;border:1px solid var(--line);border-radius:10px}
+  .maskBrushModes button{flex:1;min-height:40px;border:0;background:transparent;color:var(--muted)}
+  .maskBrushModes button[aria-pressed="true"]{background:var(--accent);color:#101824;font-weight:750}
   .maskActions{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
   #maskEditingBar:not([hidden]){display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 14px;background:#493238;color:#ffe2e5;font-size:12px}
   .maskBrushOverlay{position:absolute!important;inset:0;z-index:25;touch-action:none;cursor:crosshair;width:100%;height:100%}
@@ -841,7 +844,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.9.0</div>
+        <div class="appVersion desktopAppVersion">Version 1.9.1</div>
       </div>
 
       <div class="photoPicker">
@@ -857,7 +860,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.9.0</div>
+        <div class="appVersion">Version 1.9.1</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -906,18 +909,6 @@
       <div id="editSection" class="section">
         <div class="settingsHeader"><span class="settingsTitle">Edits</span><button class="sectionResetButton" type="button" data-reset-target="editSectionContent" aria-label="Reset Edits" title="Reset Edits"></button><button class="sectionCollapseToggle" type="button" data-collapse="editSectionContent" aria-expanded="true" aria-label="Hide Edits" title="Hide Edits"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
         <div id="editSectionContent" class="collapsibleContent">
-        <div id="maskingGroup" class="editBlock settingsGroup">
-          <div class="settingsHeader"><span class="settingsTitle">Masking</span><button id="maskReset" class="maskResetButton" type="button" aria-label="Reset all masks" title="Reset all masks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M4.5 9a8 8 0 1 1-.2 6"/></svg></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Masking" title="Hide Masking"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
-          <p id="maskStatus" class="notice">Create or select a mask to adjust a painted area.</p>
-          <label class="visuallyHidden" for="maskSelect">Mask to edit</label><select id="maskSelect"><option value="">Whole photo</option></select>
-          <div class="maskActions"><button id="maskNew" type="button">+ New mask</button><button id="maskDone" type="button">Done</button><button id="maskDelete" type="button">Delete mask</button></div>
-          <label class="check"><input id="maskEnabled" type="checkbox" checked> Enable selected mask</label>
-          <label class="check"><input id="maskErase" type="checkbox"> Erase brush</label>
-          <label class="check"><input id="maskOverlay" type="checkbox" checked> Show painted area</label>
-          <div class="control"><label for="maskSize">Brush size</label><input id="maskSize" type="range" min="1" max="50" value="12"></div>
-          <div class="control"><label for="maskSoftness">Brush softness</label><input id="maskSoftness" type="range" min="0" max="100" value="50"></div>
-        </div>
-
         <div id="softeningGroup" class="settingsGroup">
           <div class="settingsHeader"><span class="settingsTitle">Softening</span><button class="sectionResetButton" type="button" aria-label="Reset Softening" title="Reset Softening"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Softening" title="Hide Softening"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div class="control">
@@ -979,6 +970,18 @@
             <div id="colorGradeTabs" class="colorGradeTabs" role="tablist" aria-label="Tonal range to grade"></div>
             <div id="colorGradePanels"></div>
           </div>
+        </div>
+
+        <div id="maskingGroup" class="editBlock settingsGroup">
+          <div class="settingsHeader"><span class="settingsTitle">Masking</span><button id="maskReset" class="maskResetButton" type="button" aria-label="Reset all masks" title="Reset all masks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M4.5 9a8 8 0 1 1-.2 6"/></svg></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Masking" title="Hide Masking"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
+          <p id="maskStatus" class="notice">Create or select a mask to adjust a painted area.</p>
+          <label class="visuallyHidden" for="maskSelect">Mask to edit</label><select id="maskSelect"><option value="">No Masks</option></select>
+          <div class="maskActions"><button id="maskNew" type="button">+ New mask</button><button id="maskDone" type="button">Done</button><button id="maskDelete" type="button">Delete mask</button></div>
+          <label class="check"><input id="maskEnabled" type="checkbox" checked> Show mask edits</label>
+          <label class="check"><input id="maskOverlay" type="checkbox" checked> Show painted area</label>
+          <div class="maskBrushModes" role="group" aria-label="Mask brush mode"><button id="maskPaint" type="button" aria-pressed="true">Paint</button><button id="maskErase" type="button" aria-pressed="false">Erase</button></div>
+          <div class="control"><label for="maskSize">Brush size</label><input id="maskSize" type="range" min="1" max="50" value="12"></div>
+          <div class="control"><label for="maskSoftness">Brush softness</label><input id="maskSoftness" type="range" min="0" max="100" value="50"></div>
         </div>
 
         <div id="filmGroup" class="editBlock settingsGroup">
@@ -1190,9 +1193,9 @@
 
         <div class="mobileTools" aria-label="Editing tools">
           <button type="button" data-panel="softening" data-title="Edit">Edit</button>
-          <button type="button" data-panel="masking" data-title="Masking">Masks</button>
           <button type="button" data-panel="film" data-title="Film look">Film</button>
           <button type="button" data-panel="colors" data-title="Colors">Colors</button>
+          <button type="button" data-panel="masking" data-title="Masking">Masks</button>
           <button type="button" data-panel="stamp" data-title="Date stamp">Stamp</button>
           <button type="button" data-panel="output" data-title="Quality">Quality</button>
         </div>
@@ -1749,6 +1752,10 @@
 
   // Brush paths use source-image coordinates, so crop and rotation never move a mask.
   let activeMaskId=null;
+  function setMaskBrushMode(erase){
+    $('#maskPaint').setAttribute('aria-pressed',String(!erase));
+    $('#maskErase').setAttribute('aria-pressed',String(erase));
+  }
   function activeMask(){return items[current]?.masks?.find(mask=>mask.id===activeMaskId)||null}
   function maskTransform(width,height,item,aspect,uncropped=false){
     const crop=uncropped?{x:0,y:0,w:1,h:1}:normalizedCrop(item.crop);
@@ -1812,13 +1819,13 @@
   function updateMaskUI(){
     const picker=$('#maskSelect');if(!picker)return;
     const mask=activeMask(),item=items[current];
-    picker.replaceChildren(new Option('Whole photo',''));
+    picker.replaceChildren(new Option('No Masks',''));
     for(const entry of item?.masks||[])picker.add(new Option(entry.name,entry.id));
     picker.value=mask?.id||'';picker.disabled=busy||!item;
     $('#maskReset').disabled=busy||!item?.masks?.length;
     $('#maskNew').disabled=busy||!item;
     $('#maskBarDone').disabled=busy;
-    for(const id of ['maskDone','maskDelete','maskEnabled','maskErase'])$('#'+id).disabled=busy||!mask;
+    for(const id of ['maskDone','maskDelete','maskEnabled','maskPaint','maskErase'])$('#'+id).disabled=busy||!mask;
     $('#maskEnabled').checked=mask?.enabled!==false;
     $('#maskStatus').textContent=mask?`${mask.name}: brush the photo, then adjust any edit sliders. Done returns to whole-photo edits.`:'Create or select a mask to adjust a painted area.';
     document.body.classList.toggle('maskEditing',!!mask);
@@ -1867,7 +1874,7 @@
       if(busy||stroke||event.button!==0||!event.isPrimary)return;
       event.preventDefault();event.stopPropagation();rememberEditState();
       const m=maskTransform(overlay.width,overlay.height,item,aspect);
-      stroke={erase:$('#maskErase').checked,softness:+$('#maskSoftness').value/100,radius:(+$('#maskSize').value/100)*Math.min(overlay.width,overlay.height)/2/Math.hypot(m.a,m.b),points:[point(event)]};
+      stroke={erase:$('#maskErase').getAttribute('aria-pressed')==='true',softness:+$('#maskSoftness').value/100,radius:(+$('#maskSize').value/100)*Math.min(overlay.width,overlay.height)/2/Math.hypot(m.a,m.b),points:[point(event)]};
       mask.strokes.push(stroke);pointer=event.pointerId;overlay.setPointerCapture(pointer);paint();
     });
     overlay.addEventListener('pointermove',event=>{
@@ -4054,12 +4061,14 @@
   });
   batchSettings=capturePhotoSettings();
   restoreCameraProfiles();
+  $('#maskPaint').addEventListener('click',()=>setMaskBrushMode(false));
+  $('#maskErase').addEventListener('click',()=>setMaskBrushMode(true));
   $('#maskNew').addEventListener('click',()=>{
     if(busy||current<0)return;rememberEditState();
     const item=items[current];item.masks=item.masks||[];
     let number=1;while(item.masks.some(mask=>mask.name===`Mask ${number}`))number++;
     const mask={id:crypto.randomUUID(),name:`Mask ${number}`,enabled:true,strokes:[],settings:cloneSettings(neutralPhotoSettings)};
-    item.masks.push(mask);$('#maskErase').checked=false;$('#maskOverlay').checked=true;chooseMask(mask.id);saveMaskChange();
+    item.masks.push(mask);setMaskBrushMode(false);$('#maskOverlay').checked=true;chooseMask(mask.id);saveMaskChange();
   });
   $('#maskSelect').addEventListener('change',event=>chooseMask(event.target.value));
   $('#maskDone').addEventListener('click',()=>finishMask());
