@@ -825,7 +825,17 @@
   .mobileTools button{flex-shrink:0}
   .galleryItem:has(.rawBadge) .galleryCheck{top:38px}
   .rawBadge{position:absolute;top:9px;left:9px;z-index:3;padding:3px 5px;border:1px solid #ffffff70;border-radius:5px;background:#101722df;color:#fff;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none}
+  /* Remove the two outer editor cards while keeping mobile drawers opaque. */
+  .layout>.main,.layout>.sidebar:not(.mobileOpen){border:0;border-radius:0;box-shadow:none;background:transparent}
+  @media(min-width:901px){
+    .app{padding:4px 8px 8px}
+    .layout{grid-template-columns:314px minmax(0,1fr);gap:8px}
+    .layout>.sidebar{padding:6px;top:4px;max-height:calc(100vh - 8px)}
+    .layout>.main{top:4px;height:calc(100vh - 8px)}
+  }
 </style>
+<link rel="stylesheet" href="./theme.css">
+<script src="./theme.js"></script>
 </head>
 <body>
 <div id="appRoot" class="app">
@@ -846,7 +856,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.0</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.1</div>
       </div>
 
       <div class="photoPicker">
@@ -862,7 +872,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.0</div>
+        <div class="appVersion">Version 1.10.1</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -904,6 +914,7 @@
       </div>
 
       <div class="previewPreferences">
+        <label class="themePreference">Theme<select data-theme-select aria-label="Theme"><option value="black">Black (Default)</option><option value="blue">Blue</option></select></label>
         <label class="check"><input id="holdOriginal" type="checkbox" role="switch"> Long press to see original</label>
         <div class="notice">Show the full edited preview. Hold the photo with a mouse or finger to compare, then release. Turn off to use the split divider.</div>
       </div>
@@ -1225,6 +1236,7 @@
       <h2 id="webSettingsTitle">Settings</h2>
       <form method="dialog"><button type="submit" aria-label="Close settings">Close</button></form>
     </div>
+    <label class="themePreference">Theme<select data-theme-select aria-label="Theme"><option value="black">Black (Default)</option><option value="blue">Blue</option></select></label>
     <label class="check"><input id="webSettingsHoldOriginal" type="checkbox" role="switch"> Long press to see original</label>
     <div class="notice">Show the full edited preview. Hold the photo with a mouse or finger to compare, then release. Turn off to use the split divider. Saved automatically on this device.</div>
   </dialog>

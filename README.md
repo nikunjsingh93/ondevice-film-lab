@@ -327,6 +327,10 @@ The offline and Server Lab editions live in this one repository. Normal editor c
 
 The gallery/backend code is under `lab/`, while `docker-compose.lab.yml` defines the Ubuntu deployment.
 
+### Appearance
+
+Both editions start with the Black theme. Choose Black or the original Blue in Settings; the preference is saved on this device. The editor uses an open layout without the two outer rounded panels. Server Lab’s gallery selection actions stay pinned below the header while scrolling.
+
 ### Fullscreen in Server Lab
 
 Fullscreen stays active while switching photos or moving between the editor, library and settings. Use **Exit full screen** or the browser’s Escape shortcut to leave it.

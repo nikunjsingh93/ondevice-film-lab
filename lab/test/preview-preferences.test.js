@@ -70,11 +70,11 @@ test("desktop settings dialog opens with the saved preview preference and reuses
   assert.match(html, /body\.offlineEdition \.sidebar>\.previewPreferences\{display:none\}/);
 });
 
-test("Server Lab selection toggle is in gallery controls before Select all, not the header", () => {
+test("Server Lab sticky selection row keeps Select before Select all", () => {
   const gallery = fs.readFileSync(path.resolve(__dirname, "../public/index.html"), "utf8");
   const header = gallery.match(/<header[\s\S]*?<\/header>/)[0];
   assert.doesNotMatch(header, /id="selectButton"/);
-  const controls = gallery.match(/<section class="libraryToolbar"[\s\S]*?<\/section>/)[0];
+  const controls = gallery.slice(gallery.indexOf('class="gallerySelectionControls"'),gallery.indexOf('<section id="emptyState"'));
   assert.ok(controls.indexOf('id="selectButton"') < controls.indexOf('id="selectAllButton"'));
   assert.match(controls, /class="gallerySelectionControls"/);
 });

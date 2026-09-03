@@ -6,7 +6,9 @@
   <meta name="theme-color" content="#111827">
   <title>Settings · OnDevice Film Lab</title>
   <link rel="icon" href="/icons/icon-192.png">
-  <link rel="stylesheet" href="/styles.css?v=1.4.2">
+  <link rel="stylesheet" href="/styles.css?v=1.4.3">
+  <link rel="stylesheet" href="/theme.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <div class="appShell settingsShell">
@@ -15,6 +17,7 @@
       <div class="headerActions"><a class="buttonLink" href="/">Back to gallery</a><button id="logoutButton" type="button">Sign out</button></div>
     </header>
     <main class="settingsMain">
+      <section class="settingsCard"><p class="eyebrow">APPEARANCE</p><h2>Theme</h2><label class="themePreference">Theme<select data-theme-select aria-label="Theme"><option value="black">Black (Default)</option><option value="blue">Blue</option></select></label><p class="settingsHelp">Saved on this device.</p></section>
       <section class="settingsCard">
         <p class="eyebrow">YOUR ACCOUNT</p><h1>Account settings</h1>
         <form id="accountForm" class="settingsForm">
@@ -43,6 +46,6 @@
   </div>
   <div id="confirmOverlay" class="modalOverlay" hidden><div class="modalCard" role="dialog" aria-modal="true"><h2>Remove account?</h2><p id="confirmMessage"></p><div class="dialogActions"><button id="confirmCancel">Cancel</button><button id="confirmRemove" class="danger">Remove account</button></div></div></div>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script src="/settings.js?v=1.4.2"></script>
+  <script src="/settings.js?v=1.4.3"></script>
 </body>
 </html>

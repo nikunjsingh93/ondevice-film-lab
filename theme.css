@@ -1,0 +1,31 @@
+/* Blue retains the original palette. Black changes interface surfaces only. */
+:root[data-theme="black"]{
+  color-scheme:dark;--bg:#000;--panel:#111;--panel2:#1c1c1c;--line:#333;
+  --text:#f4f4f4;--muted:#aaa;--accent:#ddd;--accent2:#bbb;
+  --scroll-track:#111;--scroll-thumb:#505050;--scroll-thumb-hover:#777;
+}
+html[data-theme="black"],html[data-theme="black"] body,html[data-theme="black"] .app,html[data-theme="black"] #labPage{background:#000}
+html[data-theme="black"] :is(.card,.appHeader,.libraryToolbar,.gallerySelectionControls,.libraryHero,.libraryStats,.authCard,.settingsCard,.newUserForm,.userCard,.photoCard,.emptyState,.webSettingsDialog,.photoPicker,.profileBar,.editScopeBar,.toolbar,.viewer,.filmstripWrap,.mobileTools,.mobileTitleRow,.mobilePanelHeader,.sidebar.mobileOpen){background:#111;border-color:#333}
+html[data-theme="black"] :is(button,.button,.buttonLink,select,.searchBox,.thumb,.galleryItem){background-color:#1c1c1c;background-image:none;border-color:#383838;color:var(--text)}
+html[data-theme="black"] :is(button,.button,.buttonLink):hover{background:#303030;border-color:#666}
+html[data-theme="black"] :is(button.primary,.emptyAddPhotosBtn){background:#ddd;color:#111;border-color:#ddd}
+html[data-theme="black"] :is(.thumb.active,.galleryItem[aria-selected="true"],.photoCard.selected,.dateGroupSelect[aria-pressed="true"]){background:#303030;border-color:#ccc;box-shadow:none}
+html[data-theme="black"] :is(.modalCard,.processingCard,.galleryCard,.appDialogCard,.profileMenu,.editScopeActions,.libraryMenu,.cropPanel,.straightenPanel,.serverEditorToast,.toast){background:#171717;border-color:#444}
+html[data-theme="black"] :is(.dateGroupHeader,.userGreeting,.eyebrow,.brand small,.authCard form>label,.settingsForm label,.newUserForm label,.userFields label){color:var(--muted)}
+html[data-theme="black"] :is(.sectionCollapseToggle,.groupCollapseToggle,.settingsHeader button){background:transparent;border-color:transparent;color:var(--muted)}
+html[data-theme="black"] .searchBox input{background:transparent}
+html[data-theme="black"] input[type="range"],html[data-theme="black"] input[type="checkbox"]{accent-color:var(--accent)}
+html[data-theme="black"] .selectMark{background:#151515;color:#111;border-color:#bbb}
+html[data-theme="black"] .selected .selectMark{background:#ddd}
+.themePreference{display:grid;gap:8px;margin:16px 0;color:var(--text);font-size:13px}
+.themePreference select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;color:var(--text);background:var(--panel2)}
+
+html[data-theme="black"] .layout>.main,html[data-theme="black"] .layout>.sidebar:not(.mobileOpen){background:transparent;border:0}
+html[data-theme="black"] :is(.empty,.galleryGrid,.galleryActions,.profileActions,.maskBrushModes){background:#111;border-color:#333}
+html[data-theme="black"] :is(.maskBrushModes button[aria-pressed="true"],.colorGradeTabs button[aria-selected="true"],.editScopeSwitch button[aria-pressed="true"],.mobileTools button.active){background:#ddd;color:#111;border-color:#ddd}
+html[data-theme="black"] .colorMixTabs button{background:transparent;border-color:transparent}
+html[data-theme="black"] .colorMixTabs button[aria-selected="true"]{border-color:#ddd;background:#292929}
+html[data-theme="black"] .colorMixTabs button[aria-selected="true"] .swatch{box-shadow:inset 0 0 0 4px #292929}
+
+html[data-theme="black"] input:not([type="range"]):not([type="checkbox"]):not([type="color"]){background-color:#1c1c1c;border-color:#383838;color:var(--text)}
+html[data-theme="black"] .compareStage{background:repeating-conic-gradient(#171717 0% 25%,#111 0% 50%) 0 0/20px 20px}

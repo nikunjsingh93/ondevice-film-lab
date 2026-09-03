@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.2" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.3" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -598,6 +598,7 @@ app.put("/api/account", requireAuth, (request, response) => {
 app.get("/login", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "login.html")));
 app.get("/login.html", (_request, response) => response.redirect("/login"));
 app.get("/auth.js", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "auth.js")));
+app.get(["/theme.css", "/theme.js"], (request, response) => response.sendFile(path.join(APP_ROOT, request.path.slice(1))));
 app.get("/styles.css", (_request, response) => response.sendFile(path.join(PUBLIC_DIR, "styles.css")));
 app.use("/branding", express.static(path.join(APP_ROOT, "branding"), { maxAge: "7d" }));
 app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" }));
@@ -979,7 +980,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.2"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.3"></script>\n</body>`);
   return html;
 }
 

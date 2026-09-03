@@ -14,6 +14,11 @@
   };
   const dateSelections = new Map();
   let selectionRevision = 0;
+  const galleryHeader = document.querySelector(".appHeader");
+  const updateStickyOffset = () => document.documentElement.style.setProperty("--gallery-header-height", `${galleryHeader.getBoundingClientRect().height}px`);
+  updateStickyOffset();
+  if ("ResizeObserver" in window) new ResizeObserver(updateStickyOffset).observe(galleryHeader);
+  window.addEventListener("resize", updateStickyOffset);
   let photos = [];
   let total = 0;
   let hasMore = false;

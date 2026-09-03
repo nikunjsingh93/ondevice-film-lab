@@ -1,7 +1,9 @@
-const CACHE_NAME = "ondevice-film-lab-v1.10.0";
+const CACHE_NAME = "ondevice-film-lab-v1.10.1";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./theme.css",
+  "./theme.js",
   "./photo-formats.js",
   "./photo-codecs.js",
   "./codecs/decode-worker.mjs",
