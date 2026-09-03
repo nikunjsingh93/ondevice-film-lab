@@ -53,9 +53,13 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.23/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.24/);
   assert.match(editor, /viewport-fit=cover/);
   assert.match(editor, /padding-top:max\(15px,var\(--lab-safe-area-top,env\(safe-area-inset-top,0px\)\)\)/);
+  assert.match(editor, /<body class="serverPhotoLoading serverEdition">/);
+  assert.match(editor, /<button id="zipBtn"[^>]*hidden/);
+  assert.match(editor, /<button id="saveOneBtn"[^>]*>Download photo<\/button>/);
+  assert.match(editor, /body\.serverEdition #zipBtn\{display:none!important\}/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
@@ -103,6 +107,71 @@ test("persists non-destructive edit state", async () => {
   testApi.statements.updateEdits.run(JSON.stringify({ rotation: 0, settings: {}, isEdited: false }), testApi.defaultAdmin.id, photoId);
   row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
   assert.equal(testApi.hasSavedEdits(row), false);
+});
+
+test("openServerPhoto navigates in-place using history.pushState and loads photo without full page reload", async () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../public/lab-editor.js"), "utf8");
+  const openStart = source.indexOf("  async function openServerPhoto(id, pushHistory = true) {");
+  const openEnd = source.indexOf("\n  document.addEventListener(\"keydown\",", openStart);
+  assert.ok(openStart > 0 && openEnd > openStart);
+
+  let pushStateUrl = "";
+  let loadedPhoto = null;
+  let singlePhotoModeCalled = false;
+  let loadingClassAdded = false;
+  let loadingClassRemoved = false;
+  const cards = [
+    { dataset: { photoId: "photo-1" }, active: true, classList: { toggle(_cls, val) { cards[0].active = Boolean(val); } }, setAttribute() {}, querySelector: () => ({ textContent: "P1" }) },
+    { dataset: { photoId: "photo-2" }, active: false, classList: { toggle(_cls, val) { cards[1].active = Boolean(val); } }, setAttribute() {}, querySelector: () => ({ textContent: "P2" }) }
+  ];
+  const thumbs = {
+    querySelectorAll: () => cards,
+    querySelector: () => ({ offsetLeft: 100, clientWidth: 50, offsetWidth: 50 }),
+    scrollTo() {}
+  };
+  const context = {
+    photoId: "photo-1",
+    openingPhoto: false,
+    autosaveTimer: 0,
+    clearTimeout: () => {},
+    serverFilmstripThumbs: thumbs,
+    cleanState: s => s,
+    saveState: async () => {},
+    notify() {},
+    requestJson: async () => ({ photo: { id: "photo-2", name: "IMG_0002.JPG", editUrl: null, originalUrl: "/api/photos/photo-2/original" } }),
+    fetch: async () => ({ ok: true, blob: async () => ({ type: "image/jpeg" }) }),
+    File: class MockFile { constructor(parts, name, opts) { this.name = name; } },
+    document: {
+      title: "",
+      body: {
+        classList: {
+          add: c => { if (c === "serverPhotoLoading") loadingClassAdded = true; },
+          remove: c => { if (c === "serverPhotoLoading") loadingClassRemoved = true; }
+        }
+      }
+    },
+    history: {
+      pushState: (_state, _title, url) => { pushStateUrl = url; }
+    },
+    bridge: {
+      loadPhoto: async (file) => { loadedPhoto = file; },
+      setSinglePhotoMode: () => { singlePhotoModeCalled = true; },
+      captureState: () => ({ exposure: "10" })
+    },
+    loadServerFilmstrip: async () => {}
+  };
+
+  vm.runInNewContext(source.slice(openStart, openEnd), context);
+  await context.openServerPhoto("photo-2");
+
+  assert.equal(context.photoId, "photo-2");
+  assert.equal(pushStateUrl, "/editor?photo=photo-2");
+  assert.equal(loadedPhoto?.name, "IMG_0002.JPG");
+  assert.equal(singlePhotoModeCalled, true);
+  assert.equal(loadingClassAdded, true);
+  assert.equal(loadingClassRemoved, true);
+  assert.equal(cards[0].active, false);
+  assert.equal(cards[1].active, true);
 });
 
 test("editor loads new photos with neutral settings and preserves saved edits", async () => {

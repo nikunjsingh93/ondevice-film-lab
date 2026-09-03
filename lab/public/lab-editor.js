@@ -1,7 +1,7 @@
 (() => {
   "use strict";
   const bridge = window.__FILMLAB_SERVER_EDITOR__;
-  const photoId = new URLSearchParams(location.search).get("photo");
+  let photoId = new URLSearchParams(location.search).get("photo");
   if (!bridge || !photoId) {
     location.replace("/");
     return;
@@ -134,12 +134,50 @@
     return `${number >= 10 ? number.toFixed(0) : number.toFixed(1)} ${units[unit]}`;
   };
 
-  async function openServerPhoto(id) {
+  async function openServerPhoto(id, pushHistory = true) {
     if (id === photoId || openingPhoto) return;
     openingPhoto = true;
     document.body.classList.add("serverPhotoLoading");
-    try { await saveState(); } catch (error) { notify(error.message, true); }
-    location.href = `/editor?photo=${encodeURIComponent(id)}`;
+    if (typeof clearTimeout !== "undefined") clearTimeout(autosaveTimer);
+    try { await saveState(true); } catch (error) { notify(error.message, true); }
+    photoId = id;
+    if (pushHistory && typeof history !== "undefined" && history.pushState) {
+      history.pushState(null, "", `/editor?photo=${encodeURIComponent(id)}`);
+    }
+    if (serverFilmstripThumbs) {
+      for (const card of serverFilmstripThumbs.querySelectorAll(".thumb")) {
+        const isActive = card.dataset.photoId === id;
+        card.classList.toggle("active", isActive);
+        const name = card.querySelector(".name")?.textContent || "photo";
+        card.setAttribute("aria-label", isActive ? `${name}, currently open` : `Open ${name}`);
+      }
+      const activeThumb = serverFilmstripThumbs.querySelector(".thumb.active");
+      if (activeThumb) {
+        const targetLeft = activeThumb.offsetLeft - (serverFilmstripThumbs.clientWidth - activeThumb.offsetWidth) / 2;
+        serverFilmstripThumbs.scrollTo({ left: Math.max(0, targetLeft), behavior: "smooth" });
+      }
+    }
+    try {
+      const result = await requestJson(`/api/photos/${encodeURIComponent(id)}`);
+      photo = result.photo;
+      const response = await fetch(photo.editUrl || photo.originalUrl);
+      if (!response.ok) throw new Error("The photo could not be loaded from Server Lab");
+      const blob = await response.blob();
+      const file = new File([blob], photo.name, {
+        type: photo.editUrl ? "image/png" : photo.mime || blob.type || "image/jpeg",
+        lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now()
+      });
+      await bridge.loadPhoto(file, photo.edits, Boolean(photo.editUrl));
+      bridge.setSinglePhotoMode();
+      lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
+      document.title = `${photo.name} · Lab Server`;
+      loadServerFilmstrip().catch(() => {});
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      document.body.classList.remove("serverPhotoLoading");
+      openingPhoto = false;
+    }
   }
 
   document.addEventListener("keydown", event => {
@@ -162,6 +200,7 @@
     for (const entry of nearby) {
       const card = document.createElement("div");
       card.className = `thumb${entry.id === photoId ? " active" : ""}`;
+      card.dataset.photoId = entry.id;
       card.tabIndex = 0;
       card.setAttribute("role", "button");
       card.setAttribute("aria-label", entry.id === photoId ? `${entry.name}, currently open` : `Open ${entry.name}`);
@@ -337,6 +376,12 @@
     window.scrollTo(0, 0);
     window.addEventListener("resize", () => window.scrollTo(0, 0), { passive: true });
     window.addEventListener("orientationchange", () => window.scrollTo(0, 0), { passive: true });
+    window.addEventListener("popstate", () => {
+      const nextId = new URLSearchParams(location.search).get("photo");
+      if (nextId && nextId !== photoId) {
+        openServerPhoto(nextId, false);
+      }
+    });
     addServerChrome();
     bridge.setSinglePhotoMode();
     restoreEditClipboard();

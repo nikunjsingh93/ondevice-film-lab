@@ -542,7 +542,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.23" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.24" }));
 app.get("/manifest.webmanifest", (_request, response) => response.set("Cache-Control", "no-cache").sendFile(path.join(PUBLIC_DIR, "manifest.webmanifest")));
 app.use("/lab-icons", express.static(path.join(PUBLIC_DIR, "lab-icons"), { maxAge: 0 }));
 app.use(authenticate);
@@ -927,7 +927,7 @@ function createEditorHtml(userId = "server") {
   // The Lab shell owns them; embedded pages consume zero inset instead.
   html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,
     (value, side) => `var(--lab-safe-area-${side},${value})`);
-  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.23"></script>');
+  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.24"></script>');
   html = html.replace(/<title>[^<]*<\/title>/, "<title>Lab Server</title>")
     .replace(/(\.\/)?icons\//g, "/lab-icons/")
     .replace(/branding\/ondevice-film-lab-logo-v4\.png/g, "lab-icons/icon-512.png")
@@ -947,6 +947,13 @@ function createEditorHtml(userId = "server") {
         padding-left:var(--lab-safe-area-left,env(safe-area-inset-left,0px));
       }
     }
+    body.serverEdition .photoPicker{display:none!important}
+    body.serverEdition #filmstripAddBtn,body.serverEdition #openGalleryBtn{display:none!important}
+    body.serverEdition .serverCoreFilmstrip,body.serverEdition .filmstripWrap:not(.serverFilmstrip){display:none!important}
+    body.serverEdition .editScopeSwitch,body.serverEdition .editScopeHint{display:none!important}
+    body.serverEdition .previewPreferences,body.serverEdition .editScopeTitle{display:none!important}
+    body.serverEdition #zipBtn{display:none!important}
+    body.serverEdition .desktopAppVersion{display:none!important}
     .serverPhotoLoader{display:none}
     body.serverPhotoLoading .viewerShell{position:relative}
     body.serverPhotoLoading #viewer{visibility:hidden}
@@ -955,16 +962,30 @@ function createEditorHtml(userId = "server") {
     @keyframes serverPhotoSpin{to{transform:rotate(360deg)}}
     @media(prefers-reduced-motion:reduce){.serverPhotoSpinner{animation:none}}
   </style></head>`);
-  html = html.replace("<body>", '<body class="serverPhotoLoading">');
+  html = html.replace("<body>", '<body class="serverPhotoLoading serverEdition">');
   html = html.replace('<div class="viewerShell">', '<div class="viewerShell"><div class="serverPhotoLoader" role="status" aria-live="polite"><span class="serverPhotoSpinner" aria-hidden="true"></span><span>Loading photo…</span></div>');
+  html = html.replace('<button id="saveOneBtn" disabled>Save photo</button>', '<button id="saveOneBtn" class="serverSaveButton" disabled>Download photo</button>')
+    .replace('<button id="zipBtn" class="primary" disabled>Download all .zip</button>', '<button id="zipBtn" class="primary" hidden disabled>Download all .zip</button>')
+    .replace('<h1>OnDevice Film Lab</h1>', '<h1>Lab Server</h1>')
+    .replace('<div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>', '<div class="sub">Editing from your private Ubuntu photo library. Changes are saved back to Server Lab.</div>')
+    .replace('<div class="appVersion desktopAppVersion">Version 1.10.10</div>', '<div class="appVersion desktopAppVersion" hidden></div>');
   html = html.replace("    makePreview(i);\n  }", "    return makePreview(i);\n  }");
   html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
     async loadPhoto(file,state,decoded=false){
+      if(typeof items!=="undefined"){
+        for(const old of items){
+          if(old?.thumbUrl&&typeof URL!=="undefined"){try{URL.revokeObjectURL(old.thumbUrl)}catch{}}
+        }
+        items.length=0;
+      }
+      if(typeof current!=="undefined")current=-1;
+      if(typeof els!=="undefined"&&els?.thumbs)els.thumbs.replaceChildren();
+      if(typeof clearEditHistory==="function")clearEditHistory();
       if(decoded)photoSources.set(file,{blob:file});
       await addFiles([file]);
-      const index=items.length-1,item=items[index];
+      const index=0,item=items[0];
       if(!item)throw new Error("The photo could not be opened");
       if(state&&item){
         item.rotation=Number(state.rotation)||0;
@@ -1012,7 +1033,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.23"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.24"></script>\n</body>`);
   return html;
 }
 
