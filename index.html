@@ -874,7 +874,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.10.9</div>
+        <div class="appVersion desktopAppVersion">Version 1.10.10</div>
       </div>
 
       <div class="photoPicker">
@@ -890,7 +890,7 @@ if (window.self === window.top && navigator.standalone === true) {
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,image/bmp,image/tiff,.jpg,.jpeg,.jpe,.png,.webp,.heic,.heif,.avif,.gif,.bmp,.tif,.tiff,.dng,.cr2,.cr3,.crw,.arw,.sr2,.srf,.raf,.rw2,.raw,.rwl,.nef,.nrw,.orf,.ori,.pef,.ptx,.srw,.3fr,.fff,.iiq,.kdc,.dcr,.mos,.mrw,.erf,.x3f,type/nonexistent" webkitdirectory multiple>
-        <div class="appVersion">Version 1.10.9</div>
+        <div class="appVersion">Version 1.10.10</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -3513,12 +3513,14 @@ if (window.self === window.top && navigator.standalone === true) {
     const togglePreviewZoom=()=>setPreviewZoom(previewZoom>1?1:2.5);
     let lastTap=0,ignoreDoubleClickUntil=0;
     viewer.addEventListener("dblclick",event=>{
-      if(Date.now()<ignoreDoubleClickUntil||!event.target.closest?.(".compareBox"))return;
+      const panToggleUntil=+(event.target.closest?.(".compareStage")?.dataset.zoomToggledUntil||0);
+      if(Date.now()<ignoreDoubleClickUntil||Date.now()<panToggleUntil||!event.target.closest?.(".compareBox"))return;
       event.preventDefault();
       togglePreviewZoom();
     });
     viewer.addEventListener("pointerup",event=>{
-      if(event.pointerType!=="touch"||!event.target.closest?.(".compareBox"))return;
+      const panToggleUntil=+(event.target.closest?.(".compareStage")?.dataset.zoomToggledUntil||0);
+      if(event.pointerType!=="touch"||Date.now()<panToggleUntil||previewZoom>1||!event.target.closest?.(".compareBox"))return;
       const now=Date.now();
       if(now-lastTap<360){event.preventDefault();ignoreDoubleClickUntil=now+500;togglePreviewZoom();lastTap=0}
       else lastTap=now;
@@ -3608,8 +3610,18 @@ if (window.self === window.top && navigator.standalone === true) {
   }
 
   function wirePan(stage){
+    let lastTapAt=0;
     const down=(e)=>{
       if(previewZoom<=1||e.target.closest(".divider")||(e.pointerType==="mouse"&&e.button!==0)) return;
+      const now=Date.now();
+      if(now-lastTapAt<360){
+        e.preventDefault();
+        lastTapAt=0;
+        stage.dataset.zoomToggledUntil=String(now+500);
+        setPreviewZoom(1);
+        return;
+      }
+      lastTapAt=now;
       if(stage.scrollWidth<=stage.clientWidth&&stage.scrollHeight<=stage.clientHeight) return;
       e.preventDefault();
       const startX=e.clientX;
