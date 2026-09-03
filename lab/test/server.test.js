@@ -11,7 +11,7 @@ const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-t
 const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-state-test-"));
 process.env.DATA_DIR = dataDirectory;
 process.env.STATE_DIR = stateDirectory;
-const { db, testApi } = require("../server");
+const { app, db, testApi } = require("../server");
 const logoPath = path.resolve(__dirname, "../../branding/ondevice-film-lab-logo-v4.png");
 let photoId = "";
 let member = null;
@@ -360,6 +360,30 @@ test("date selection includes unloaded photos, respects local day boundaries, se
     assert.deepEqual(testApi.dateSelectionIds(userId,{...range,sort:"imported"}),["fallback"]);
     assert.throws(()=>testApi.dateSelectionIds(userId,{start:"bad",end:range.end}),/valid gallery date/);
   } finally {db.exec("ROLLBACK TO date_test; RELEASE date_test");}
+});
+
+test("unauthenticated and expired session requests to / redirect to /login without 500 error", () => {
+  assert.ok(testApi.statements.sessionByToken);
+  assert.ok(testApi.statements.userByName);
+
+  let redirectedTo = "";
+  const mockRes = {
+    headers: {},
+    setHeader(k, v) { this.headers[k] = v; return this; },
+    set(k, v) { return this.setHeader(k, v); },
+    status() { return this; },
+    redirect(url) { redirectedTo = url; }
+  };
+
+  const req = {
+    method: "GET",
+    url: "/",
+    headers: { cookie: "film_lab_session=invalid_token" },
+    query: {},
+    get(h) { return this.headers[h.toLowerCase()] || ""; }
+  };
+  app.handle(req, mockRes);
+  assert.equal(redirectedTo, "/login");
 });
 
 test.after(() => {

@@ -204,16 +204,9 @@ const statements = {
   lutByHash: db.prepare("SELECT * FROM luts WHERE user_id = ? AND content_hash = ?"),
   insertLut: db.prepare("INSERT INTO luts (id, user_id, content_hash, name, file_name, stored_path, byte_size, created_at) VALUES (@id, @user_id, @content_hash, @name, @file_name, @stored_path, @byte_size, @created_at)"),
   userById: db.prepare("SELECT * FROM users WHERE id = ?"),
-  insertUser: db.prepare("INSERT INTO users (id, username, password_hash, role, quota_bytes, must_change_password, created_at, updated_at) VALUES (@id, @username, @password_hash, @role, @quota_bytes, @must_change_password, @created_at, @updated_at)"),
-  updateUserPassword: db.prepare("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?"),
-  touchUserActivity: db.prepare("UPDATE users SET updated_at = ? WHERE id = ?"),
-  listUsers: db.prepare("SELECT id, username, role, quota_bytes, must_change_password, created_at, updated_at FROM users ORDER BY role DESC, username ASC"),
-  deleteUser: db.prepare("DELETE FROM users WHERE id = ?"),
-  countAdmins: db.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'"),
-  insertSession: db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)"),
-  sessionByHash: db.prepare("SELECT sessions.*, users.username, users.role, users.quota_bytes, users.must_change_password FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?"),
-  deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?"),
-  cleanSessions: db.prepare("DELETE FROM sessions WHERE expires_at <= ?")
+  userByName: db.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE"),
+  sessionByToken: db.prepare("SELECT sessions.*, users.id AS id, users.username, users.role, users.quota_bytes, users.must_change_password FROM sessions JOIN users ON users.id = sessions.user_id WHERE token_hash = ? AND expires_at > ?"),
+  deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?")
 };
 
 function safeJson(value, fallback = {}) {
@@ -525,6 +518,7 @@ function requireAuth(request, response, next) {
 }
 
 function requireReadyAccount(request, response, next) {
+  if (!request.user) return requireAuth(request, response, next);
   if (!request.user.must_change_password) return next();
   if (request.path.startsWith("/api/")) return response.status(403).json({ error: "Change the temporary password before using Server Lab", code: "PASSWORD_CHANGE_REQUIRED" });
   response.redirect("/login");
