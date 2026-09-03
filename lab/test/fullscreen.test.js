@@ -42,3 +42,9 @@ test('a nested shell falls back to the content route instead of creating another
   vm.runInNewContext(source,{window:{parent:{}},location:{href:'https://lab.example/editor?photo=1',replace(url){destination=url}},URL});
   assert.equal(destination,'/editor?photo=1&labFrame=1');
 });
+test('Android uses a direct page instead of the persistent iframe shell',()=>{
+  let destination;
+  const window={};window.parent=window;
+  vm.runInNewContext(source,{window,navigator:{userAgent:'Android'},location:{href:'https://lab.example/editor?photo=1',replace(url){destination=url}},URL});
+  assert.equal(destination,'/editor?photo=1&labFrame=1');
+});

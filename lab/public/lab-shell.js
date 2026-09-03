@@ -8,6 +8,13 @@
     location.replace(initial.pathname + initial.search + initial.hash);
     return;
   }
+  // Android's installed Chromium app can move a persistent iframe underneath
+  // the status bar after its first navigation. The offline app has no iframe,
+  // so use that same direct-page model for Android Lab navigation.
+  if (/Android/i.test(globalThis.navigator?.userAgent || "")) {
+    location.replace(initial.pathname + initial.search + initial.hash);
+    return;
+  }
   const frame = document.querySelector("#labPage");
   let pageDocument = null;
 
