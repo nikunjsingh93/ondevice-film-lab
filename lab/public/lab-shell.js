@@ -19,7 +19,6 @@
       button.title = label;
       button.setAttribute("aria-label", label);
       button.setAttribute("aria-pressed", String(active));
-      if (button.id === "labFullscreenButton") button.textContent = label;
     }
   }
 
@@ -59,6 +58,7 @@
         const button = pageDocument.createElement("button");
         button.id = "labFullscreenButton";
         button.type = "button";
+        button.innerHTML = '<svg class="fullscreenExpand" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg><svg class="fullscreenContract" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>';
         header.appendChild(button);
       }
     }

@@ -83,3 +83,10 @@ main{padding:24px}
 .dateGroupAction{font-size:11px;font-weight:500;color:var(--muted);margin-left:4px}
 
 .gallerySelectionControls{position:sticky;top:var(--gallery-header-height,0px);z-index:9;padding:10px 0;margin-bottom:12px;background:var(--panel);border-bottom:1px solid var(--line)}
+
+/* Match the editor's square fullscreen control, including its exit state. */
+#labFullscreenButton{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;min-width:44px;height:44px;padding:9px;border-radius:12px;align-self:center}
+#labFullscreenButton svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#labFullscreenButton .fullscreenContract{display:none}
+#labFullscreenButton[aria-pressed="true"] .fullscreenExpand{display:none}
+#labFullscreenButton[aria-pressed="true"] .fullscreenContract{display:block}
