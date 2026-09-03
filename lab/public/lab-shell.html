@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=contain">
   <meta name="theme-color" content="#111111">
   <title>Lab Server</title>
   <link rel="manifest" href="/manifest.webmanifest">
@@ -15,19 +15,22 @@
   <script>
 // iOS standalone can retain the browser toolbar deduction in dynamic viewport units.
 if (window.self === window.top && navigator.standalone === true) {
+  document.querySelector('meta[name="viewport"]').content = "width=device-width,initial-scale=1,viewport-fit=cover";
   document.documentElement.classList.add("iosStandalone");
 }
 </script>
   <style>
     html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b111b}
-    /* System-bar insets belong to the top-level window, not its iframe.
+    /* Android uses viewport-fit=contain so Chrome reserves system-bar space.
+       iOS standalone retains cover and its full-height viewport workaround.
+       System-bar insets belong to the top-level window, not its iframe.
        Reserve them here so every Lab page receives the usable viewport. */
     body{box-sizing:border-box;height:100dvh;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
     html.iosStandalone{height:100vh;height:100lvh}
     html.iosStandalone body{height:100%}
     #labPage{display:block;width:100%;height:100%;border:0;background:#0b111b}
   </style>
-  <script src="/lab-shell.js?v=1.4.8" defer></script>
+  <script src="/lab-shell.js?v=1.4.9" defer></script>
   <link rel="stylesheet" href="/theme.css">
   <script src="/theme.js"></script>
 </head>
