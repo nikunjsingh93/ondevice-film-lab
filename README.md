@@ -62,6 +62,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Supports JPEG, PNG, and WebP input
 - Basic exposure, temperature, highlights, shadows, and contrast adjustments
 - Circular reset arrows beside section headings reset that section to neutral edits (or standard export defaults), including individual Color Mix channels, grading ranges, and grain. Photo-edit resets support undo/redo and retain the selected editing scope.
+- **Masking**: create multiple brush masks per photo. Brush or erase with adjustable size and softness, toggle the painted-area overlay, and use the existing edit sliders to adjust only the active mask. Select **Done** to return to whole-photo edits; reopen, disable, delete, or reset masks at any time. Masks are saved with each photo, support undo/redo, follow crop/rotation/straightening, and appear in exported JPEGs. Web masks stay offline; Server Lab synchronizes them with photo edits.
 - **Colors**: global saturation, eight-channel Color Mix (red, orange, yellow, green, aqua, blue, purple, magenta) with hue/saturation/luminance, and separate shadow/midtone/highlight color grading. New controls start at zero and are saved with profiles and individual edits, including copy/paste and undo/redo.
 - Custom `.cube` LUT import with **No LUT** as the default, adjustable LUT strength, 1D and 3D LUT support, tetrahedral 3D interpolation, live preview, matching export, and on-device persistence
 - Adjustable de-sharpen strength, halo radius, and edge threshold
@@ -147,6 +148,7 @@ Server Lab is an optional self-hosted companion. It does not replace or change t
 - SHA-256 duplicate detection, even when filenames differ
 - Server-generated lightweight gallery thumbnails and editing previews
 - Full OnDevice Film Lab editor for every library photo
+- Left/right arrow keys open adjacent photos in the server filmstrip, with autosave before navigation. Keyboard input in sliders, text fields, dialogs, and active masking is preserved.
 - Non-destructive crop, rotation, straightening and slider settings saved per photo
 - Camera profiles and custom `.cube` LUTs synchronized through the server. **newcam** is the initial default in Server Lab; existing saved photo edits are preserved, and later profile choices remain available across sessions.
 - Processed JPEGs, with preserved EXIF metadata, saved back to the shared library

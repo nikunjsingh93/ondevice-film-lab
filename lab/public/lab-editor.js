@@ -18,6 +18,7 @@
   let serverFilmstripCount = null;
   let serverFilmstripThumbs = null;
   let openingPhoto = false;
+  let nearbyPhotos = [];
   window.addEventListener("pageshow", event => {
     if (event.persisted) {
       openingPhoto = false;
@@ -49,7 +50,7 @@
 
   function cleanState(state) {
     if (!state) return null;
-    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, isEdited: Boolean(state.isEdited) };
+    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, masks: state.masks || [], isEdited: Boolean(state.isEdited) };
   }
 
   async function saveState(force = false) {
@@ -132,7 +133,28 @@
     return `${number >= 10 ? number.toFixed(0) : number.toFixed(1)} ${units[unit]}`;
   };
 
+  async function openServerPhoto(id) {
+    if (id === photoId || openingPhoto) return;
+    openingPhoto = true;
+    document.body.classList.add("serverPhotoLoading");
+    try { await saveState(); } catch (error) { notify(error.message, true); }
+    location.href = `/editor?photo=${encodeURIComponent(id)}`;
+  }
+
+  document.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight"].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.repeat || event.defaultPrevented) return;
+    if (event.target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="tab"],[role="slider"]')) return;
+    if (openingPhoto || document.body.classList.contains("serverPhotoLoading") || !bridge.canNavigate()) return;
+    if (document.querySelector('dialog[open],.sidebar.mobileOpen,.menuOpen')) return;
+    const index = nearbyPhotos.findIndex(entry => entry.id === photoId);
+    const next = nearbyPhotos[index + (event.key === "ArrowLeft" ? -1 : 1)];
+    if (index < 0 || !next) return;
+    event.preventDefault();
+    openServerPhoto(next.id);
+  });
+
   function renderServerFilmstrip(nearby, total = nearby.length) {
+    nearbyPhotos = nearby;
     if (!serverFilmstripThumbs) return;
     serverFilmstripCount.textContent = `Photos (${Number(total).toLocaleString()})`;
     const fragment = document.createDocumentFragment();
@@ -158,14 +180,7 @@
       status.className = "rot";
       status.textContent = entry.isEdited ? "Edited" : "";
       card.append(image, name, meta, status);
-      const open = async () => {
-        if (entry.id === photoId || openingPhoto) return;
-        openingPhoto = true;
-        document.body.classList.add("serverPhotoLoading");
-        card.setAttribute("aria-busy", "true");
-        try { await saveState(); } catch (error) { notify(error.message, true); }
-        location.href = `/editor?photo=${encodeURIComponent(entry.id)}`;
-      };
+      const open = () => openServerPhoto(entry.id);
       card.addEventListener("click", open);
       card.addEventListener("keydown", event => {
         if (event.key !== "Enter" && event.key !== " ") return;
@@ -321,6 +336,7 @@
     const zipButton = document.querySelector("#zipBtn");
     if (zipButton) zipButton.hidden = true;
 
+    document.addEventListener("filmLabMaskChange", queueStateSave);
     document.addEventListener("input", queueStateSave, true);
     document.addEventListener("change", queueStateSave, true);
     document.querySelector("#lutFileInput")?.addEventListener("change", event => {

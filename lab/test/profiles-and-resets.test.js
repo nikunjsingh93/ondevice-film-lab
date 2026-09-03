@@ -40,6 +40,7 @@ function editor({ server = false, saved = null, batch = {} } = {}) {
     document: { createElement: () => ({}) },
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     cameraProfiles: [], activeCameraProfileId: "", batchSettings: {}, items: [], current: -1, editScope: "all", busy: false,
+    activeMask: () => null, updateMaskUI: () => {}, activeMaskId: null,
     undoStack: [], redoStack: [], activeHistoryControls: new Set(), HISTORY_LIMIT: 50,
     cropIsFull: crop => !crop, cropsEqual: (a, b) => JSON.stringify(a) === JSON.stringify(b),
     normalizedCrop: crop => crop, accepted: {}, persisted: [], settingsSaves: 0,

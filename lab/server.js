@@ -516,7 +516,7 @@ const upload = multer({
 const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", "loopback");
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use((request, response, next) => {
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "same-origin");
@@ -525,7 +525,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.1.0" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.3.0" }));
 app.use(authenticate);
 
 const loginFailures = new Map();
@@ -756,7 +756,7 @@ app.patch("/api/photos/:id/edits", (request, response) => {
   const edits = request.body?.edits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).json({ error: "Invalid edits" });
   const encoded = JSON.stringify(edits);
-  if (encoded.length > 250_000) return response.status(413).json({ error: "Edit data is too large" });
+  if (Buffer.byteLength(encoded) > 8_000_000) return response.status(413).json({ error: "Edit data is too large" });
   statements.updateEdits.run(encoded, request.user.id, row.id);
   response.json({ ok: true });
 });
@@ -767,7 +767,7 @@ app.post("/api/photos/:id/edits-beacon", (request, response) => {
   const edits = request.body?.edits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).end();
   const encoded = JSON.stringify(edits);
-  if (encoded.length > 250_000) return response.status(413).end();
+  if (Buffer.byteLength(encoded) > 8_000_000) return response.status(413).end();
   statements.updateEdits.run(encoded, request.user.id, row.id);
   response.status(204).end();
 });
@@ -894,6 +894,7 @@ function createEditorHtml(userId = "server") {
         item.rotation=Number(state.rotation)||0;
         item.straighten=Number(state.straighten)||0;
         item.crop=state.crop||null;
+        item.masks=JSON.parse(JSON.stringify(state.masks||[]));
         item.settings=state.settings
           ? {...cloneSettings(initialPhotoSettings),...cloneSettings(state.settings)}
           : cloneSettings(batchSettings);
@@ -902,6 +903,7 @@ function createEditorHtml(userId = "server") {
       }
       await select(index);
     },
+    canNavigate(){return !busy&&!cropOpen&&!straightenDragging&&!activeMask()},
     captureState(){return current>=0&&items[current]?{...storedStateFor(items[current]),isEdited:itemHasCustomEdits(items[current])}:null},
     setSinglePhotoMode(){editScope="photo";updateEditScopeUI()},
     async renderCurrent(){
@@ -928,7 +930,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.2.0"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.3.0"></script>\n</body>`);
   return html;
 }
 

@@ -53,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.2\.0/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.3\.0/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
@@ -74,7 +74,8 @@ test("editor loads new photos with neutral settings and preserves saved edits", 
   const source = html.slice(html.indexOf("    async loadPhoto(file,state){"), html.indexOf("    captureState(){"));
   const batchSettings = { amount: "0", fade: "0", grainEnabled: false, dateStamp: false };
   const initialPhotoSettings = { amount: "50", fade: "30", grainEnabled: true, dateStamp: true };
-  for (const state of [null, {}, { settings: { ...batchSettings, fade: "45" }, rotation: 90 }, { settings: { fade: "25" } }]) {
+  const maskState = { settings: { fade: "25" }, masks: [{ id: "mask", settings: { exposure: "40" }, strokes: [{ radius: .1, points: [{ x: .2, y: .3 }] }] }] };
+  for (const state of [null, {}, { settings: { ...batchSettings, fade: "45" }, rotation: 90 }, maskState]) {
     const items = [];
     const bridge = vm.runInNewContext(`({${source}})`, {
       items, batchSettings, initialPhotoSettings, cloneSettings: settings => ({ ...settings }),
@@ -84,6 +85,7 @@ test("editor loads new photos with neutral settings and preserves saved edits", 
     await bridge.loadPhoto({}, state);
     assert.deepEqual(JSON.parse(JSON.stringify(items[0].settings)), state?.settings ? { ...initialPhotoSettings, ...state.settings } : batchSettings);
     if (state?.rotation) assert.equal(items[0].rotation, state.rotation);
+    assert.deepEqual(JSON.parse(JSON.stringify(items[0].masks||[])),state?.masks||[]);
   }
 });
 
