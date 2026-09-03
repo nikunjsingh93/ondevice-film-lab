@@ -123,6 +123,15 @@
   .groupCollapseToggle:hover{background:transparent;color:var(--accent)}
   .groupCollapseToggle svg{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
   .groupCollapseToggle[aria-expanded="false"] svg{transform:rotate(-90deg)}
+  .settingsHeader{display:flex;align-items:center;gap:3px;margin-bottom:8px;min-height:32px}
+  .settingsTitle{flex:1;min-width:0;margin:0;font-size:13px;font-weight:750;color:var(--text)}
+  .section>.settingsHeader>.settingsTitle{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+  .settingsHeader .sectionResetButton,.settingsHeader .sectionCollapseToggle,.settingsHeader .groupCollapseToggle{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;margin:0;padding:6px;border:0;border-radius:7px;background:transparent;color:var(--muted)}
+  .settingsHeader button:hover{background:#2d394b;color:var(--accent)}
+  .sectionResetButton svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .groupCollapsed>:not(.settingsHeader){display:none}
+  #stampSectionContent.isCollapsed{display:none}
+  @media(pointer:coarse){.settingsHeader .sectionResetButton,.settingsHeader .sectionCollapseToggle,.settingsHeader .groupCollapseToggle{flex-basis:44px;width:44px;height:44px}}
   .subsectionTitle{font-size:13px;font-weight:750;color:var(--text);margin:2px 0 8px}
   .editBlock{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
   .control{margin:11px 0}
@@ -758,7 +767,9 @@
     .sidebar.mobileOpen .editScopeActions button{padding:7px 5px;text-align:center}
     .sidebar.mobileOpen .editScopeDivider{grid-column:1/-1;width:100%;margin:2px 0}
     .sidebar.mobileOpen .editScopeActions button:last-child{grid-column:1/-1}
-    .sectionCollapseToggle,.groupCollapseToggle{display:none}
+    .sidebar.mobileOpen>.section>.settingsHeader{display:none}
+    .sidebar.mobileOpen[data-mobile-panel="output"] #exportSection>.settingsHeader{display:flex}
+    .sidebar.mobileOpen[data-mobile-panel="output"] #exportSectionContent.isCollapsed{display:none}
     .mobileTitleRow{display:flex;align-items:center;gap:10px;flex:0 0 100%;width:100%;min-width:0}
     .mobileTitleRow .filename{flex:1 1 0;max-width:none;min-width:0;font-size:14px}
     #mobileMenuBtn{flex:0 0 44px}
@@ -767,7 +778,7 @@
     .photoPicker{display:none}
     .desktopAppVersion{display:block}
     .collapsibleContent.isCollapsed{display:none}
-    .settingsGroup.groupCollapsed>:not(.groupCollapseToggle){display:none}
+
   }
   @media(max-width:900px) and (orientation:landscape){
     .app{
@@ -822,7 +833,7 @@
           </button>
         </div>
         <div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>
-        <div class="appVersion desktopAppVersion">Version 1.7.0</div>
+        <div class="appVersion desktopAppVersion">Version 1.8.0</div>
       </div>
 
       <div class="photoPicker">
@@ -838,7 +849,7 @@
         </div>
         <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,type/nonexistent" multiple>
         <input id="folderInput" type="file" accept="image/*" webkitdirectory multiple>
-        <div class="appVersion">Version 1.7.0</div>
+        <div class="appVersion">Version 1.8.0</div>
       </div>
 
       <div id="profileBar" class="profileBar">
@@ -885,23 +896,17 @@
       </div>
 
       <div id="editSection" class="section">
-        <button class="sectionCollapseToggle" type="button" data-collapse="editSectionContent" aria-expanded="true">
-          <span>Edits</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-        </button>
+        <div class="settingsHeader"><span class="settingsTitle">Edits</span><button class="sectionResetButton" type="button" data-reset-target="editSectionContent" aria-label="Reset Edits" title="Reset Edits"></button><button class="sectionCollapseToggle" type="button" data-collapse="editSectionContent" aria-expanded="true" aria-label="Hide Edits" title="Hide Edits"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
         <div id="editSectionContent" class="collapsibleContent">
         <div id="softeningGroup" class="settingsGroup">
-          <button class="groupCollapseToggle" type="button" aria-expanded="true">
-            <span>Softening</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
+          <div class="settingsHeader"><span class="settingsTitle">Softening</span><button class="sectionResetButton" type="button" aria-label="Reset Softening" title="Reset Softening"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Softening" title="Hide Softening"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div class="control">
             <label><span>De-sharpen strength</span><span id="amountVal" class="value">50%</span></label>
             <input id="amount" type="range" min="0" max="100" value="50">
           </div>
           <div class="control">
             <label><span>Halo radius</span><span id="radiusVal" class="value">2.2 px</span></label>
-            <input id="radius" type="range" min="4" max="50" value="22">
+            <input id="radius" type="range" min="0" max="50" value="22">
           </div>
           <div class="control">
             <label><span>Edge threshold</span><span id="thresholdVal" class="value">5</span></label>
@@ -914,10 +919,7 @@
         </div>
 
         <div id="basicGroup" class="editBlock settingsGroup">
-          <button class="groupCollapseToggle" type="button" aria-expanded="true">
-            <span>Basic adjustments</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
+          <div class="settingsHeader"><span class="settingsTitle">Basic adjustments</span><button class="sectionResetButton" type="button" aria-label="Reset Basic adjustments" title="Reset Basic adjustments"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Basic adjustments" title="Hide Basic adjustments"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div class="control">
             <label><span>Exposure</span><span id="exposureVal" class="value">0.0 EV</span></label>
             <input id="exposure" type="range" min="-100" max="100" value="0" aria-label="Exposure">
@@ -941,21 +943,18 @@
         </div>
 
         <div id="colorsGroup" class="editBlock settingsGroup">
-          <button class="groupCollapseToggle" type="button" aria-expanded="true">
-            <span>Colors</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
+          <div class="settingsHeader"><span class="settingsTitle">Colors</span><button class="sectionResetButton" type="button" aria-label="Reset Colors" title="Reset Colors"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Colors" title="Hide Colors"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div class="control">
             <label for="saturation"><span>Saturation</span><span id="saturationVal" class="value">0%</span></label>
             <input id="saturation" type="range" min="-100" max="100" value="0" aria-label="Saturation">
           </div>
-          <div class="editBlock">
-            <h4 class="subsectionTitle">Color Mix</h4>
+          <div id="colorMixGroup" class="editBlock settingsSubgroup">
+            <div class="settingsHeader"><span class="settingsTitle">Color Mix</span><button class="sectionResetButton" type="button" aria-label="Reset Color Mix" title="Reset Color Mix"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Color Mix" title="Hide Color Mix"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
             <div id="colorMixTabs" class="colorMixTabs" role="tablist" aria-label="Color to adjust"></div>
             <div id="colorMixPanels"></div>
           </div>
-          <div class="editBlock">
-            <h4 class="subsectionTitle">Color grading</h4>
+          <div id="colorGradeGroup" class="editBlock settingsSubgroup">
+            <div class="settingsHeader"><span class="settingsTitle">Color grading</span><button class="sectionResetButton" type="button" aria-label="Reset Color grading" title="Reset Color grading"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Color grading" title="Hide Color grading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
             <p class="notice">Choose a tonal range. Hue selects the tint; saturation adds it. Luminance adjusts brightness.</p>
             <div id="colorGradeTabs" class="colorGradeTabs" role="tablist" aria-label="Tonal range to grade"></div>
             <div id="colorGradePanels"></div>
@@ -963,10 +962,7 @@
         </div>
 
         <div id="filmGroup" class="editBlock settingsGroup">
-          <button class="groupCollapseToggle" type="button" aria-expanded="true">
-            <span>Film look</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
+          <div class="settingsHeader"><span class="settingsTitle">Film look</span><button class="sectionResetButton" type="button" aria-label="Reset Film look" title="Reset Film look"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Film look" title="Hide Film look"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div class="control">
             <label for="lutSelect"><span>Color LUT</span></label>
             <div class="lutPickerRow">
@@ -1006,6 +1002,8 @@
             <label><span>Light leaks</span><span id="lightLeaksVal" class="value">0%</span></label>
             <input id="lightLeaks" type="range" min="0" max="100" value="0">
           </div>
+          <div id="grainSettings" class="editBlock settingsSubgroup">
+          <div class="settingsHeader"><span class="settingsTitle">Grain</span><button class="sectionResetButton" type="button" aria-label="Reset Grain" title="Reset Grain"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Grain" title="Hide Grain"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <label class="check"><input id="grainEnabled" type="checkbox" checked> Add film grain</label>
 
           <div id="grainOptions" style="margin-top:10px">
@@ -1015,22 +1013,20 @@
             </div>
             <div class="control">
               <label><span>Grain size</span><span id="grainSizeVal" class="value">1.4 px</span></label>
-              <input id="grainSize" type="range" min="10" max="40" value="14">
+              <input id="grainSize" type="range" min="0" max="40" value="14">
             </div>
             <div class="control">
               <label><span>Roughness</span><span id="grainRoughnessVal" class="value">55%</span></label>
               <input id="grainRoughness" type="range" min="0" max="100" value="55">
             </div>
           </div>
+          </div>
         </div>
         </div>
       </div>
 
       <div id="exportSection" class="section">
-        <button class="sectionCollapseToggle" type="button" data-collapse="exportSectionContent" aria-expanded="true">
-          <span>Export</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-        </button>
+        <div class="settingsHeader"><span class="settingsTitle">Export</span><button class="sectionResetButton" type="button" data-reset-target="exportSectionContent" aria-label="Reset Export" title="Reset Export"></button><button class="sectionCollapseToggle" type="button" data-collapse="exportSectionContent" aria-expanded="true" aria-label="Hide Export" title="Hide Export"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
         <div id="exportSectionContent" class="collapsibleContent">
         <div id="outputGroup" class="settingsGroup">
           <div class="control">
@@ -1045,10 +1041,7 @@
         </div>
 
         <div id="stampGroup" class="section settingsGroup" style="margin-top:14px">
-          <button class="sectionCollapseToggle" type="button" data-collapse="stampSectionContent" aria-expanded="true">
-            <span>Film date stamp</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg>
-          </button>
+          <div class="settingsHeader"><span class="settingsTitle">Film date stamp</span><button class="sectionResetButton" type="button" data-reset-target="stampSectionContent" aria-label="Reset Film date stamp" title="Reset Film date stamp"></button><button class="sectionCollapseToggle" type="button" data-collapse="stampSectionContent" aria-expanded="true" aria-label="Hide Film date stamp" title="Hide Film date stamp"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
           <div id="stampSectionContent" class="collapsibleContent">
           <label class="check"><input id="dateStamp" type="checkbox" checked> Add date stamp to photo</label>
 
@@ -1083,7 +1076,7 @@
 
             <div class="control">
               <label><span>Stamp size</span><span id="stampSizeVal" class="value">1.8%</span></label>
-              <input id="stampSize" type="range" min="12" max="40" value="18">
+              <input id="stampSize" type="range" min="0" max="40" value="18">
             </div>
 
           </div>
@@ -1695,7 +1688,9 @@
       const panel=document.createElement("div");
       panel.id=id+"Panel";panel.className="colorPanel";panel.hidden=index!==0;
       panel.setAttribute("role","tabpanel");panel.setAttribute("aria-labelledby",tab.id);
-      const heading=document.createElement("h5");heading.textContent=name;panel.appendChild(heading);
+      const header=document.createElement("div");header.className="settingsHeader";
+      header.innerHTML=`<h5 class="settingsTitle">${name}</h5><button class="sectionResetButton" type="button" data-reset-target="${id}Panel" aria-label="Reset ${prefix==="colorMix"?"Color Mix":"grading"} ${name}" title="Reset ${name}"></button>`;
+      panel.appendChild(header);
       for(const component of ["Hue","Saturation","Luminance"]){
         const key=id+component,isGrade=prefix==="colorGrade",isHue=component==="Hue";
         const minimum=isGrade&&component!=="Luminance"?0:-100;
@@ -1737,6 +1732,11 @@
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
   ];
   const globalSettingControls=[els.quality,els.dateRename,els.holdOriginal];
+  const initialPhotoSettings=capturePhotoSettings();
+  const neutralPhotoSettings=Object.fromEntries(photoSettingControls.map(control=>[
+    control.id,control.type==="range"?"0":control.type==="checkbox"?false:controlValue(control)
+  ]));
+  const sectionResetDefaults={...neutralPhotoSettings,quality:els.quality.value,dateRename:els.dateRename.checked};
 
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
@@ -1955,6 +1955,7 @@
   });
   function setBusy(v){
     busy = v;
+    document.querySelectorAll(".sectionResetButton").forEach(button=>{button.disabled=v});
     if(v){closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu()}
     [els.saveOneBtn,els.zipBtn,els.leftBtn,els.rightBtn,els.straightenBtn,els.straightenSlider,els.straightenReset,els.cropBtn,els.cropResetBtn,els.cropCancelBtn,els.cropApplyBtn,els.zoomOutBtn,els.zoomResetBtn,els.zoomInBtn,els.fullBtn,els.chromeToggleBtn,els.removePhotoBtn,els.clearPhotosBtn,els.openGalleryBtn,els.filmstripAddBtn,els.libraryRemoveBtn,els.libraryClearBtn,els.editScopeMenuBtn,els.scopeAllBtn,els.scopePhotoBtn,els.copyEditsBtn,els.pasteEditsBtn,els.resetPhotoEditsBtn,els.undoEditsBtn,els.redoEditsBtn].forEach(b=>{
       if(v) b.disabled = true;
@@ -2048,12 +2049,18 @@
       if(!content)return;
       const collapsed=content.classList.toggle("isCollapsed");
       button.setAttribute("aria-expanded",String(!collapsed));
+      const title=button.parentElement.querySelector(".settingsTitle").textContent;
+      button.title=`${collapsed?"Show":"Hide"} ${title}`;
+      button.setAttribute("aria-label",button.title);
     });
   });
   document.querySelectorAll(".groupCollapseToggle").forEach(button=>{
     button.addEventListener("click",()=>{
-      const collapsed=button.parentElement.classList.toggle("groupCollapsed");
+      const collapsed=button.closest(".settingsGroup,.settingsSubgroup").classList.toggle("groupCollapsed");
       button.setAttribute("aria-expanded",String(!collapsed));
+      const title=button.parentElement.querySelector(".settingsTitle").textContent;
+      button.title=`${collapsed?"Show":"Hide"} ${title}`;
+      button.setAttribute("aria-label",button.title);
     });
   });
 
@@ -3596,7 +3603,10 @@
   }
 
   const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";
-  const DEFAULT_CAMERA_PROFILE_ID="cam1-default";
+  const CAM1_PROFILE_ID="cam1-default";
+  const NEWCAM_PROFILE_ID="newcam-default";
+  const DEFAULT_CAMERA_PROFILE_ID=window.__FILMLAB_SERVER_MODE__?NEWCAM_PROFILE_ID:CAM1_PROFILE_ID;
+  function isBuiltInProfile(id){return id===CAM1_PROFILE_ID||id===NEWCAM_PROFILE_ID}
 
   function normalizeProfileSettings(settings,fallback=batchSettings){
     if(settings)settings=cloneSettings(settings);
@@ -3650,11 +3660,21 @@
         restored.push({id:candidate.id,name:candidate.name.trim().slice(0,40),settings:normalizeProfileSettings(candidate.settings)});
       }
     }
-    const defaultProfile=restored.find(profile=>profile.id===DEFAULT_CAMERA_PROFILE_ID);
-    if(defaultProfile)defaultProfile.name="Cam1 Profile";
-    else restored.unshift({id:DEFAULT_CAMERA_PROFILE_ID,name:"Cam1 Profile",settings:normalizeProfileSettings(batchSettings)});
+    const cam1=restored.find(profile=>profile.id===CAM1_PROFILE_ID);
+    if(cam1)cam1.name="Cam1 Profile";
+    else restored.unshift({id:CAM1_PROFILE_ID,name:"Cam1 Profile",settings:normalizeProfileSettings(batchSettings)});
+    const newcam=restored.find(profile=>profile.id===NEWCAM_PROFILE_ID);
+    if(newcam)newcam.name="newcam";
+    else restored.push({id:NEWCAM_PROFILE_ID,name:"newcam",settings:cloneSettings(neutralPhotoSettings)});
     cameraProfiles=restored;
-    activeCameraProfileId=restored.some(profile=>profile.id===saved?.activeId)?saved.activeId:DEFAULT_CAMERA_PROFILE_ID;
+    // Migrate Lab's previous default once; preserve later explicit profile choices.
+    activeCameraProfileId=window.__FILMLAB_SERVER_MODE__&&!newcam?NEWCAM_PROFILE_ID:
+      restored.some(profile=>profile.id===saved?.activeId)?saved.activeId:DEFAULT_CAMERA_PROFILE_ID;
+    if(window.__FILMLAB_SERVER_MODE__){
+      batchSettings=cloneSettings(currentCameraProfile().settings);
+      loadPhotoSettings(batchSettings);
+      saveSettings();
+    }
     renderCameraProfiles();
     saveCameraProfiles();
   }
@@ -3668,7 +3688,7 @@
     els.profileAddBtn.disabled=busy;
     els.profileMenuBtn.disabled=busy||!profile;
     els.profileSaveBtn.disabled=busy||!profile||!dirty;
-    const fixedDefault=profile?.id===DEFAULT_CAMERA_PROFILE_ID;
+    const fixedDefault=isBuiltInProfile(profile?.id);
     els.profileRenameBtn.disabled=busy||!profile||fixedDefault;
     els.profileDeleteBtn.disabled=busy||!profile||fixedDefault;
   }
@@ -3806,6 +3826,32 @@
     saveSettings();
     rerender();
   }
+
+  function resetSettingsSection(container){
+    if(busy||!container)return;
+    const controls=[...photoSettingControls,...globalSettingControls].filter(control=>
+      container.contains(control)&&Object.prototype.hasOwnProperty.call(sectionResetDefaults,control.id));
+    const changed=controls.filter(control=>{
+      const value=sectionResetDefaults[control.id];
+      return controlValue(control)!==value||(editScope==="all"&&photoSettingControls.includes(control)&&
+        items.some(item=>settingValue(item.settings||batchSettings,control.id)!==value));
+    });
+    if(!changed.length)return;
+    if(changed.some(control=>photoSettingControls.includes(control)))rememberEditState();
+    for(const control of changed){
+      if(control.type==="checkbox")control.checked=sectionResetDefaults[control.id];
+      else control.value=sectionResetDefaults[control.id];
+      rememberRangeValue(control);
+      if(photoSettingControls.includes(control))commitPhotoControl(control);
+    }
+    refreshSettingUI();saveSettings();
+    setStatus("Section reset");
+  }
+  document.querySelectorAll(".sectionResetButton").forEach(button=>{
+    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M4.5 9a8 8 0 1 1-.2 6"/></svg>';
+    button.addEventListener("click",()=>resetSettingsSection(button.dataset.resetTarget
+      ?document.getElementById(button.dataset.resetTarget):button.closest(".settingsGroup,.settingsSubgroup")));
+  });
 
   restoreSettings();
   const webSettingsDialog=$("#webSettingsDialog");
@@ -3995,7 +4041,7 @@
   });
   els.profileRenameBtn.addEventListener("click",async()=>{
     const profile=currentCameraProfile();
-    if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
+    if(!profile||isBuiltInProfile(profile.id))return;
     closeProfileMenu();
     const name=await profileNameFromUser("Rename camera profile",profile.name,profile.id);
     if(!name)return;
@@ -4006,7 +4052,7 @@
   });
   els.profileDeleteBtn.addEventListener("click",async()=>{
     const profile=currentCameraProfile();
-    if(!profile||profile.id===DEFAULT_CAMERA_PROFILE_ID)return;
+    if(!profile||isBuiltInProfile(profile.id))return;
     closeProfileMenu();
     if(!await showAppDialog({title:"Delete camera profile?",message:`Delete “${profile.name}”? Your photos and their edits will not be removed.`,confirmText:"Delete profile",cancelText:"Cancel",destructive:true}))return;
     cameraProfiles=cameraProfiles.filter(candidate=>candidate.id!==profile.id);

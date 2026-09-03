@@ -58,9 +58,10 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Processes photos locally on your device
 - Imports individual photos or an entire DCIM folder; supported Android Chromium browsers use the multi-file system picker so available USB drives and document providers can be accessed
 - Keeps imported photos and their individual edits on the device after a refresh until they are removed from the app
-- Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step
+- Saves reusable camera profiles locally, so a complete set of edit settings can be applied to all photos or one selected photo in a single step. Cam1 Profile remains the web default; the built-in **newcam** profile starts with every edit slider at zero, no LUT, grain off, and date stamp off.
 - Supports JPEG, PNG, and WebP input
 - Basic exposure, temperature, highlights, shadows, and contrast adjustments
+- Circular reset arrows beside section headings reset that section to neutral edits (or standard export defaults), including individual Color Mix channels, grading ranges, and grain. Photo-edit resets support undo/redo and retain the selected editing scope.
 - **Colors**: global saturation, eight-channel Color Mix (red, orange, yellow, green, aqua, blue, purple, magenta) with hue/saturation/luminance, and separate shadow/midtone/highlight color grading. New controls start at zero and are saved with profiles and individual edits, including copy/paste and undo/redo.
 - Custom `.cube` LUT import with **No LUT** as the default, adjustable LUT strength, 1D and 3D LUT support, tetrahedral 3D interpolation, live preview, matching export, and on-device persistence
 - Adjustable de-sharpen strength, halo radius, and edge threshold
@@ -147,7 +148,7 @@ Server Lab is an optional self-hosted companion. It does not replace or change t
 - Server-generated lightweight gallery thumbnails and editing previews
 - Full OnDevice Film Lab editor for every library photo
 - Non-destructive crop, rotation, straightening and slider settings saved per photo
-- Camera profiles and custom `.cube` LUTs synchronized through the server
+- Camera profiles and custom `.cube` LUTs synchronized through the server. **newcam** is the initial default in Server Lab; existing saved photo edits are preserved, and later profile choices remain available across sessions.
 - Processed JPEGs, with preserved EXIF metadata, saved back to the shared library
 - Multi-select removal that states the number of photos being deleted
 - External-drive capacity shown in the gallery

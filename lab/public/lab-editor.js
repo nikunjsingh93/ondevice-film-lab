@@ -320,7 +320,7 @@
       if (file) uploadServerLut(file).catch(error => notify(error.message, true));
     }, true);
     document.addEventListener("click", event => {
-      if (event.target.closest("#leftBtn,#rightBtn,#cropApplyBtn,#cropResetBtn,#straightenReset,#resetPhotoEditsBtn,#undoEditsBtn,#redoEditsBtn")) setTimeout(queueStateSave, 30);
+      if (event.target.closest("#leftBtn,#rightBtn,#cropApplyBtn,#cropResetBtn,#straightenReset,#resetPhotoEditsBtn,#undoEditsBtn,#redoEditsBtn,.sectionResetButton")) setTimeout(queueStateSave, 30);
     }, true);
     setInterval(() => {
       saveState().catch(error => notify(error.message, true));

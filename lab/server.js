@@ -880,7 +880,9 @@ function createEditorHtml(userId = "server") {
         item.rotation=Number(state.rotation)||0;
         item.straighten=Number(state.straighten)||0;
         item.crop=state.crop||null;
-        item.settings={...cloneSettings(batchSettings),...(state.settings?cloneSettings(state.settings):{})};
+        item.settings=state.settings
+          ? {...cloneSettings(initialPhotoSettings),...cloneSettings(state.settings)}
+          : cloneSettings(batchSettings);
         loadPhotoSettings(item.settings);
         refreshThumb(index);
       }
@@ -912,7 +914,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.1.0"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.2.0"></script>\n</body>`);
   return html;
 }
 

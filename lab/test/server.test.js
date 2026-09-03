@@ -6,6 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const vm = require("node:vm");
 const dataDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-test-"));
 const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "ondevice-film-lab-state-test-"));
 process.env.DATA_DIR = dataDirectory;
@@ -52,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.1\.0/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.2\.0/);
   assert.notEqual(testApi.createEditorHtml(testApi.defaultAdmin.id), testApi.createEditorHtml("aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"));
 });
 
@@ -66,6 +67,24 @@ test("persists non-destructive edit state", async () => {
   testApi.statements.updateEdits.run(JSON.stringify({ rotation: 0, settings: {}, isEdited: false }), testApi.defaultAdmin.id, photoId);
   row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
   assert.equal(testApi.hasSavedEdits(row), false);
+});
+
+test("editor loads new photos with neutral settings and preserves saved edits", async () => {
+  const html = testApi.createEditorHtml();
+  const source = html.slice(html.indexOf("    async loadPhoto(file,state){"), html.indexOf("    captureState(){"));
+  const batchSettings = { amount: "0", fade: "0", grainEnabled: false, dateStamp: false };
+  const initialPhotoSettings = { amount: "50", fade: "30", grainEnabled: true, dateStamp: true };
+  for (const state of [null, {}, { settings: { ...batchSettings, fade: "45" }, rotation: 90 }, { settings: { fade: "25" } }]) {
+    const items = [];
+    const bridge = vm.runInNewContext(`({${source}})`, {
+      items, batchSettings, initialPhotoSettings, cloneSettings: settings => ({ ...settings }),
+      async addFiles() { items.push({ settings: { ...batchSettings } }); },
+      loadPhotoSettings() {}, refreshThumb() {}, select() {}
+    });
+    await bridge.loadPhoto({}, state);
+    assert.deepEqual(JSON.parse(JSON.stringify(items[0].settings)), state?.settings ? { ...initialPhotoSettings, ...state.settings } : batchSettings);
+    if (state?.rotation) assert.equal(items[0].rotation, state.rotation);
+  }
 });
 
 test("stores shared profile state", async () => {
