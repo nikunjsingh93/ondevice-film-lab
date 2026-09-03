@@ -53,7 +53,8 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.24/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.25/);
+  assert.match(editor, /filmLabThumbRefresh/);
   assert.match(editor, /viewport-fit=cover/);
   assert.match(editor, /padding-top:max\(15px,var\(--lab-safe-area-top,env\(safe-area-inset-top,0px\)\)\)/);
   assert.match(editor, /<body class="serverPhotoLoading serverEdition">/);
@@ -107,6 +108,88 @@ test("persists non-destructive edit state", async () => {
   testApi.statements.updateEdits.run(JSON.stringify({ rotation: 0, settings: {}, isEdited: false }), testApi.defaultAdmin.id, photoId);
   row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
   assert.equal(testApi.hasSavedEdits(row), false);
+});
+
+test("thumbnail URL includes cache-busting editRev and updatePhotoThumbnail updates thumbnail file on disk", async () => {
+  testApi.statements.updateEdits.run("{}", testApi.defaultAdmin.id, photoId);
+  let row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
+  const uneditedThumbUrl = testApi.photoResponse(row).thumbnailUrl;
+  assert.match(uneditedThumbUrl, /\/api\/photos\/[^/]+\/thumbnail\?v=0/);
+
+  // Update with rotation
+  const edits = { rotation: 90, straighten: 0, crop: null, settings: {}, isEdited: true };
+  await testApi.updatePhotoThumbnail(row, edits);
+  testApi.statements.updateEdits.run(JSON.stringify(edits), testApi.defaultAdmin.id, photoId);
+
+  row = testApi.statements.byId.get(testApi.defaultAdmin.id, photoId);
+  const editedThumbUrl = testApi.photoResponse(row).thumbnailUrl;
+  assert.notEqual(editedThumbUrl, uneditedThumbUrl);
+  assert.match(editedThumbUrl, /\/api\/photos\/[^/]+\/thumbnail\?v=[a-f0-9]{8}/);
+
+  // Verify file on disk exists and was written
+  const thumbPath = path.resolve(testApi.DATA_DIR, row.thumbnail_path);
+  assert.ok(fs.existsSync(thumbPath));
+  assert.ok(row.thumbnail_byte_size > 0);
+});
+
+test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState includes thumbnail", async () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "../public/lab-editor.js"), "utf8");
+  const saveStart = source.indexOf("  let latestThumbDataUrl = null;");
+  const saveEnd = source.indexOf("\n  function queueStateSave()", saveStart);
+  assert.ok(saveStart > 0 && saveEnd > saveStart);
+
+  let capturedPayload = null;
+  const cards = [
+    { dataset: { photoId: "photo-1" }, classList: { toggle() {} }, querySelector: sel => (sel === "img" ? cards[0].img : cards[0].rot) },
+    { dataset: { photoId: "photo-2" }, classList: { toggle() {} }, querySelector: sel => (sel === "img" ? cards[1].img : cards[1].rot) }
+  ];
+  cards[0].img = { src: "original-thumb.jpg" };
+  cards[0].rot = { textContent: "" };
+  cards[1].img = { src: "other-thumb.jpg" };
+  cards[1].rot = { textContent: "" };
+
+  const thumbs = {
+    querySelector: sel => {
+      if (sel.includes("photo-1")) return cards[0];
+      return null;
+    }
+  };
+
+  let listener = null;
+  const context = {
+    photoId: "photo-1",
+    lastPhotoState: "",
+    serverFilmstripThumbs: thumbs,
+    photo: { isEdited: true },
+    window: {
+      addEventListener: (type, handler) => {
+        if (type === "filmLabThumbRefresh") listener = handler;
+      }
+    },
+    bridge: {
+      captureState: () => ({ rotation: 90, straighten: 0, crop: null, settings: {}, masks: [], isEdited: true })
+    },
+    requestJson: async (url, opts) => {
+      capturedPayload = JSON.parse(opts.body);
+    },
+    clearTimeout: () => {},
+    setTimeout: () => 0
+  };
+
+  vm.runInNewContext(source.slice(saveStart, saveEnd), context);
+
+  // Trigger filmLabThumbRefresh event
+  assert.ok(listener);
+  listener({ detail: { dataUrl: "data:image/jpeg;base64,mockthumb", rot: "90°", rotation: 90 } });
+
+  assert.equal(cards[0].img.src, "data:image/jpeg;base64,mockthumb");
+  assert.equal(cards[0].rot.textContent, "90°");
+
+  // Run saveState()
+  await context.saveState();
+  assert.ok(capturedPayload);
+  assert.equal(capturedPayload.edits.rotation, 90);
+  assert.equal(capturedPayload.thumbnail, "data:image/jpeg;base64,mockthumb");
 });
 
 test("openServerPhoto navigates in-place using history.pushState and loads photo without full page reload", async () => {

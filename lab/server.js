@@ -188,6 +188,7 @@ const statements = {
   byHash: db.prepare("SELECT * FROM photos WHERE user_id = ? AND content_hash = ?"),
   byId: db.prepare("SELECT * FROM photos WHERE user_id = ? AND id = ?"),
   updateEdits: db.prepare("UPDATE photos SET edits_json = ? WHERE user_id = ? AND id = ?"),
+  updateThumbnailSize: db.prepare("UPDATE photos SET thumbnail_byte_size = ? WHERE user_id = ? AND id = ?"),
   updateExport: db.prepare("UPDATE photos SET export_path = ?, export_name = ?, export_byte_size = ? WHERE user_id = ? AND id = ?"),
   deletePhoto: db.prepare("DELETE FROM photos WHERE user_id = ? AND id = ?"),
   countPhotos: db.prepare("SELECT COUNT(*) AS count, COALESCE(SUM(byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
@@ -203,9 +204,16 @@ const statements = {
   lutByHash: db.prepare("SELECT * FROM luts WHERE user_id = ? AND content_hash = ?"),
   insertLut: db.prepare("INSERT INTO luts (id, user_id, content_hash, name, file_name, stored_path, byte_size, created_at) VALUES (@id, @user_id, @content_hash, @name, @file_name, @stored_path, @byte_size, @created_at)"),
   userById: db.prepare("SELECT * FROM users WHERE id = ?"),
-  userByName: db.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE"),
-  sessionByToken: db.prepare("SELECT sessions.*, users.id AS id, users.username, users.role, users.quota_bytes, users.must_change_password FROM sessions JOIN users ON users.id = sessions.user_id WHERE token_hash = ? AND expires_at > ?"),
-  deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?")
+  insertUser: db.prepare("INSERT INTO users (id, username, password_hash, role, quota_bytes, must_change_password, created_at, updated_at) VALUES (@id, @username, @password_hash, @role, @quota_bytes, @must_change_password, @created_at, @updated_at)"),
+  updateUserPassword: db.prepare("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?"),
+  touchUserActivity: db.prepare("UPDATE users SET updated_at = ? WHERE id = ?"),
+  listUsers: db.prepare("SELECT id, username, role, quota_bytes, must_change_password, created_at, updated_at FROM users ORDER BY role DESC, username ASC"),
+  deleteUser: db.prepare("DELETE FROM users WHERE id = ?"),
+  countAdmins: db.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'"),
+  insertSession: db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)"),
+  sessionByHash: db.prepare("SELECT sessions.*, users.username, users.role, users.quota_bytes, users.must_change_password FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ?"),
+  deleteSession: db.prepare("DELETE FROM sessions WHERE token_hash = ?"),
+  cleanSessions: db.prepare("DELETE FROM sessions WHERE expires_at <= ?")
 };
 
 function safeJson(value, fallback = {}) {
@@ -268,6 +276,10 @@ function resolveDataPath(relativePath) {
 }
 
 function photoResponse(row) {
+  const edits = safeJson(row.edits_json);
+  const editRev = row.edits_json && row.edits_json !== "{}"
+    ? crypto.createHash("md5").update(row.edits_json).digest("hex").slice(0, 8)
+    : "0";
   return {
     id: row.id,
     name: row.original_name,
@@ -277,12 +289,12 @@ function photoResponse(row) {
     height: row.height,
     capturedAt: row.captured_at,
     importedAt: row.imported_at,
-    edits: safeJson(row.edits_json),
+    edits,
     hasExport: Boolean(row.export_path),
     isEdited: hasSavedEdits(row),
     isRaw: PhotoFormats.isRaw(row.original_name),
     editUrl: row.working_path ? `/api/photos/${row.id}/working` : null,
-    thumbnailUrl: `/api/photos/${row.id}/thumbnail`,
+    thumbnailUrl: `/api/photos/${row.id}/thumbnail?v=${editRev}`,
     previewUrl: `/api/photos/${row.id}/preview`,
     originalUrl: `/api/photos/${row.id}/original`,
     exportUrl: row.export_path ? `/api/photos/${row.id}/export` : null
@@ -447,6 +459,30 @@ async function importPhoto(file, user) {
   }
 }
 
+async function updatePhotoThumbnail(row, edits, buffer = null) {
+  try {
+    const thumbPath = resolveDataPath(row.thumbnail_path);
+    if (buffer && Buffer.isBuffer(buffer) && buffer.length > 0) {
+      await fsp.writeFile(thumbPath, buffer);
+      statements.updateThumbnailSize.run(buffer.length, row.user_id, row.id);
+      return;
+    }
+    const sourcePath = resolveDataPath(row.working_path || row.stored_path);
+    if (!fs.existsSync(sourcePath)) return;
+    const rotation = Number(edits?.rotation) || 0;
+    let pipeline = sharp(sourcePath, { failOn: "none" }).rotate();
+    if (rotation) pipeline = pipeline.rotate(rotation);
+    const thumbBuffer = await pipeline
+      .resize({ width: 520, height: 360, fit: "cover", position: "attention", withoutEnlargement: true })
+      .jpeg({ quality: 78, mozjpeg: true })
+      .toBuffer();
+    await fsp.writeFile(thumbPath, thumbBuffer);
+    statements.updateThumbnailSize.run(thumbBuffer.length, row.user_id, row.id);
+  } catch (error) {
+    console.warn("Photo thumbnail could not be refreshed:", error.message);
+  }
+}
+
 function asyncRoute(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 }
@@ -542,7 +578,7 @@ app.use((request, response, next) => {
   next();
 });
 
-app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.24" }));
+app.get("/api/health", (_request, response) => response.json({ ok: true, version: "1.4.25" }));
 app.get("/manifest.webmanifest", (_request, response) => response.set("Cache-Control", "no-cache").sendFile(path.join(PUBLIC_DIR, "manifest.webmanifest")));
 app.use("/lab-icons", express.static(path.join(PUBLIC_DIR, "lab-icons"), { maxAge: 0 }));
 app.use(authenticate);
@@ -804,16 +840,28 @@ app.post("/api/photos", quotaUploadGuard, upload.array("photos", 500), asyncRout
   response.status(succeeded ? 201 : errors[0]?.status || 400).json({ imported, duplicates, errors, ...(succeeded ? {} : { error: errors[0]?.error || "No photos could be added" }) });
 }));
 
-app.patch("/api/photos/:id/edits", (request, response) => {
+app.patch("/api/photos/:id/edits", asyncRoute(async (request, response) => {
   const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
   const edits = request.body?.edits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).json({ error: "Invalid edits" });
   const encoded = JSON.stringify(edits);
   if (Buffer.byteLength(encoded) > 8_000_000) return response.status(413).json({ error: "Edit data is too large" });
+  const oldEdits = safeJson(row.edits_json, {});
   statements.updateEdits.run(encoded, request.user.id, row.id);
+
+  if (typeof request.body?.thumbnail === "string" && request.body.thumbnail.startsWith("data:image/")) {
+    const base64Data = request.body.thumbnail.slice(request.body.thumbnail.indexOf(",") + 1);
+    const thumbBuffer = Buffer.from(base64Data, "base64");
+    if (thumbBuffer.length > 0 && thumbBuffer.length < 5_000_000) {
+      await updatePhotoThumbnail(row, edits, thumbBuffer);
+    }
+  } else if (Number(edits?.rotation || 0) !== Number(oldEdits?.rotation || 0)) {
+    await updatePhotoThumbnail(row, edits);
+  }
+
   response.json({ ok: true });
-});
+}));
 
 app.post("/api/photos/:id/edits-beacon", (request, response) => {
   const row = statements.byId.get(request.user.id, request.params.id);
@@ -822,7 +870,11 @@ app.post("/api/photos/:id/edits-beacon", (request, response) => {
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return response.status(400).end();
   const encoded = JSON.stringify(edits);
   if (Buffer.byteLength(encoded) > 8_000_000) return response.status(413).end();
+  const oldEdits = safeJson(row.edits_json, {});
   statements.updateEdits.run(encoded, request.user.id, row.id);
+  if (Number(edits?.rotation || 0) !== Number(oldEdits?.rotation || 0)) {
+    updatePhotoThumbnail(row, edits).catch(() => {});
+  }
   response.status(204).end();
 });
 
@@ -927,7 +979,7 @@ function createEditorHtml(userId = "server") {
   // The Lab shell owns them; embedded pages consume zero inset instead.
   html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,
     (value, side) => `var(--lab-safe-area-${side},${value})`);
-  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.24"></script>');
+  html = html.replace('<meta charset="utf-8" />', '<meta charset="utf-8" /><script src="/lab-viewport.js?v=1.4.25"></script>');
   html = html.replace(/<title>[^<]*<\/title>/, "<title>Lab Server</title>")
     .replace(/(\.\/)?icons\//g, "/lab-icons/")
     .replace(/branding\/ondevice-film-lab-logo-v4\.png/g, "lab-icons/icon-512.png")
@@ -970,6 +1022,7 @@ function createEditorHtml(userId = "server") {
     .replace('<div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>', '<div class="sub">Editing from your private Ubuntu photo library. Changes are saved back to Server Lab.</div>')
     .replace('<div class="appVersion desktopAppVersion">Version 1.10.10</div>', '<div class="appVersion desktopAppVersion" hidden></div>');
   html = html.replace("    makePreview(i);\n  }", "    return makePreview(i);\n  }");
+  html = html.replace('node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);', 'const thumbData=canvas.toDataURL("image/jpeg",.82);node.querySelector("img").src=thumbData;window.dispatchEvent(new CustomEvent("filmLabThumbRefresh",{detail:{dataUrl:thumbData,rot:transformLabels.join(" · "),rotation}}));');
   html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={
@@ -1033,7 +1086,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.24"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.25"></script>\n</body>`);
   return html;
 }
 
@@ -1054,9 +1107,25 @@ app.use((error, request, response, _next) => {
   response.status(status).json({ error: status >= 500 ? "Server Lab could not complete that request" : error.message });
 });
 
+async function syncRotatedThumbnails() {
+  try {
+    const rows = db.prepare("SELECT * FROM photos WHERE edits_json LIKE '%rotation%'").all();
+    for (const row of rows) {
+      const edits = safeJson(row.edits_json, {});
+      const rotation = Number(edits?.rotation) || 0;
+      if (rotation) {
+        await updatePhotoThumbnail(row, edits);
+      }
+    }
+  } catch (error) {
+    console.warn("Could not sync rotated thumbnails:", error.message);
+  }
+}
+
 let server = null;
 function startServer(port = PORT, host = "0.0.0.0") {
   if (server) return server;
+  syncRotatedThumbnails().catch(() => {});
   server = app.listen(port, host, () => {
     console.log(`OnDevice Film Lab Server listening on http://${host}:${port}`);
     console.log(`Library storage: ${DATA_DIR}`);
@@ -1083,5 +1152,5 @@ module.exports = {
   app,
   db,
   startServer,
-  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, createEditorHtml, hasSavedEdits, dateSelectionIds, sendLabShell }
+  testApi: { DATA_DIR, STATE_DIR, DATABASE_PATH, statements, defaultAdmin, userDirectories, userUsage, quotaError, passwordHash, passwordMatches, importPhoto, deletePhotoIds, nearbyPhotos, photoResponse, createEditorHtml, hasSavedEdits, dateSelectionIds, sendLabShell, updatePhotoThumbnail, syncRotatedThumbnails }
 };

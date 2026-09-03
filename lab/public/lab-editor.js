@@ -49,6 +49,8 @@
     return data;
   }
 
+  let latestThumbDataUrl = null;
+
   function cleanState(state) {
     if (!state) return null;
     return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, masks: state.masks || [], isEdited: Boolean(state.isEdited) };
@@ -59,13 +61,31 @@
     if (!state) return;
     const encoded = JSON.stringify(state);
     if (!force && encoded === lastPhotoState) return;
+    const payload = { edits: state };
+    if (latestThumbDataUrl) payload.thumbnail = latestThumbDataUrl;
     await requestJson(`/api/photos/${encodeURIComponent(photoId)}/edits`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ edits: state })
+      body: JSON.stringify(payload)
     });
     lastPhotoState = encoded;
   }
+
+  window.addEventListener("filmLabThumbRefresh", event => {
+    latestThumbDataUrl = event.detail?.dataUrl || null;
+    if (!serverFilmstripThumbs) return;
+    const activeCard = serverFilmstripThumbs.querySelector(`.thumb[data-photo-id="${photoId}"]`);
+    if (activeCard) {
+      if (event.detail?.dataUrl) {
+        const img = activeCard.querySelector("img");
+        if (img) img.src = event.detail.dataUrl;
+      }
+      if (event.detail?.rot !== undefined) {
+        const rotElem = activeCard.querySelector(".rot");
+        if (rotElem) rotElem.textContent = event.detail.rot || (photo?.isEdited ? "Edited" : "");
+      }
+    }
+  });
 
   function queueStateSave() {
     clearTimeout(autosaveTimer);
@@ -141,6 +161,7 @@
     if (typeof clearTimeout !== "undefined") clearTimeout(autosaveTimer);
     try { await saveState(true); } catch (error) { notify(error.message, true); }
     photoId = id;
+    latestThumbDataUrl = null;
     if (pushHistory && typeof history !== "undefined" && history.pushState) {
       history.pushState(null, "", `/editor?photo=${encodeURIComponent(id)}`);
     }
