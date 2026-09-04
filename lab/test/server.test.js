@@ -437,6 +437,9 @@ test("offline gallery supports sorting by date taken and date uploaded with day 
   const older = new Date(2023, 4, 15, 12, 0, 0);
   const olderGroup = context.dateGroup(older);
   assert.match(olderGroup.label, /May 15, 2023/);
+
+  const themeCss = fs.readFileSync(path.resolve(__dirname, "../../theme.css"), "utf8");
+  assert.match(themeCss, /html\[data-theme="black"\]\s*:is\([^)]*\.galleryRemoveBtn[^)]*\):not\(:disabled\)\s*\{[^}]*background(-color)?:\s*#e03131/);
 });
 
 test("unauthenticated and expired session requests to / redirect to /login without 500 error", () => {

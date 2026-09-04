@@ -8,7 +8,10 @@ html[data-theme="black"],html[data-theme="black"] body,html[data-theme="black"] 
 html[data-theme="black"] :is(.card,.appHeader,.libraryToolbar,.gallerySelectionControls,.libraryHero,.libraryStats,.authCard,.settingsCard,.newUserForm,.userCard,.photoCard,.emptyState,.webSettingsDialog,.photoPicker,.profileBar,.editScopeBar,.toolbar,.viewer,.filmstripWrap,.mobileTools,.mobileTitleRow,.mobilePanelHeader,.sidebar.mobileOpen){background:#111;border-color:#333}
 html[data-theme="black"] :is(button,.button,.buttonLink,select,.searchBox,.thumb,.galleryItem){background-color:#1c1c1c;background-image:none;border-color:#383838;color:var(--text)}
 html[data-theme="black"] :is(button,.button,.buttonLink):hover{background:#303030;border-color:#666}
-html[data-theme="black"] :is(button.primary,.emptyAddPhotosBtn){background:#ddd;color:#111;border-color:#ddd}
+html[data-theme="black"] :is(button.primary,.emptyAddPhotosBtn,.galleryDownloadZipBtn){background:#ddd;color:#111;border-color:#ddd}
+html[data-theme="black"] :is(button.primary,.emptyAddPhotosBtn,.galleryDownloadZipBtn):not(:disabled):hover{background:#eee;border-color:#eee;color:#111}
+html[data-theme="black"] :is(.galleryRemoveBtn,button.danger,.appDialogConfirm.destructive):not(:disabled){background:#e03131;background-color:#e03131;border-color:#e03131;color:#ffffff;font-weight:750}
+html[data-theme="black"] :is(.galleryRemoveBtn,button.danger,.appDialogConfirm.destructive):not(:disabled):hover{background:#c92a2a;background-color:#c92a2a;border-color:#c92a2a;color:#ffffff}
 html[data-theme="black"] :is(.thumb.active,.galleryItem[aria-selected="true"],.photoCard.selected,.dateGroupSelect[aria-pressed="true"]){background:#303030;border-color:#ccc;box-shadow:none}
 html[data-theme="black"] :is(.modalCard,.processingCard,.galleryCard,.appDialogCard,.profileMenu,.profileActions,.editScopeActions,.libraryMenu,.libraryMenuPopover,.cropPanel,.straightenPanel,.serverEditorToast,.toast){background:#111;border-color:#444}
 html[data-theme="black"] :is(.dateGroupHeader,.userGreeting,.eyebrow,.brand small,.authCard form>label,.settingsForm label,.newUserForm label,.userFields label){color:var(--muted)}

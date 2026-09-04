@@ -8,7 +8,8 @@ button{border:1px solid var(--line);border-radius:11px;padding:10px 14px;backgro
 button:hover{border-color:#6283a8;background:#26364e}
 button:disabled{opacity:.45;cursor:not-allowed}
 button.primary{border-color:transparent;background:linear-gradient(135deg,var(--accent2),#59b5db);color:#08131f}
-button.danger{border-color:#69414c;background:#392832;color:#ffdfe2}
+button.danger:not(:disabled){border-color:#e03131;background:#e03131;color:#ffffff}
+button.danger:not(:disabled):hover{border-color:#c92a2a;background:#c92a2a}
 .appShell{width:min(1600px,100%);margin:auto;min-height:100vh}
 .appHeader{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;align-items:center;gap:18px;padding:max(15px,var(--lab-safe-area-top,env(safe-area-inset-top))) 24px 15px;background:#111927eF;border-bottom:1px solid var(--line);backdrop-filter:blur(18px)}
 .brand{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;min-width:0}

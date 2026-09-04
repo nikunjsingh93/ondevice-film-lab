@@ -561,10 +561,10 @@ if (window.self === window.top && navigator.standalone === true) {
   .gallerySelectModeBtn[aria-pressed="true"]{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:800}
   .gallerySelectedCount{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   .galleryActions .spacer{flex:1}
-  .galleryDownloadZipBtn{color:#b8f0d9;border-color:#366352;background:#1e382f}
-  .galleryDownloadZipBtn:not(:disabled):hover{background:#2a4f43}
-  .galleryRemoveBtn{color:#ffd9dc;border-color:#824953;background:#492b32}
-  .galleryRemoveBtn:not(:disabled):hover{background:#61323d}
+  .galleryDownloadZipBtn{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:750}
+  .galleryDownloadZipBtn:not(:disabled):hover{filter:brightness(.95)}
+  .galleryRemoveBtn:not(:disabled){background:#e03131;border-color:#e03131;color:#ffffff;font-weight:750}
+  .galleryRemoveBtn:not(:disabled):hover{background:#c92a2a;border-color:#c92a2a}
   .galleryScroller{
     flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:14px;
     overscroll-behavior-y:contain;touch-action:pan-y;background:#101620
@@ -1340,7 +1340,7 @@ if (window.self === window.top && navigator.standalone === true) {
         <button id="gallerySelectAllBtn" type="button">Select all</button>
         <span id="gallerySelectedCount" class="gallerySelectedCount" aria-live="polite">0 selected</span>
         <span class="spacer"></span>
-        <button id="galleryDownloadZipBtn" class="galleryDownloadZipBtn" type="button" disabled>Download .zip</button>
+        <button id="galleryDownloadZipBtn" class="primary galleryDownloadZipBtn" type="button" disabled>Download .zip</button>
         <button id="galleryRemoveBtn" class="galleryRemoveBtn" type="button" disabled>Remove selected</button>
       </div>
       <div id="galleryScroller" class="galleryScroller" tabindex="0">
