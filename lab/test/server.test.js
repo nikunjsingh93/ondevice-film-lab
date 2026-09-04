@@ -412,6 +412,9 @@ test("offline gallery supports sorting by date taken and date uploaded with day 
   assert.match(html, /<option value="imported">Date uploaded<\/option>/);
   assert.match(html, /\.dateGroupHeader/);
   assert.match(html, /\.dateGroupSelect/);
+  assert.match(html, /id="galleryDownloadZipBtn"/);
+  assert.match(html, /\.galleryDownloadZipBtn/);
+  assert.match(html, /downloadGallerySelectionZip/);
 
   const dateGroupStart = html.indexOf("  function dateGroup(value){");
   const dateGroupEnd = html.indexOf("\n  function toggleDateGroup", dateGroupStart);

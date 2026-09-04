@@ -561,6 +561,8 @@ if (window.self === window.top && navigator.standalone === true) {
   .gallerySelectModeBtn[aria-pressed="true"]{color:#101824;background:var(--accent);border-color:var(--accent);font-weight:800}
   .gallerySelectedCount{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
   .galleryActions .spacer{flex:1}
+  .galleryDownloadZipBtn{color:#b8f0d9;border-color:#366352;background:#1e382f}
+  .galleryDownloadZipBtn:not(:disabled):hover{background:#2a4f43}
   .galleryRemoveBtn{color:#ffd9dc;border-color:#824953;background:#492b32}
   .galleryRemoveBtn:not(:disabled):hover{background:#61323d}
   .galleryScroller{
@@ -783,7 +785,7 @@ if (window.self === window.top && navigator.standalone === true) {
     .galleryOverlay{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
     .galleryCard{width:100%;height:100%;min-height:0;border-radius:16px}
     .galleryHeader,.galleryActions{padding-left:12px;padding-right:12px}
-    .galleryHeader{flex-wrap:wrap;row-gap:8px}
+    .galleryHeader,.galleryActions{flex-wrap:wrap;row-gap:8px}
     .gallerySortControl{order:4;width:100%;justify-content:space-between}
     .gallerySortControl select{flex:1;max-width:180px}
     .dateGroupHeader{margin-top:12px;font-size:14px}
@@ -1338,6 +1340,7 @@ if (window.self === window.top && navigator.standalone === true) {
         <button id="gallerySelectAllBtn" type="button">Select all</button>
         <span id="gallerySelectedCount" class="gallerySelectedCount" aria-live="polite">0 selected</span>
         <span class="spacer"></span>
+        <button id="galleryDownloadZipBtn" class="galleryDownloadZipBtn" type="button" disabled>Download .zip</button>
         <button id="galleryRemoveBtn" class="galleryRemoveBtn" type="button" disabled>Remove selected</button>
       </div>
       <div id="galleryScroller" class="galleryScroller" tabindex="0">
@@ -1410,6 +1413,7 @@ if (window.self === window.top && navigator.standalone === true) {
     galleryPhotoCount: $("#galleryPhotoCount"), gallerySelectedCount: $("#gallerySelectedCount"),
     gallerySortSelect: $("#gallerySortSelect"),
     gallerySelectModeBtn: $("#gallerySelectModeBtn"), gallerySelectAllBtn: $("#gallerySelectAllBtn"),
+    galleryDownloadZipBtn: $("#galleryDownloadZipBtn"),
     galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn"), galleryHint: $("#galleryHint")
   };
 
@@ -2237,6 +2241,7 @@ if (window.self === window.top && navigator.standalone === true) {
     });
     if(!v) updateButtons();
     else{updateProfileUI();updateLutUI()}
+    if(typeof galleryOpen!=="undefined"&&galleryOpen)updateGalleryActions();
   }
   function updateStraightenUI(){
     const selected=current>=0&&!!items[current];
@@ -4854,7 +4859,9 @@ if (window.self === window.top && navigator.standalone === true) {
     els.gallerySelectedCount.textContent=`${selected} selected`;
     els.gallerySelectAllBtn.textContent=allSelected?"Deselect all":"Select all";
     els.gallerySelectAllBtn.disabled=galleryRemoving||!items.length;
-    els.galleryRemoveBtn.disabled=galleryRemoving||!selected;
+    els.galleryDownloadZipBtn.disabled=galleryRemoving||busy||!selected;
+    els.galleryDownloadZipBtn.textContent=selected?`Download .zip (${selected})`:"Download .zip";
+    els.galleryRemoveBtn.disabled=galleryRemoving||busy||!selected;
     els.galleryRemoveBtn.textContent=galleryRemoving
       ? "Removing…"
       : selected?`Remove selected (${selected})`:"Remove selected";
@@ -5604,29 +5611,29 @@ if (window.self === window.top && navigator.standalone === true) {
     return new Blob([localAll,central,end],{type:"application/zip"});
   }
 
-  els.zipBtn.onclick=async()=>{
-    if(!items.length||busy)return;
-    setBusy(true);showProcessing(items.length);
+  async function exportPhotosZip(targetItems,zipFileName="OnDevice_Film_Lab_Exports.zip"){
+    if(!targetItems.length||busy)return;
+    setBusy(true);photoDecodeAbort=new AbortController();showProcessing(targetItems.length);
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{
       const entries=[];
       const usedNames=new Set();
-      for(let i=0;i<items.length;i++){
-        setStatus(`Processing ${i+1} of ${items.length}: ${items[i].file.name}`);
-        setProcessingStage("Processing photos…",`Photo ${i+1} of ${items.length}`);
-        const blob=await processItem(items[i],true);
+      for(let i=0;i<targetItems.length;i++){
+        setStatus(`Processing ${i+1} of ${targetItems.length}: ${targetItems[i].file.name}`);
+        setProcessingStage("Processing photos…",`Photo ${i+1} of ${targetItems.length}`);
+        const blob=await processItem(targetItems[i],true);
         throwIfProcessingCancelled();
-        entries.push({name:await outputName(items[i].file,usedNames),blob});
-        setProgress(i+1,items.length);
+        entries.push({name:await outputName(targetItems[i].file,usedNames),blob});
+        setProgress(i+1,targetItems.length);
         await new Promise(r=>setTimeout(r,0));
       }
       setStatus("Building ZIP…");
-      setProcessingStage("Building ZIP…",`Packing ${items.length} ${items.length===1?"photo":"photos"}`);
+      setProcessingStage("Building ZIP…",`Packing ${targetItems.length} ${targetItems.length===1?"photo":"photos"}`);
       const zip=await buildZip(entries,true);
       throwIfProcessingCancelled();
-      await downloadBlob(zip,"OnDevice_Film_Lab_Exports.zip");
-      setStatus(`ZIP ready • ${items.length} photos`);
-      setProcessingStage("Download ready",`${items.length} ${items.length===1?"photo":"photos"} exported`);
+      await downloadBlob(zip,zipFileName);
+      setStatus(`ZIP ready • ${targetItems.length} photos`);
+      setProcessingStage("Download ready",`${targetItems.length} ${targetItems.length===1?"photo":"photos"} exported`);
       await new Promise(r=>setTimeout(r,350));
     }catch(e){
       if(e?.name==="AbortError"){
@@ -5639,9 +5646,21 @@ if (window.self === window.top && navigator.standalone === true) {
         await new Promise(r=>setTimeout(r,1200));
       }
     }
+    photoDecodeAbort=null;
     hideProcessing();
     setBusy(false);
-  };
+  }
+
+  async function downloadGallerySelectionZip(){
+    const selectedIds=new Set(gallerySelection);
+    const selectedItems=items.filter(item=>selectedIds.has(item.libraryId));
+    if(!selectedItems.length||busy||galleryRemoving)return;
+    const noun=selectedItems.length===1?"photo":"photos";
+    await exportPhotosZip(selectedItems,`OnDevice_Film_Lab_Selection_${selectedItems.length}_${noun}.zip`);
+  }
+
+  els.galleryDownloadZipBtn.addEventListener("click",downloadGallerySelectionZip);
+  els.zipBtn.onclick=()=>exportPhotosZip(items,"OnDevice_Film_Lab_Exports.zip");
 
   window.addEventListener("pagehide",()=>{if(pendingLibraryStates.size)flushLibraryStates()});
   updateButtons();
