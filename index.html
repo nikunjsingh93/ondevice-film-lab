@@ -588,6 +588,22 @@ if (window.self === window.top && navigator.standalone === true) {
   .galleryCheck svg{display:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
   .galleryItem[aria-selected="true"] .galleryCheck{background:var(--accent);border-color:var(--accent)}
   .galleryItem[aria-selected="true"] .galleryCheck svg{display:block}
+  .gallerySortControl{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:700}
+  .gallerySortControl select{width:auto;padding:5px 10px;font-size:11px;font-weight:600;border-radius:8px;background:#202b3c;border:1px solid var(--line);color:var(--text);cursor:pointer}
+  .gallerySortControl select:hover,.gallerySortControl select:focus{border-color:var(--accent);outline:none}
+  .dateGroupHeader{grid-column:1/-1;display:flex;align-items:center;gap:12px;margin:16px 0 2px;color:#dce8f7;font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .dateGroupHeader:first-child{margin-top:0}
+  .dateGroupHeader::after{content:"";height:1px;flex:1;background:var(--line)}
+  .dateGroupSelect{display:inline-flex;align-items:center;gap:9px;min-height:36px;padding:4px 11px;border:1px solid var(--line);border-radius:10px;background:#182232;color:inherit;font:inherit;font-size:13px;font-weight:700;text-align:left;cursor:pointer;touch-action:manipulation;transition:border-color .15s ease,background .15s ease}
+  .dateGroupSelect:hover{border-color:var(--accent)}
+  .dateGroupSelect:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .dateGroupSelect[aria-pressed="true"]{border-color:var(--accent);background:#233952}
+  .dateGroupSelect:disabled{opacity:.6;cursor:wait}
+  .dateGroupCheck{display:grid;place-items:center;width:18px;height:18px;border:1px solid currentColor;border-radius:5px;font-size:12px;line-height:1}
+  .dateGroupSelect[aria-pressed="true"] .dateGroupCheck::after{content:"✓"}
+  .dateGroupSelect[aria-pressed="mixed"] .dateGroupCheck::after{content:"−"}
+  .dateGroupAction{font-size:11px;font-weight:500;color:var(--muted);margin-left:4px}
+  .galleryItem .editedBadge{position:absolute;top:9px;right:9px;padding:3px 6px;border-radius:999px;background:#111927dd;color:#9bc8ee;font-size:9px;font-weight:800;letter-spacing:.06em;pointer-events:none;z-index:2}
   .galleryHint{padding:9px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;text-align:center}
   .notice{font-size:12px;color:var(--muted);padding:0 2px}
   .danger{color:var(--danger)}
@@ -767,6 +783,10 @@ if (window.self === window.top && navigator.standalone === true) {
     .galleryOverlay{padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}
     .galleryCard{width:100%;height:100%;min-height:0;border-radius:16px}
     .galleryHeader,.galleryActions{padding-left:12px;padding-right:12px}
+    .galleryHeader{flex-wrap:wrap;row-gap:8px}
+    .gallerySortControl{order:4;width:100%;justify-content:space-between}
+    .gallerySortControl select{flex:1;max-width:180px}
+    .dateGroupHeader{margin-top:12px;font-size:14px}
     .galleryGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
     .galleryScroller{padding:10px}
     .galleryItem{padding:5px;border-radius:12px}
@@ -1301,6 +1321,13 @@ if (window.self === window.top && navigator.standalone === true) {
       <div class="galleryHeader">
         <strong id="galleryTitle">Photo Gallery</strong>
         <span id="galleryPhotoCount" class="galleryPhotoCount">0 photos</span>
+        <label class="gallerySortControl">
+          <span>Sort by</span>
+          <select id="gallerySortSelect" aria-label="Sort gallery photos">
+            <option value="captured">Date taken</option>
+            <option value="imported">Date uploaded</option>
+          </select>
+        </label>
         <span class="spacer"></span>
         <button id="gallerySelectModeBtn" class="gallerySelectModeBtn" type="button" aria-pressed="false">Select</button>
         <button id="galleryCloseBtn" class="iconButton" type="button" aria-label="Close gallery">
@@ -1381,6 +1408,7 @@ if (window.self === window.top && navigator.standalone === true) {
     appDialogError: $("#appDialogError"), appDialogCancelBtn: $("#appDialogCancelBtn"), appDialogConfirmBtn: $("#appDialogConfirmBtn"),
     galleryOverlay: $("#galleryOverlay"), galleryCard: $("#galleryCard"), galleryGrid: $("#galleryGrid"), galleryScroller: $("#galleryScroller"),
     galleryPhotoCount: $("#galleryPhotoCount"), gallerySelectedCount: $("#gallerySelectedCount"),
+    gallerySortSelect: $("#gallerySortSelect"),
     gallerySelectModeBtn: $("#gallerySelectModeBtn"), gallerySelectAllBtn: $("#gallerySelectAllBtn"),
     galleryRemoveBtn: $("#galleryRemoveBtn"), galleryCloseBtn: $("#galleryCloseBtn"), galleryHint: $("#galleryHint")
   };
@@ -1517,6 +1545,7 @@ if (window.self === window.top && navigator.standalone === true) {
           type:item.file.type,
           lastModified:item.file.lastModified,
           captureTime:item.captureDate.getTime(),
+          importedTime:(item.importedDate||new Date()).getTime(),
           order:item.libraryOrder
         });
         states.put(storedStateFor(item));
@@ -4687,6 +4716,8 @@ if (window.self === window.top && navigator.standalone === true) {
         if(stored.workingBlob)photoSources.set(file,{blob:stored.workingBlob,thumbBlob:stored.thumbBlob});
         const state=stateById.get(stored.id)||{};
         const captureDate=new Date(stored.captureTime||file.lastModified||Date.now());
+        const importedTime=stored.importedTime||stored.order||file.lastModified||Date.now();
+        const importedDate=new Date(importedTime);
         const restoredSettings={...cloneSettings(batchSettings),...(state.settings?cloneSettings(state.settings):{})};
         if(restoredSettings.lutSelect!=="none"&&!customLuts.has(restoredSettings.lutSelect))restoredSettings.lutSelect="none";
         const item={
@@ -4699,7 +4730,8 @@ if (window.self === window.top && navigator.standalone === true) {
           masks:JSON.parse(JSON.stringify(state.masks||[])),
           settings:restoredSettings,
           thumbUrl:URL.createObjectURL(stored.thumbBlob||stored.workingBlob||file),
-          captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate
+          captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate,
+          importedDate:Number.isNaN(importedDate.getTime())?new Date(file.lastModified||Date.now()):importedDate
         };
         appendLibraryItem(item);
       }
@@ -4751,9 +4783,10 @@ if (window.self === window.top && navigator.standalone === true) {
           const source=await preparePhotoSource(f);
           if(processingCancelRequested)break;
           const captureDate=await getCaptureDate(f);
+          const importedDate=new Date();
           const it={libraryId:createLibraryId(),libraryOrder:Date.now()+added.length/1000,
             file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
-            thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||f),captureDate};
+            thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||f),captureDate,importedDate};
           appendLibraryItem(it);added.push(it);known.add(key);
         }catch(error){if(error.name==='AbortError')break;errors.push(`${f.name}: ${error.message}`)}
       }
@@ -4766,6 +4799,43 @@ if (window.self === window.top && navigator.standalone === true) {
       setStatus(persisted?`Added ${added.length} photo${added.length===1?'':'s'} • kept after refresh`:`Added ${added.length} photos • could not keep after refresh`);
     }else setStatus(errors.length?'No photos could be opened':'No new photos added');
     if(errors.length)await showAppDialog({title:'Some photos could not be opened',message:errors.slice(0,5).join('\n'),confirmText:'OK'});
+  }
+
+  let gallerySortMode=localStorage.getItem("filmLabGallerySort")==="imported"?"imported":"captured";
+
+  function galleryDate(item){
+    return gallerySortMode==="imported"
+      ?(item.importedDate||item.captureDate)
+      :(item.captureDate||item.importedDate);
+  }
+
+  function dateGroup(value){
+    const date=value?new Date(value):null;
+    if(!date||Number.isNaN(date.getTime()))return {key:"unknown",label:"Unknown date"};
+    const key=`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const today=new Date();
+    const startToday=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+    const startDate=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+    const daysAgo=Math.round((startToday-startDate)/86400000);
+    const label=daysAgo===0?"Today":daysAgo===1?"Yesterday":new Intl.DateTimeFormat(undefined,{
+      month:"long",day:"numeric",...(date.getFullYear()===today.getFullYear()?{}:{year:"numeric"})
+    }).format(date);
+    return {key,label};
+  }
+
+  function toggleDateGroup(groupKey){
+    if(!gallerySelectionMode||galleryRemoving)return;
+    const groupItems=items.filter(item=>dateGroup(galleryDate(item)).key===groupKey);
+    if(!groupItems.length)return;
+    const allSelected=groupItems.every(item=>gallerySelection.has(item.libraryId));
+    groupItems.forEach(item=>{
+      if(allSelected)gallerySelection.delete(item.libraryId);
+      else gallerySelection.add(item.libraryId);
+    });
+    for(const card of els.galleryGrid.querySelectorAll(".galleryItem")){
+      card.setAttribute("aria-selected",String(gallerySelection.has(card.dataset.libraryId)));
+    }
+    updateGalleryActions();
   }
 
   function updateGalleryActions(){
@@ -4788,33 +4858,101 @@ if (window.self === window.top && navigator.standalone === true) {
     els.galleryRemoveBtn.textContent=galleryRemoving
       ? "Removing…"
       : selected?`Remove selected (${selected})`:"Remove selected";
+
+    els.galleryGrid.querySelectorAll(".dateGroupSelect").forEach(btn=>{
+      const key=btn.dataset.date;
+      const groupItems=items.filter(item=>dateGroup(galleryDate(item)).key===key);
+      const all=Boolean(groupItems.length&&groupItems.every(item=>gallerySelection.has(item.libraryId)));
+      const some=groupItems.some(item=>gallerySelection.has(item.libraryId));
+      btn.setAttribute("aria-pressed",all?"true":some?"mixed":"false");
+      btn.setAttribute("aria-label",`${all?"Deselect":"Select"} all photos from ${btn.dataset.label}`);
+      const action=btn.querySelector(".dateGroupAction");
+      if(action)action.textContent=all?"Deselect all":"Select all";
+    });
   }
+
   function renderGallery(){
     gallerySelection.forEach(id=>{
       if(!items.some(item=>item.libraryId===id))gallerySelection.delete(id);
     });
     const fragment=document.createDocumentFragment();
-    items.forEach((item,index)=>{
+
+    const sorted=[...items].map((item,originalIndex)=>({item,originalIndex})).sort((a,b)=>{
+      const timeA=(galleryDate(a.item)?.getTime())||0;
+      const timeB=(galleryDate(b.item)?.getTime())||0;
+      if(timeB!==timeA)return timeB-timeA;
+      if(gallerySortMode==="captured"){
+        const impA=(a.item.importedDate?.getTime())||0;
+        const impB=(b.item.importedDate?.getTime())||0;
+        if(impB!==impA)return impB-impA;
+      }
+      return (b.item.libraryOrder||0)-(a.item.libraryOrder||0);
+    });
+
+    let previousGroup="";
+    sorted.forEach(({item,originalIndex})=>{
+      const group=dateGroup(galleryDate(item));
+      if(group.key!==previousGroup){
+        previousGroup=group.key;
+        const heading=document.createElement("h2");
+        heading.className="dateGroupHeader";
+        heading.dataset.date=group.key;
+        if(gallerySelectionMode){
+          const btn=document.createElement("button");
+          btn.type="button";
+          btn.className="dateGroupSelect";
+          btn.dataset.date=group.key;
+          btn.dataset.label=group.label;
+          const check=document.createElement("span");
+          check.className="dateGroupCheck";
+          check.setAttribute("aria-hidden","true");
+          const labelSpan=document.createElement("span");
+          labelSpan.textContent=group.label;
+          const actionSpan=document.createElement("span");
+          actionSpan.className="dateGroupAction";
+          actionSpan.textContent="Select all";
+          btn.append(check,labelSpan,actionSpan);
+          btn.addEventListener("click",()=>toggleDateGroup(group.key));
+          heading.appendChild(btn);
+        }else{
+          heading.textContent=group.label;
+        }
+        fragment.appendChild(heading);
+      }
+
       const selected=gallerySelection.has(item.libraryId);
       const button=document.createElement("button");
       button.type="button";button.className="galleryItem";button.setAttribute("role","option");
       button.setAttribute("aria-selected",String(selected));button.dataset.libraryId=item.libraryId;
+
       const image=document.createElement("img");
-      image.src=els.thumbs.children[index]?.querySelector("img")?.src||item.thumbUrl;
+      image.src=els.thumbs.children[originalIndex]?.querySelector("img")?.src||item.thumbUrl;
       image.alt="";image.loading="lazy";image.decoding="async";
+
       const check=document.createElement("span");check.className="galleryCheck";check.setAttribute("aria-hidden","true");
       check.innerHTML='<svg viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7"/></svg>';
+
       const name=document.createElement("span");name.className="galleryItemName";name.textContent=item.file.name;
+
       const meta=document.createElement("span");meta.className="galleryItemMeta";
-      const date=item.captureDate;
-      meta.textContent=`${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())} • ${(item.file.size/1024/1024).toFixed(1)} MB`;
+      const date=galleryDate(item);
+      const formattedDate=date?new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(date):"Unknown date";
+      meta.textContent=`${formattedDate} • ${(item.file.size/1024/1024).toFixed(1)} MB`;
+
       button.append(image,check,name,meta);
       appendRawBadge(button,item.file.name);
+      if(itemHasCustomEdits(item)){
+        const editedBadge=document.createElement("span");
+        editedBadge.className="editedBadge";
+        editedBadge.textContent="EDITED";
+        button.appendChild(editedBadge);
+      }
+
       button.addEventListener("click",()=>{
         if(galleryRemoving)return;
         if(!gallerySelectionMode){
           closeGallery();
-          select(index);
+          select(originalIndex);
           return;
         }
         if(gallerySelection.has(item.libraryId))gallerySelection.delete(item.libraryId);
@@ -4822,8 +4960,10 @@ if (window.self === window.top && navigator.standalone === true) {
         button.setAttribute("aria-selected",String(gallerySelection.has(item.libraryId)));
         updateGalleryActions();
       });
+
       fragment.appendChild(button);
     });
+
     els.galleryGrid.replaceChildren(fragment);
     updateGalleryActions();
   }
@@ -4920,6 +5060,14 @@ if (window.self === window.top && navigator.standalone === true) {
     renderGallery();
   });
   els.galleryRemoveBtn.addEventListener("click",removeGallerySelection);
+  if(els.gallerySortSelect){
+    els.gallerySortSelect.value=gallerySortMode;
+    els.gallerySortSelect.addEventListener("change",()=>{
+      gallerySortMode=els.gallerySortSelect.value==="imported"?"imported":"captured";
+      localStorage.setItem("filmLabGallerySort",gallerySortMode);
+      renderGallery();
+    });
+  }
 
   function showEmptyLibrary(){
     cancelOriginalHold();

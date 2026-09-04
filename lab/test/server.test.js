@@ -405,6 +405,37 @@ test("date selection includes unloaded photos, respects local day boundaries, se
   } finally {db.exec("ROLLBACK TO date_test; RELEASE date_test");}
 });
 
+test("offline gallery supports sorting by date taken and date uploaded with day grouping", () => {
+  const html = fs.readFileSync(path.resolve(__dirname, "../../index.html"), "utf8");
+  assert.match(html, /<select id="gallerySortSelect"/);
+  assert.match(html, /<option value="captured">Date taken<\/option>/);
+  assert.match(html, /<option value="imported">Date uploaded<\/option>/);
+  assert.match(html, /\.dateGroupHeader/);
+  assert.match(html, /\.dateGroupSelect/);
+
+  const dateGroupStart = html.indexOf("  function dateGroup(value){");
+  const dateGroupEnd = html.indexOf("\n  function toggleDateGroup", dateGroupStart);
+  assert.ok(dateGroupStart > 0 && dateGroupEnd > dateGroupStart);
+
+  const context = {
+    Intl,
+    Date
+  };
+  vm.runInNewContext(html.slice(dateGroupStart, dateGroupEnd), context);
+
+  const now = new Date();
+  const todayGroup = context.dateGroup(now);
+  assert.equal(todayGroup.label, "Today");
+
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12, 0, 0);
+  const yesterdayGroup = context.dateGroup(yesterday);
+  assert.equal(yesterdayGroup.label, "Yesterday");
+
+  const older = new Date(2023, 4, 15, 12, 0, 0);
+  const olderGroup = context.dateGroup(older);
+  assert.match(olderGroup.label, /May 15, 2023/);
+});
+
 test("unauthenticated and expired session requests to / redirect to /login without 500 error", () => {
   assert.ok(testApi.statements.sessionByToken);
   assert.ok(testApi.statements.userByName);
