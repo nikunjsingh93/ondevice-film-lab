@@ -442,6 +442,24 @@ test("offline gallery supports sorting by date taken and date uploaded with day 
   assert.match(themeCss, /html\[data-theme="black"\]\s*:is\([^)]*\.galleryRemoveBtn[^)]*\):not\(:disabled\)\s*\{[^}]*background(-color)?:\s*#e03131/);
 });
 
+test("offline app displays Adding photos progress bar modal when adding photos or folders", () => {
+  const html = fs.readFileSync(path.resolve(__dirname, "../../index.html"), "utf8");
+  assert.match(html, /class="processingCard"/);
+  assert.match(html, /class="processingIcon"/);
+  assert.match(html, /id="processingTitle"[^>]*>Adding photos…<\/strong>/);
+  assert.match(html, /id="processingProgress"[^>]*class="processingProgress"/);
+  assert.match(html, /id="processingPercent"[^>]*class="processingPercent"/);
+  assert.match(html, /id="processingCancelBtn"[^>]*class="processingCancel"/);
+
+  // Verify addFiles triggers showProcessing with "Adding photos…" and updates progress
+  assert.match(html, /showProcessing\(files\.length,\s*"Adding photos…"/);
+  assert.match(html, /setProcessingStage\("Adding photos…"/);
+  assert.match(html, /Photo \$\{index\s*\+\s*1\} of \$\{files\.length\}/);
+
+  const themeCss = fs.readFileSync(path.resolve(__dirname, "../../theme.css"), "utf8");
+  assert.match(themeCss, /html\[data-theme="black"\]\s*\.processingProgress\s*\{\s*background:\s*#000\s*\}/);
+});
+
 test("unauthenticated and expired session requests to / redirect to /login without 500 error", () => {
   assert.ok(testApi.statements.sessionByToken);
   assert.ok(testApi.statements.userByName);

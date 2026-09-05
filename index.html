@@ -499,29 +499,27 @@ if (window.self === window.top && navigator.standalone === true) {
   .processingOverlay.open{opacity:1;visibility:visible}
   .processingCard{
     width:min(390px,100%);
-    padding:24px;
+    padding:26px 24px 22px;
     border:1px solid #465875;
-    border-radius:18px;
+    border-radius:20px;
     background:#182130f2;
-    box-shadow:0 22px 70px #000a;
+    box-shadow:0 24px 80px #000c;
     text-align:center
   }
-  .processingSpinner{
-    width:34px;
-    height:34px;
-    margin:0 auto 14px;
-    border:3px solid #40516a;
-    border-top-color:var(--accent);
-    border-radius:50%;
-    animation:processingSpin .8s linear infinite
+  .processingIcon{
+    width:58px;
+    height:58px;
+    margin:0 auto 15px;
+    border-radius:15px;
+    display:block;
+    box-shadow:0 8px 24px #0004
   }
-  @keyframes processingSpin{to{transform:rotate(360deg)}}
-  .processingTitle{display:block;font-size:17px;margin-bottom:5px}
-  .processingDetail{display:block;min-height:20px;color:var(--muted);font-size:12px}
-  .processingProgress{height:8px;margin-top:17px;background:#0d131d;border-radius:99px;overflow:hidden}
-  .processingProgress>div{height:100%;width:0;background:linear-gradient(90deg,#679bd2,var(--accent));border-radius:inherit;transition:width .18s ease}
-  .processingPercent{display:block;margin-top:8px;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
-  .processingCancel{margin-top:15px;min-width:110px}
+  .processingTitle{display:block;font-size:18px;margin-bottom:6px;font-weight:750;letter-spacing:-.01em}
+  .processingDetail{display:block;min-height:20px;color:var(--muted);font-size:13px}
+  .processingProgress{height:9px;margin-top:19px;background:#0d131d;border-radius:99px;overflow:hidden}
+  .processingProgress>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent2,#8f79db),var(--accent,#78a9dd));border-radius:inherit;transition:width .2s ease}
+  .processingPercent{display:block;margin-top:8px;color:#a9bad1;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+  .processingCancel{margin-top:16px;min-width:110px}
   .appDialogOverlay{
     position:fixed;z-index:3200;inset:0;display:grid;place-items:center;padding:max(20px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));
     background:#060911b8;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -1292,11 +1290,11 @@ if (window.self === window.top && navigator.standalone === true) {
   </dialog>
 
   <div id="processingOverlay" class="processingOverlay" role="dialog" aria-modal="true" aria-labelledby="processingTitle" aria-describedby="processingDetail" aria-hidden="true">
-    <div class="processingCard">
-      <div class="processingSpinner" aria-hidden="true"></div>
-      <strong id="processingTitle" class="processingTitle">Processing photos…</strong>
-      <span id="processingDetail" class="processingDetail">Preparing your export</span>
-      <div id="processingProgress" class="processingProgress" role="progressbar" aria-label="ZIP export progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+    <div class="processingCard" role="status" aria-live="polite">
+      <img class="processingIcon" src="./branding/ondevice-film-lab-logo-v4.png" alt="" aria-hidden="true">
+      <strong id="processingTitle" class="processingTitle">Adding photos…</strong>
+      <span id="processingDetail" class="processingDetail">Preparing photos…</span>
+      <div id="processingProgress" class="processingProgress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
       <span id="processingPercent" class="processingPercent">0%</span>
       <button id="processingCancelBtn" class="processingCancel" type="button">Cancel</button>
     </div>
@@ -2193,18 +2191,19 @@ if (window.self === window.top && navigator.standalone === true) {
       straightenGridTimer=setTimeout(()=>els.viewer.classList.remove("straightening"),650);
     }
   }
-  function setProgress(n, total){
+  function setProgress(n, total, detail){
     const percent=total?Math.max(0,Math.min(100,n/total*100)):0;
     els.processingBar.style.width=`${percent}%`;
     els.processingProgress.setAttribute("aria-valuenow",String(Math.round(percent)));
     els.processingPercent.textContent=`${Math.round(percent)}%`;
+    if(detail) els.processingDetail.textContent=detail;
   }
-  function showProcessing(total){
+  function showProcessing(total, title="Processing photos…", detail=""){
     processingCancelRequested=false;
     els.processingCancelBtn.disabled=false;
     els.processingCancelBtn.textContent="Cancel";
-    els.processingTitle.textContent="Processing photos…";
-    els.processingDetail.textContent=`Preparing 0 of ${total}`;
+    els.processingTitle.textContent=title;
+    els.processingDetail.textContent=detail||`Preparing 0 of ${total}`;
     setProgress(0,total);
     els.processingOverlay.setAttribute("aria-hidden","false");
     requestAnimationFrame(()=>els.processingOverlay.classList.add("open"));
@@ -2229,7 +2228,7 @@ if (window.self === window.top && navigator.standalone === true) {
     photoDecodeAbort?.abort();
     els.processingCancelBtn.disabled=true;
     els.processingCancelBtn.textContent="Cancelling…";
-    setProcessingStage("Cancelling export…","Finishing the current step safely");
+    setProcessingStage("Cancelling…","Finishing the current step safely");
   });
   function setBusy(v){
     busy = v;
@@ -4772,19 +4771,33 @@ if (window.self === window.top && navigator.standalone === true) {
     await libraryRestorePromise;
     if(busy)return;
     const files=[...list].filter(supported);
-    if(!files.length){setStatus("No supported photos found");return}
+    if(!files.length){
+      setStatus("No supported photos found");
+      els.fileInput.value="";
+      els.folderInput.value="";
+      return;
+    }
     requestPersistentStorage();
     const known=new Set(items.map(x=>x.file.name+"|"+x.file.size+"|"+x.file.lastModified));
     const added=[],errors=[];
-    const converting=files.some(file=>PhotoFormats.kind(file)&&!photoSources.has(file));
+    let duplicates=0;
     setBusy(true);
-    if(converting){photoDecodeAbort=new AbortController();showProcessing(files.length)}
+    photoDecodeAbort=new AbortController();
+    showProcessing(files.length,"Adding photos…",`Preparing ${files.length} ${files.length===1?"photo":"photos"}`);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     try{
       for(const [index,f] of files.entries()){
         if(processingCancelRequested)break;
-        const key=f.name+"|"+f.size+"|"+f.lastModified;if(known.has(key))continue;
+        const key=f.name+"|"+f.size+"|"+f.lastModified;
+        if(known.has(key)){
+          duplicates++;
+          setProgress(index+1,files.length,`Photo ${index+1} of ${files.length} (already in library)`);
+          await new Promise(r=>setTimeout(r,0));
+          continue;
+        }
         try{
-          if(converting){setProcessingStage("Opening photo…",f.name);setProgress(index,files.length)}
+          setProcessingStage("Adding photos…",`Photo ${index+1} of ${files.length}: ${f.name}`);
+          setProgress(index,files.length);
           const source=await preparePhotoSource(f);
           if(processingCancelRequested)break;
           const captureDate=await getCaptureDate(f);
@@ -4793,16 +4806,38 @@ if (window.self === window.top && navigator.standalone === true) {
             file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
             thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||f),captureDate,importedDate};
           appendLibraryItem(it);added.push(it);known.add(key);
-        }catch(error){if(error.name==='AbortError')break;errors.push(`${f.name}: ${error.message}`)}
+          setProgress(index+1,files.length);
+          await new Promise(r=>setTimeout(r,0));
+        }catch(error){
+          if(error.name==='AbortError')break;
+          errors.push(`${f.name}: ${error.message}`);
+        }
       }
-    }finally{photoDecodeAbort=null;if(converting)hideProcessing();setBusy(false)}
+      if(processingCancelRequested){
+        setStatus(added.length?`Added ${added.length} photos (cancelled)`:"Photo import cancelled");
+      }else if(added.length){
+        setProcessingStage("Adding photos…",`Saving ${added.length} ${added.length===1?"photo":"photos"} on this device…`);
+        setProgress(files.length,files.length);
+        await new Promise(r=>setTimeout(r,0));
+        clearEditHistory();
+        setStatus(`Saving ${added.length} photos on this device…`);
+        const persisted=await persistImportedItems(added);
+        setStatus(persisted?`Added ${added.length} photo${added.length===1?'':'s'} • kept after refresh`:`Added ${added.length} photos • could not keep after refresh`);
+        await new Promise(r=>setTimeout(r,250));
+      }else if(duplicates&&!errors.length){
+        setStatus(`All ${duplicates} ${duplicates===1?"photo is":"photos are"} already in the library`);
+      }else{
+        setStatus(errors.length?'No photos could be opened':'No new photos added');
+      }
+    }finally{
+      photoDecodeAbort=null;
+      hideProcessing();
+      setBusy(false);
+      els.fileInput.value="";
+      els.folderInput.value="";
+    }
     els.count.textContent=`Photos (${items.length})`;updateButtons();
     if(current<0&&items.length)select(0);
-    if(added.length){
-      clearEditHistory();setStatus(`Saving ${added.length} photos on this device…`);
-      const persisted=await persistImportedItems(added);
-      setStatus(persisted?`Added ${added.length} photo${added.length===1?'':'s'} • kept after refresh`:`Added ${added.length} photos • could not keep after refresh`);
-    }else setStatus(errors.length?'No photos could be opened':'No new photos added');
     if(errors.length)await showAppDialog({title:'Some photos could not be opened',message:errors.slice(0,5).join('\n'),confirmText:'OK'});
   }
 
