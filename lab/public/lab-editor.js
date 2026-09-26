@@ -54,7 +54,7 @@
 
   function cleanState(state) {
     if (!state) return null;
-    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, masks: state.masks || [], isEdited: Boolean(state.isEdited) };
+    return { rotation: state.rotation || 0, straighten: state.straighten || 0, crop: state.crop || null, settings: state.settings || {}, masks: state.masks || [], cameraProfileId: state.cameraProfileId || null, isEdited: Boolean(state.isEdited) };
   }
 
   async function saveState(force = false) {
@@ -506,6 +506,7 @@
     if (zipButton) zipButton.hidden = true;
 
     document.addEventListener("filmLabMaskChange", queueStateSave);
+    document.addEventListener("filmLabPhotoStateChange", queueStateSave);
     document.addEventListener("input", queueStateSave, true);
     document.addEventListener("change", queueStateSave, true);
     document.querySelector("#lutFileInput")?.addEventListener("change", event => {

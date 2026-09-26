@@ -998,7 +998,6 @@ if (window.self === window.top && navigator.standalone === true) {
           <div class="control">
             <label><span>Luminance noise reduction</span><span id="luminanceNoiseVal" class="value">0%</span></label>
             <input id="luminanceNoise" type="range" min="0" max="100" value="0">
-            <small class="notice">Reduces grain in the original photo. Turn off Add film grain below for a fully smooth result.</small>
           </div>
         </div>
 
@@ -1023,6 +1022,10 @@ if (window.self === window.top && navigator.standalone === true) {
           <div class="control">
             <label><span>Temperature</span><span id="temperatureVal" class="value">0</span></label>
             <input id="temperature" type="range" min="-100" max="100" value="0" aria-label="Temperature, cool to warm">
+          </div>
+          <div class="control">
+            <label><span>Sharpness</span><span id="sharpnessVal" class="value">0%</span></label>
+            <input id="sharpness" type="range" min="0" max="100" value="0" aria-label="Sharpness">
           </div>
         </div>
 
@@ -1367,6 +1370,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
 <script src="./photo-formats.js"></script>
 <script src="./photo-codecs.js"></script>
+<script src="./photo-exif.js"></script>
 <script>
 (() => {
   "use strict";
@@ -1382,7 +1386,7 @@ if (window.self === window.top && navigator.standalone === true) {
     filmstripAddBtn: $("#filmstripAddBtn"), libraryRemoveBtn: $("#libraryRemoveBtn"), libraryClearBtn: $("#libraryClearBtn"),
     libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
     exposure: $("#exposure"), temperature: $("#temperature"), highlights: $("#highlights"), shadows: $("#shadows"),
-    contrast: $("#contrast"), saturation: $("#saturation"),
+    contrast: $("#contrast"), saturation: $("#saturation"), sharpness: $("#sharpness"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"), luminanceNoise: $("#luminanceNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
@@ -1392,7 +1396,7 @@ if (window.self === window.top && navigator.standalone === true) {
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
     quality: $("#quality"), holdOriginal: $("#holdOriginal"),
     exposureVal: $("#exposureVal"), temperatureVal: $("#temperatureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
-    contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"),
+    contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"), sharpnessVal: $("#sharpnessVal"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"), luminanceNoiseVal: $("#luminanceNoiseVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
     vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
@@ -1510,6 +1514,7 @@ if (window.self === window.top && navigator.standalone === true) {
       straighten:item.straighten||0,
       crop:cropIsFull(item.crop)?null:normalizedCrop(item.crop),
       masks:JSON.parse(JSON.stringify(item.masks||[])),
+      cameraProfileId:item.cameraProfileId||null,
       settings:cloneSettings(item.settings||batchSettings)
     };
   }
@@ -1903,7 +1908,7 @@ if (window.self === window.top && navigator.standalone === true) {
       if(settingsMatch(settings,neutralPhotoSettings))continue;
       const layer=processCanvas(canvas,scale,settings);
       applyChromaNoiseReduction(layer,scale,settings);applyLuminanceNoiseReduction(layer,scale,settings);applyBasicAdjustments(layer,settings);applyColorAdjustments(layer,settings);
-      applyColorLut(layer,settings);applyChromaticAberration(layer,settings);applyFade(layer,settings);
+      applyColorLut(layer,settings);applySharpness(layer,scale,settings);applyChromaticAberration(layer,settings);applyFade(layer,settings);
       applyLightLeaks(layer,item.file,settings);applyHalation(layer,settings);applyBloom(layer,settings);applyGrain(layer,item.file,scale,settings);
       await applyDateStamp(layer,item.file,settings);
       const coverage=maskCoverage(mask,canvas.width,canvas.height,item,aspect,uncropped);
@@ -1995,7 +2000,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
   const photoSettingControls=[
     ...colorSettingControls,
-    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,
+    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,els.sharpness,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.luminanceNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
@@ -2010,7 +2015,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
   }
-  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0"};
+  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0",sharpness:"0"};
   function cloneSettings(settings){return {...addedSettingDefaults,...settings}}
   function capturePhotoSettings(){
     const settings={};
@@ -2049,7 +2054,7 @@ if (window.self === window.top && navigator.standalone === true) {
   // controls (grain size, LUT strength with no LUT, grading hue) alone do nothing.
   function settingsHavePreviewEdits(settings){
     const nonzero=id=>Number.isFinite(+settings[id])&&+settings[id]!==0;
-    const strengths=["amount","chromaNoise","luminanceNoise","fade","bloom","halation","chromatic","lightLeaks"];
+    const strengths=["amount","chromaNoise","luminanceNoise","sharpness","fade","bloom","halation","chromatic","lightLeaks"];
     if(strengths.some(id=>+settings[id]>0)||nonzero("vignette"))return true;
     if(["exposure","temperature","highlights","shadows","contrast","saturation"].some(nonzero))return true;
     if(Object.keys(colorSettingDefaults).some(id=>!/^colorGrade.*Hue$/.test(id)&&nonzero(id)))return true;
@@ -2067,6 +2072,7 @@ if (window.self === window.top && navigator.standalone === true) {
       photos:items.map(item=>({
         id:item.libraryId,
         masks:JSON.parse(JSON.stringify(item.masks||[])),
+        cameraProfileId:item.cameraProfileId||null,
         settings:cloneSettings(item.settings||batchSettings),
         rotation:item.rotation||0,
         straighten:item.straighten||0,
@@ -2100,6 +2106,7 @@ if (window.self === window.top && navigator.standalone === true) {
       if(!saved)continue;
       if(item.rotation!==saved.rotation||Math.abs((item.straighten||0)-saved.straighten)>.001||!cropsEqual(item.crop,saved.crop))transformed.push(item);
       item.masks=JSON.parse(JSON.stringify(saved.masks||[]));
+      item.cameraProfileId=saved.cameraProfileId||null;
       item.settings=cloneSettings(saved.settings);
       item.rotation=saved.rotation;
       item.straighten=saved.straighten;
@@ -2109,6 +2116,10 @@ if (window.self === window.top && navigator.standalone === true) {
     if(!activeMask())activeMaskId=null;
     updateMaskUI();
     cropOpen=false;cropDraft=null;straightenOpen=false;showStraightenGrid(false);
+    if(window.__FILMLAB_SERVER_MODE__){
+      activeCameraProfileId=cameraProfileById(items[current]?.cameraProfileId)?.id||DEFAULT_CAMERA_PROFILE_ID;
+      els.profileSelect.value=activeCameraProfileId;
+    }
     loadPhotoSettings(activeMask()?.settings||(editScope==="photo"&&current>=0?items[current]?.settings:batchSettings));
     updateAllCustomBadges();updateButtons();scheduleAllLibraryStates();saveSettings();
     for(const item of transformed){const index=items.indexOf(item);if(index>=0)refreshThumb(index)}
@@ -2877,6 +2888,38 @@ if (window.self === window.top && navigator.standalone === true) {
     const context=canvas.getContext("2d",{willReadFrequently:true});
     const image=context.getImageData(0,0,canvas.width,canvas.height);
     denoiseLuminancePixels(image.data,canvas.width,canvas.height,strength);
+    context.putImageData(image,0,0);
+    return canvas;
+  }
+
+  function sharpenPixels(pixels,blurred,strength){
+    if(strength<=0)return pixels;
+    for(let i=0;i<pixels.length;i+=4){
+      const dr=pixels[i]-blurred[i],dg=pixels[i+1]-blurred[i+1],db=pixels[i+2]-blurred[i+2];
+      const edge=Math.max(Math.abs(dr),Math.abs(dg),Math.abs(db));
+      // Leave tiny fluctuations alone so sharpening does not undo denoising.
+      const weight=Math.min(1,Math.max(0,(edge-2)/10));
+      const gain=1.5*strength*weight;
+      pixels[i]=Math.max(0,Math.min(255,Math.round(pixels[i]+Math.max(-48,Math.min(48,dr))*gain)));
+      pixels[i+1]=Math.max(0,Math.min(255,Math.round(pixels[i+1]+Math.max(-48,Math.min(48,dg))*gain)));
+      pixels[i+2]=Math.max(0,Math.min(255,Math.round(pixels[i+2]+Math.max(-48,Math.min(48,db))*gain)));
+    }
+    return pixels;
+  }
+
+  function applySharpness(canvas,radiusScale=1,settings=null){
+    const strength=settingNumber(settings,"sharpness")/100;
+    if(strength<=0)return canvas;
+    const blurred=document.createElement("canvas");
+    blurred.width=canvas.width;blurred.height=canvas.height;
+    const blurContext=blurred.getContext("2d",{willReadFrequently:true});
+    blurContext.filter=`blur(${Math.max(.65,1.2*radiusScale)}px)`;
+    blurContext.drawImage(canvas,-2,-2,canvas.width+4,canvas.height+4);
+    blurContext.filter="none";
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const image=context.getImageData(0,0,canvas.width,canvas.height);
+    const smooth=blurContext.getImageData(0,0,canvas.width,canvas.height);
+    sharpenPixels(image.data,smooth.data,strength);
     context.putImageData(image,0,0);
     return canvas;
   }
@@ -3924,6 +3967,7 @@ if (window.self === window.top && navigator.standalone === true) {
       applyBasicAdjustments(editedBase,settings);
       applyColorAdjustments(editedBase,settings);
       applyColorLut(editedBase,settings);
+      applySharpness(editedBase,previewScale,settings);
       applyChromaticAberration(editedBase,settings);
       applyFade(editedBase,settings);
       applyLightLeaks(editedBase,it.file,settings);
@@ -4083,7 +4127,8 @@ if (window.self === window.top && navigator.standalone === true) {
   function currentCameraProfile(){return cameraProfileById(activeCameraProfileId)||cameraProfiles[0]||null}
   function saveCameraProfiles(){
     try{
-      localStorage.setItem(CAMERA_PROFILE_STORAGE_KEY,JSON.stringify({activeId:activeCameraProfileId,profiles:cameraProfiles}));
+      const activeId=window.__FILMLAB_SERVER_MODE__?DEFAULT_CAMERA_PROFILE_ID:activeCameraProfileId;
+      localStorage.setItem(CAMERA_PROFILE_STORAGE_KEY,JSON.stringify({activeId,profiles:cameraProfiles}));
     }catch(error){console.warn("Camera profiles could not be saved",error)}
   }
   function renderCameraProfiles(){
@@ -4117,10 +4162,10 @@ if (window.self === window.top && navigator.standalone === true) {
     else restored.push({id:NEWCAM_PROFILE_ID,name:"newcam",settings:cloneSettings(neutralPhotoSettings)});
     cameraProfiles=restored;
     // Migrate Lab's previous default once; preserve later explicit profile choices.
-    activeCameraProfileId=window.__FILMLAB_SERVER_MODE__&&!newcam?NEWCAM_PROFILE_ID:
+    activeCameraProfileId=window.__FILMLAB_SERVER_MODE__?DEFAULT_CAMERA_PROFILE_ID:
       restored.some(profile=>profile.id===saved?.activeId)?saved.activeId:DEFAULT_CAMERA_PROFILE_ID;
     if(window.__FILMLAB_SERVER_MODE__){
-      batchSettings=cloneSettings(currentCameraProfile().settings);
+      batchSettings=cloneSettings(cameraProfileById(DEFAULT_CAMERA_PROFILE_ID).settings);
       loadPhotoSettings(batchSettings);
       saveSettings();
     }
@@ -4168,11 +4213,13 @@ if (window.self === window.top && navigator.standalone === true) {
     rememberEditState();
     const settings=normalizeProfileSettings(profile.settings);
     profile.settings=cloneSettings(settings);
-    if(editScope==="photo"&&current>=0&&items[current]){
+    if((window.__FILMLAB_SERVER_MODE__||editScope==="photo")&&current>=0&&items[current]){
       items[current].settings=cloneSettings(settings);
+      if(window.__FILMLAB_SERVER_MODE__)items[current].cameraProfileId=profile.id;
       loadPhotoSettings(items[current].settings);
       updateThumbCustomBadge(current);
       scheduleLibraryState(items[current]);
+      if(window.__FILMLAB_SERVER_MODE__)document.dispatchEvent(new Event("filmLabPhotoStateChange"));
     }else{
       batchSettings=cloneSettings(settings);
       for(const item of items)item.settings=cloneSettings(settings);
@@ -4185,7 +4232,7 @@ if (window.self === window.top && navigator.standalone === true) {
     updateProfileUI();
     saveCameraProfiles();
     rerender();
-    setStatus(`Applied ${profile.name} to ${editScope==="photo"&&current>=0?"this photo":"all photos"}`);
+    setStatus(`Applied ${profile.name} to ${(window.__FILMLAB_SERVER_MODE__||editScope==="photo")&&current>=0?"this photo":"all photos"}`);
   }
 
   function updateSliderLabels(){
@@ -4213,6 +4260,7 @@ if (window.self === window.top && navigator.standalone === true) {
     els.thresholdVal.textContent=els.threshold.value;
     els.chromaNoiseVal.textContent=`${els.chromaNoise.value}%`;
     els.luminanceNoiseVal.textContent=`${els.luminanceNoise.value}%`;
+    els.sharpnessVal.textContent=`${els.sharpness.value}%`;
     els.fadeVal.textContent=`${els.fade.value}%`;
     els.bloomVal.textContent=`${els.bloom.value}%`;
     els.halationVal.textContent=`${els.halation.value}%`;
@@ -4505,6 +4553,11 @@ if (window.self === window.top && navigator.standalone === true) {
     const id=`camera-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
     cameraProfiles.push({id,name,settings:normalizeProfileSettings(capturePhotoSettings())});
     activeCameraProfileId=id;
+    if(window.__FILMLAB_SERVER_MODE__&&items[current]){
+      items[current].cameraProfileId=id;
+      scheduleLibraryState(items[current]);
+      document.dispatchEvent(new Event("filmLabPhotoStateChange"));
+    }
     renderCameraProfiles();
     saveCameraProfiles();
     setStatus(`Created ${name} from the current edits`);
@@ -4545,7 +4598,14 @@ if (window.self === window.top && navigator.standalone === true) {
     activeCameraProfileId=DEFAULT_CAMERA_PROFILE_ID;
     renderCameraProfiles();
     saveCameraProfiles();
-    applyCameraProfile(currentCameraProfile());
+    if(window.__FILMLAB_SERVER_MODE__){
+      if(items[current]){
+        items[current].cameraProfileId=null;
+        scheduleLibraryState(items[current]);
+        document.dispatchEvent(new Event("filmLabPhotoStateChange"));
+      }
+      updateProfileUI();
+    }else applyCameraProfile(currentCameraProfile());
     setStatus(`Deleted ${profile.name}`);
   });
 
@@ -4727,6 +4787,10 @@ if (window.self === window.top && navigator.standalone === true) {
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
     els.filename.textContent=it?.file.name || "No photo selected";
+    if(window.__FILMLAB_SERVER_MODE__){
+      activeCameraProfileId=cameraProfileById(it?.cameraProfileId)?.id||DEFAULT_CAMERA_PROFILE_ID;
+      els.profileSelect.value=activeCameraProfileId;
+    }
     if(it)loadPhotoSettings(it.settings||batchSettings);
     updateButtons();
     makePreview(i);
@@ -5565,65 +5629,7 @@ if (window.self === window.top && navigator.standalone === true) {
     return segment;
   }
 
-  function readPhotoExif(segment){
-    if(!segment)return [];
-    const view=new DataView(segment.buffer,segment.byteOffset,segment.byteLength);
-    const base=((segment[0]===0x49&&segment[1]===0x49)||(segment[0]===0x4d&&segment[1]===0x4d))?0:10;
-    if(view.byteLength<base+8)return [];
-    const order=view.getUint16(base,false);
-    if(order!==0x4949&&order!==0x4d4d)return [];
-    const little=order===0x4949;
-    const u16=o=>view.getUint16(o,little),u32=o=>view.getUint32(o,little);
-    if(u16(base+2)!==42)return [];
-    const sizes={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
-    const directory=offset=>{
-      const result={};if(!offset)return result;
-      const start=base+offset;
-      if(start<base||start+2>view.byteLength)return result;
-      const count=Math.min(u16(start),1024);
-      for(let i=0;i<count;i++){
-        const entry=start+2+i*12;
-        if(entry+12>view.byteLength)break;
-        const tag=u16(entry),type=u16(entry+2),length=u32(entry+4),size=(sizes[type]||0)*length;
-        if(!size||size>65536)continue;
-        const valueAt=size<=4?entry+8:base+u32(entry+8);
-        if(valueAt<base||valueAt+size>view.byteLength)continue;
-        result[tag]={type,length,valueAt};
-      }
-      return result;
-    };
-    const value=entry=>{
-      if(!entry)return null;
-      const {type,valueAt,length}=entry;
-      if(type===2){let result="";for(let i=0;i<length&&view.getUint8(valueAt+i);i++)result+=String.fromCharCode(view.getUint8(valueAt+i));return result.trim()}
-      if(type===3)return u16(valueAt);
-      if(type===4)return u32(valueAt);
-      if(type===5||type===10){
-        const numerator=type===10?view.getInt32(valueAt,little):u32(valueAt);
-        const denominator=type===10?view.getInt32(valueAt+4,little):u32(valueAt+4);
-        return denominator?numerator/denominator:null;
-      }
-      return null;
-    };
-    const baseIfd=directory(u32(base+4));
-    const exifIfd=directory(value(baseIfd[0x8769])||0);
-    const gpsIfd=directory(value(baseIfd[0x8825])||0);
-    const output=[];
-    const add=(label,content)=>{if(content!==null&&content!==undefined&&content!=="")output.push([label,String(content)])};
-    const round=(n,d=1)=>Number(n.toFixed(d));
-    add("Camera",[value(baseIfd[0x010f]),value(baseIfd[0x0110])].filter(Boolean).join(" "));
-    add("Lens",value(exifIfd[0xa434]));
-    add("Captured",value(exifIfd[0x9003])||value(exifIfd[0x9004])||value(baseIfd[0x0132]));
-    const exposure=value(exifIfd[0x829a]);
-    if(exposure)add("Shutter speed",exposure<1?`1/${Math.round(1/exposure)} s`:`${round(exposure,3)} s`);
-    const aperture=value(exifIfd[0x829d]);if(aperture)add("Aperture",`f/${round(aperture)}`);
-    add("ISO",value(exifIfd[0x8827]));
-    const focal=value(exifIfd[0x920a]);if(focal)add("Focal length",`${round(focal)} mm`);
-    const flash=value(exifIfd[0x9209]);if(flash!==null)add("Flash",flash&1?"Fired":"Did not fire");
-    add("Software",value(baseIfd[0x0131]));
-    if(Object.keys(gpsIfd).length)add("Location","GPS metadata present");
-    return output;
-  }
+  const readPhotoExif=window.PhotoExif.readEntries;
 
   async function showPhotoInfo(){
     const item=items[current];
@@ -5644,6 +5650,9 @@ if (window.self === window.top && navigator.standalone === true) {
         source=new File([blob],serverOriginal.name,{type:serverOriginal.mime||blob.type});
       }
     }catch(error){console.warn("Original photo metadata could not be loaded",error)}
+    const rawExifCandidate=/\.(?:tif|tiff|dng|nef|nrw|cr2|arw|sr2|srf|rw2|rwl|orf|ori|pef|ptx|srw)$/i.test(serverOriginal?.name||source.name);
+    const reportedSize=metadata?.size;
+    if(metadata&&!metadata.entries?.length&&rawExifCandidate)metadata=null;
     if(!metadata&&serverOriginal?.url&&source===item.file){
       try{
         const response=await fetch(serverOriginal.url);
@@ -5653,7 +5662,7 @@ if (window.self === window.top && navigator.standalone === true) {
     let segment=null;
     if(!metadata){
       segment=await getSourceExifSegment(source);
-      if(!segment&&/\.(?:tif|tiff|dng|nef|cr2|arw)$/i.test(source.name)){
+      if(!segment&&rawExifCandidate){
         segment=new Uint8Array(await source.slice(0,Math.min(source.size,4*1024*1024)).arrayBuffer());
       }
     }
@@ -5663,7 +5672,7 @@ if (window.self === window.top && navigator.standalone === true) {
     const list=document.createElement("dl");
     const add=(label,content)=>{const dt=document.createElement("dt"),dd=document.createElement("dd");dt.textContent=label;dd.textContent=content;list.append(dt,dd)};
     add("File",item.file.name);
-    add("Size",`${((metadata?.size||source.size)/1024/1024).toFixed(2)} MB`);
+    add("Size",`${((metadata?.size||reportedSize||source.size)/1024/1024).toFixed(2)} MB`);
     for(const [label,content] of entries)add(label,content);
     if(!entries.length)add("EXIF","No readable EXIF metadata in this photo");
     els.exifContent.replaceChildren(list);
@@ -5780,6 +5789,7 @@ if (window.self === window.top && navigator.standalone === true) {
     applyBasicAdjustments(out,settings);
     applyColorAdjustments(out,settings);
     applyColorLut(out,settings);
+    applySharpness(out,1,settings);
     await processingCheckpoint(cancellable);
     applyChromaticAberration(out,settings);
     applyFade(out,settings);

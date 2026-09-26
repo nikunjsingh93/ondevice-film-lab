@@ -37,7 +37,7 @@ function editor({ server = false, saved = null, batch = {} } = {}) {
   const context = vm.createContext({
     els, colorSettingControls, colorSettingDefaults: Object.fromEntries(colorSettingControls.map(control => [control.id, "0"])),
     window: { __FILMLAB_SERVER_MODE__: server }, console,
-    document: { createElement: () => ({}) },
+    document: { createElement: () => ({}), dispatchEvent: () => {} }, Event: class { constructor(type) { this.type = type; } },
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     cameraProfiles: [], activeCameraProfileId: "", batchSettings: {}, items: [], current: -1, editScope: "all", busy: false,
     activeMask: () => null, updateMaskUI: () => {}, activeMaskId: null,
@@ -94,7 +94,7 @@ test("Lab installs newcam as default without overwriting existing profiles or ph
   }
 });
 
-test("profile migration is repeatable and retains subsequent profile choices and web settings", () => {
+test("profile migration is repeatable; Lab starts on its default while web retains its profile choice", () => {
   const first = editor({ server: true });
   first.restoreCameraProfiles();
   const saved = JSON.parse(first.storage.get("ondevice-film-lab-camera-profiles-v1"));
@@ -103,12 +103,43 @@ test("profile migration is repeatable and retains subsequent profile choices and
     const api = editor({ server, saved, batch: { exposure: "42" } });
     api.restoreCameraProfiles();
     api.restoreCameraProfiles();
-    assert.equal(api.context.activeCameraProfileId, "cam1-default");
+    assert.equal(api.context.activeCameraProfileId, server ? "newcam-default" : "cam1-default");
     assert.equal(api.context.cameraProfiles.length, 2);
     assert.equal(api.isBuiltInProfile("newcam-default"), true);
     assert.equal(api.isBuiltInProfile("cam1-default"), true);
     if (!server) assert.equal(api.context.batchSettings.exposure, "42");
   }
+});
+
+test("Lab camera profile applies to one photo and switching restores each photo's selection", () => {
+  const api = editor({ server: true });
+  api.restoreCameraProfiles();
+  const neutral = plain(api.context.batchSettings);
+  const first = { libraryId: "first", file: { name: "first.rw2" }, settings: { ...neutral } };
+  const second = { libraryId: "second", file: { name: "second.rw2" }, settings: { ...neutral } };
+  api.context.items = [first, second];
+  api.context.current = 0;
+  api.context.editScope = "all";
+  api.context.els.filename = { textContent: "" };
+  api.context.els.thumbs = { children: [] };
+  api.context.els.exifPanel = { hidden: true };
+  vm.runInContext(slice("  function applyCameraProfile(", "  function updateSliderLabels("), api.context);
+  vm.runInContext(slice("  function select(i){", "  async function refreshThumb("), api.context);
+  const chosen = api.context.cameraProfiles.find(profile => profile.id === "cam1-default");
+  chosen.settings.exposure = "45";
+  api.context.activeCameraProfileId = chosen.id;
+  vm.runInContext("applyCameraProfile(cameraProfileById(activeCameraProfileId))", api.context);
+  assert.equal(first.settings.exposure, "45");
+  assert.equal(first.cameraProfileId, chosen.id);
+  assert.deepEqual(second.settings, neutral);
+  assert.deepEqual(plain(api.context.batchSettings), neutral);
+  vm.runInContext("select(1)", api.context);
+  assert.equal(api.context.activeCameraProfileId, "newcam-default");
+  assert.equal(api.els.profileSelect.value, "newcam-default");
+  assert.equal(api.els.exposure.value, "0");
+  vm.runInContext("select(0)", api.context);
+  assert.equal(api.context.activeCameraProfileId, chosen.id);
+  assert.equal(api.els.exposure.value, "45");
 });
 
 test("section reset affects only this photo and supports one-step undo/redo and persistence", () => {

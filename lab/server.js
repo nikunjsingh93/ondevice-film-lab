@@ -13,6 +13,7 @@ const sharp = require("sharp");
 const exifReader = require("exif-reader");
 const PhotoFormats = require("../photo-formats");
 const PhotoCodecs = require("../photo-codecs");
+const PhotoExif = require("../photo-exif");
 
 const APP_ROOT = path.resolve(__dirname, "..");
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -811,7 +812,18 @@ app.get("/api/photos/:id/original", sendPhotoFile("stored_path"));
 app.get("/api/photos/:id/metadata", asyncRoute(async (request, response) => {
   const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
-  const metadata = await sharp(resolveDataPath(row.stored_path)).metadata();
+  const originalPath = resolveDataPath(row.stored_path);
+  if (/\.(?:rw2|rwl)$/i.test(originalPath)) {
+    const file = await fsp.open(originalPath, "r");
+    let bytes;
+    try {
+      const prefix = Buffer.alloc(Math.min(row.byte_size, 4 * 1024 * 1024));
+      const { bytesRead } = await file.read(prefix, 0, prefix.length, 0);
+      bytes = prefix.subarray(0, bytesRead);
+    } finally { await file.close(); }
+    return response.set("Cache-Control", "private, max-age=3600").json({ size: row.byte_size, entries: PhotoExif.readEntries(bytes) });
+  }
+  const metadata = await sharp(originalPath).metadata();
   let exif = {};
   if (metadata.exif) {
     try { exif = exifReader(metadata.exif); }
@@ -1066,6 +1078,7 @@ function createEditorHtml(userId = "server") {
         item.straighten=Number(state.straighten)||0;
         item.crop=state.crop||null;
         item.masks=JSON.parse(JSON.stringify(state.masks||[]));
+        item.cameraProfileId=typeof state.cameraProfileId==="string"?state.cameraProfileId:null;
         item.settings=state.settings
           ? {...cloneSettings(initialPhotoSettings),...cloneSettings(state.settings)}
           : cloneSettings(batchSettings);
@@ -1118,6 +1131,7 @@ app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" })
 
 app.get("/photo-formats.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-formats.js")));
 app.get("/photo-codecs.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-codecs.js")));
+app.get("/photo-exif.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-exif.js")));
 app.use("/codecs", express.static(path.join(APP_ROOT, "codecs"), { maxAge: 0 }));
 app.use(express.static(PUBLIC_DIR, { extensions: ["html"], maxAge: 0 }));
 

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
+const PhotoExif = require('../../photo-exif');
 
 const html = fs.readFileSync(path.join(__dirname, '..', '..', 'index.html'), 'utf8');
 function functionSource(name, next) {
@@ -30,11 +31,13 @@ test('EXIF panel reads camera, date, exposure and ISO from a JPEG TIFF segment',
   view.setUint32(tiff + 58, 1, true); view.setUint16(tiff + 62, 800, true);
   segment.set(Buffer.from('Canon\0'), tiff + 120);
   segment.set(Buffer.from('2026:09:25 13:01:02\0'), tiff + 130);
-  const readPhotoExif = vm.runInNewContext(`${functionSource('readPhotoExif', 'async function showPhotoInfo')};readPhotoExif`);
-  const rows = Object.fromEntries(readPhotoExif(segment));
+  const rows = Object.fromEntries(PhotoExif.readEntries(segment));
   assert.equal(rows.Camera, 'Canon');
   assert.equal(rows.Captured, '2026:09:25 13:01:02');
   assert.equal(rows.ISO, '800');
+  const rw2 = segment.slice(tiff);
+  new DataView(rw2.buffer).setUint16(2, 85, true);
+  assert.equal(Object.fromEntries(PhotoExif.readEntries(rw2)).Camera, 'Canon');
 });
 
 test('luminance reduction and signed vignette affect shared preview and export', () => {
@@ -43,6 +46,23 @@ test('luminance reduction and signed vignette affect shared preview and export',
   assert.equal((html.match(/applyLuminanceNoiseReduction\((?:layer|editedBase|out),/g) || []).length, 3);
   assert.match(html, /if\(strength<=0&&vignetteStrength===0\) return canvas/);
   assert.match(html, /id="infoBtn"[\s\S]*?aria-pressed="false"/);
+});
+
+test('sharpness defaults to zero and increases edge contrast without changing flat areas', () => {
+  assert.match(html, /id="sharpness" type="range" min="0" max="100" value="0"/);
+  assert.equal((html.match(/applySharpness\((?:layer|editedBase|out),/g) || []).length, 3);
+  const sharpen = vm.runInNewContext(`${functionSource('sharpenPixels', 'function applySharpness')};sharpenPixels`);
+  const source = new Uint8ClampedArray([100,100,100,255,90,90,90,255,150,150,150,255]);
+  const smooth = new Uint8ClampedArray([100,100,100,255,100,100,100,255,130,130,130,255]);
+  const unchanged = new Uint8ClampedArray(source);
+  sharpen(unchanged,smooth,0);
+  assert.deepEqual(unchanged,source);
+  const result = new Uint8ClampedArray(source);
+  sharpen(result,smooth,.5);
+  assert.equal(result[0],100);
+  assert.ok(result[4]<90);
+  assert.ok(result[8]>150);
+  assert.equal(result[11],255);
 });
 
 test('luminance denoise acts before 85%, suppresses flat grain and protects a hard edge', () => {
@@ -95,4 +115,5 @@ test('Server Lab injects its editor bridge from a Windows CRLF checkout', () => 
   assert.match(page, /window\.__FILMLAB_SERVER_EDITOR__=/);
   assert.match(page, /return makePreview\(i\)/);
   assert.match(page, /libraryRestorePromise=Promise\.resolve\(\)/);
+  assert.match(page, /item\.cameraProfileId=typeof state\.cameraProfileId/);
 });
