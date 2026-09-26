@@ -808,6 +808,31 @@ function sendPhotoFile(column, download = false) {
 }
 
 app.get("/api/photos/:id/original", sendPhotoFile("stored_path"));
+app.get("/api/photos/:id/metadata", asyncRoute(async (request, response) => {
+  const row = statements.byId.get(request.user.id, request.params.id);
+  if (!row) return response.status(404).json({ error: "Photo not found" });
+  const metadata = await sharp(resolveDataPath(row.stored_path)).metadata();
+  let exif = {};
+  if (metadata.exif) {
+    try { exif = exifReader(metadata.exif); }
+    catch (error) { console.warn("Could not parse photo EXIF:", error.message); }
+  }
+  const image = exif.Image || {}, photo = exif.Photo || {};
+  const entries = [];
+  const add = (label, value) => { if (value !== undefined && value !== null && value !== "") entries.push([label, String(value)]); };
+  const round = value => Number(value.toFixed(1));
+  add("Camera", [image.Make, image.Model].filter(Boolean).join(" "));
+  add("Lens", photo.LensModel);
+  add("Captured", photo.DateTimeOriginal || photo.DateTimeDigitized || image.DateTime);
+  if (photo.ExposureTime) add("Shutter speed", photo.ExposureTime < 1 ? `1/${Math.round(1 / photo.ExposureTime)} s` : `${round(photo.ExposureTime)} s`);
+  if (photo.FNumber) add("Aperture", `f/${round(photo.FNumber)}`);
+  add("ISO", photo.ISOSpeedRatings || photo.ISOSpeed);
+  if (photo.FocalLength) add("Focal length", `${round(photo.FocalLength)} mm`);
+  if (photo.Flash !== undefined) add("Flash", photo.Flash & 1 ? "Fired" : "Did not fire");
+  add("Software", image.Software);
+  if (exif.GPSInfo && Object.keys(exif.GPSInfo).length) add("Location", "GPS metadata present");
+  response.set("Cache-Control", "private, max-age=3600").json({ size: row.byte_size, entries });
+}));
 app.get("/api/photos/:id/working", sendPhotoFile("working_path"));
 app.get("/api/photos/:id/preview", sendPhotoFile("preview_path"));
 app.get("/api/photos/:id/thumbnail", sendPhotoFile("thumbnail_path"));
@@ -968,7 +993,9 @@ app.get("/api/session", (request, response) => {
 });
 
 function createEditorHtml(userId = "server") {
-  let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8");
+  // Git checkouts on Windows may use CRLF. The editor bridge below is
+  // inserted at exact multiline anchors, so normalize before replacing.
+  let html = fs.readFileSync(path.join(APP_ROOT, "index.html"), "utf8").replace(/\r\n/g, "\n");
   // iOS exposes system insets inside frames as well as in their parent.
   // The Lab shell owns them; embedded pages consume zero inset instead.
   html = html.replace(/env\(safe-area-inset-(top|right|bottom|left)(?:,[^)]*)?\)/g,

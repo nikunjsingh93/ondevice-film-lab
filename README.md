@@ -229,6 +229,19 @@ FILMLAB_STATE_PATH=/var/lib/ondevice-film-lab \
 docker compose -f docker-compose.lab.yml up -d --build
 ```
 
+For a local test on Windows ARM, start Docker Desktop in Linux-container mode and run this from the repository root in PowerShell. Replace `D:\OnDeviceFilmLab` with the real Windows path to your photo drive:
+
+```powershell
+$env:FILMLAB_DATA_PATH = 'D:\OnDeviceFilmLab'
+$env:FILMLAB_STATE_PATH = Join-Path $env:LOCALAPPDATA 'OnDeviceFilmLab\state'
+New-Item -ItemType Directory -Force -Path $env:FILMLAB_DATA_PATH, $env:FILMLAB_STATE_PATH
+New-Item -ItemType File -Force -Path (Join-Path $env:FILMLAB_DATA_PATH '.filmlab-storage')
+docker compose -f docker-compose.lab.yml up -d --build
+docker compose -f docker-compose.lab.yml ps
+```
+
+Open `http://localhost:3000`. This Windows path example is for local testing; use the Linux external-drive and local ext4 state paths above for the Ubuntu server.
+
 The Compose configuration publishes Server Lab on port `3000` of the Ubuntu server. On the server itself, check:
 
 ```sh

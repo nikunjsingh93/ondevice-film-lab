@@ -248,6 +248,13 @@ if (window.self === window.top && navigator.standalone === true) {
   .mobileEmptyBrandName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mobileMenuIcon{width:27px;height:27px;stroke-width:2.5}
   .viewerShell{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden}
+  .previewWithInfo{display:flex;flex:1 1 auto;min-height:0;min-width:0}
+  .previewWithInfo .viewer{min-width:0}
+  .exifPanel{width:260px;flex:0 0 260px;box-sizing:border-box;overflow:auto;padding:16px;border-left:1px solid var(--line);background:var(--panel);font-size:12px}
+  .exifPanel[hidden]{display:none}
+  .exifPanel h3{margin:0 0 15px;font-size:13px}
+  .exifPanel dl{margin:0}.exifPanel dt{margin-top:12px;color:var(--muted)}.exifPanel dd{margin:3px 0 0;overflow-wrap:anywhere}
+  @media(max-width:700px){.exifPanel{width:42%;flex-basis:42%;padding:11px;font-size:11px}}
   .straightenPanel{
     display:flex;align-items:center;gap:10px;flex:0 0 auto;
     min-height:42px;padding:6px 12px;border-top:1px solid var(--line);
@@ -988,6 +995,11 @@ if (window.self === window.top && navigator.standalone === true) {
             <label><span>Chroma noise reduction</span><span id="chromaNoiseVal" class="value">50%</span></label>
             <input id="chromaNoise" type="range" min="0" max="100" value="50">
           </div>
+          <div class="control">
+            <label><span>Luminance noise reduction</span><span id="luminanceNoiseVal" class="value">0%</span></label>
+            <input id="luminanceNoise" type="range" min="0" max="100" value="0">
+            <small class="notice">Reduces grain in the original photo. Turn off Add film grain below for a fully smooth result.</small>
+          </div>
         </div>
 
         <div id="basicGroup" class="editBlock settingsGroup">
@@ -1080,7 +1092,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </div>
           <div class="control">
             <label><span>Vignette</span><span id="vignetteVal" class="value">0%</span></label>
-            <input id="vignette" type="range" min="0" max="100" value="0">
+            <input id="vignette" type="range" min="-100" max="100" value="0">
           </div>
           <div class="control">
             <label><span>Light leaks</span><span id="lightLeaksVal" class="value">0%</span></label>
@@ -1207,6 +1219,7 @@ if (window.self === window.top && navigator.standalone === true) {
           </button>
         </div>
         <div class="toolbarGroup viewControls" aria-label="Preview view controls">
+          <button id="infoBtn" class="iconButton" type="button" title="Show photo information" aria-label="Show photo information" aria-pressed="false" disabled><svg class="toolbarIcon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.3h.01"/></svg></button>
           <div class="zoomControls" aria-label="Preview zoom controls">
             <button id="zoomOutBtn" type="button" title="Zoom out" aria-label="Zoom out" disabled>−</button>
             <button id="zoomResetBtn" class="zoomReset" type="button" title="Reset preview zoom" disabled>100%</button>
@@ -1230,12 +1243,15 @@ if (window.self === window.top && navigator.standalone === true) {
 
       <div id="maskEditingBar" hidden><span id="maskEditingLabel"></span><button id="maskBarDone" type="button">Done masking</button></div>
       <div class="viewerShell">
+        <div class="previewWithInfo">
         <div id="viewer" class="viewer">
           <div class="empty">
             <b>Add some photos</b>
             <span>Drag the divider after importing to compare Original and Edited. Softening, custom LUTs, fade, bloom, halation, chromatic aberration, grain, and date-stamp effects are previewed before export.</span>
             <button class="emptyAddPhotosBtn" type="button" aria-haspopup="menu" aria-expanded="false">+ Add Photos</button>
           </div>
+        </div>
+        <aside id="exifPanel" class="exifPanel" aria-label="Photo information" hidden><h3>Photo information</h3><div id="exifContent"></div></aside>
         </div>
 
         <div id="straightenPanel" class="straightenPanel" hidden>
@@ -1367,7 +1383,7 @@ if (window.self === window.top && navigator.standalone === true) {
     libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
     exposure: $("#exposure"), temperature: $("#temperature"), highlights: $("#highlights"), shadows: $("#shadows"),
     contrast: $("#contrast"), saturation: $("#saturation"),
-    amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"),
+    amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"), luminanceNoise: $("#luminanceNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
     lutSelect: $("#lutSelect"), lutAddBtn: $("#lutAddBtn"), lutFileInput: $("#lutFileInput"), lutInfo: $("#lutInfo"),
@@ -1377,13 +1393,13 @@ if (window.self === window.top && navigator.standalone === true) {
     quality: $("#quality"), holdOriginal: $("#holdOriginal"),
     exposureVal: $("#exposureVal"), temperatureVal: $("#temperatureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
     contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"),
-    amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"),
+    amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"), luminanceNoiseVal: $("#luminanceNoiseVal"),
     fadeVal: $("#fadeVal"), bloomVal: $("#bloomVal"), halationVal: $("#halationVal"), chromaticVal: $("#chromaticVal"),
     vignetteVal: $("#vignetteVal"), lightLeaksVal: $("#lightLeaksVal"),
     grainStrengthVal: $("#grainStrengthVal"), grainSizeVal: $("#grainSizeVal"),
     grainRoughnessVal: $("#grainRoughnessVal"),
     qualityVal: $("#qualityVal"), thumbs: $("#thumbs"), count: $("#count"), openGalleryBtn: $("#openGalleryBtn"),
-    filename: $("#filename"), viewer: $("#viewer"), dims: $("#dims"), status: $("#status"),
+    filename: $("#filename"), viewer: $("#viewer"), infoBtn: $("#infoBtn"), exifPanel: $("#exifPanel"), exifContent: $("#exifContent"), dims: $("#dims"), status: $("#status"),
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"), cropBtn: $("#cropBtn"),
     straightenPanel: $("#straightenPanel"), straightenSlider: $("#straightenSlider"),
     straightenValue: $("#straightenValue"), straightenReset: $("#straightenReset"),
@@ -1886,7 +1902,7 @@ if (window.self === window.top && navigator.standalone === true) {
       const settings={...neutralPhotoSettings,...mask.settings};
       if(settingsMatch(settings,neutralPhotoSettings))continue;
       const layer=processCanvas(canvas,scale,settings);
-      applyChromaNoiseReduction(layer,scale,settings);applyBasicAdjustments(layer,settings);applyColorAdjustments(layer,settings);
+      applyChromaNoiseReduction(layer,scale,settings);applyLuminanceNoiseReduction(layer,scale,settings);applyBasicAdjustments(layer,settings);applyColorAdjustments(layer,settings);
       applyColorLut(layer,settings);applyChromaticAberration(layer,settings);applyFade(layer,settings);
       applyLightLeaks(layer,item.file,settings);applyHalation(layer,settings);applyBloom(layer,settings);applyGrain(layer,item.file,scale,settings);
       await applyDateStamp(layer,item.file,settings);
@@ -1980,7 +1996,7 @@ if (window.self === window.top && navigator.standalone === true) {
   const photoSettingControls=[
     ...colorSettingControls,
     els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,
-    els.amount,els.radius,els.threshold,els.chromaNoise,els.fade,els.bloom,els.halation,els.chromatic,
+    els.amount,els.radius,els.threshold,els.chromaNoise,els.luminanceNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
   ];
@@ -1994,7 +2010,8 @@ if (window.self === window.top && navigator.standalone === true) {
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
   }
-  function cloneSettings(settings){return {...colorSettingDefaults,...settings}}
+  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0"};
+  function cloneSettings(settings){return {...addedSettingDefaults,...settings}}
   function capturePhotoSettings(){
     const settings={};
     for(const control of photoSettingControls)settings[control.id]=controlValue(control);
@@ -2017,13 +2034,13 @@ if (window.self === window.top && navigator.standalone === true) {
   }
   function settingValue(settings,id){
     if(settings&&Object.prototype.hasOwnProperty.call(settings,id))return settings[id];
-    if(settings&&Object.prototype.hasOwnProperty.call(colorSettingDefaults,id))return "0";
+    if(settings&&Object.prototype.hasOwnProperty.call(addedSettingDefaults,id))return "0";
     const control=els[id];
     return control ? controlValue(control) : undefined;
   }
   function settingNumber(settings,id){return +settingValue(settings,id)}
   function settingsMatch(a,b){
-    return photoSettingControls.every(control=>(a?.[control.id]??colorSettingDefaults[control.id])===(b?.[control.id]??colorSettingDefaults[control.id]));
+    return photoSettingControls.every(control=>(a?.[control.id]??addedSettingDefaults[control.id])===(b?.[control.id]??addedSettingDefaults[control.id]));
   }
   function itemHasCustomEdits(item){
     return !!item&&((item.masks||[]).length>0||item.rotation!==0||Math.abs(item.straighten||0)>.05||!cropIsFull(item.crop)||!settingsMatch(item.settings,batchSettings));
@@ -2032,8 +2049,8 @@ if (window.self === window.top && navigator.standalone === true) {
   // controls (grain size, LUT strength with no LUT, grading hue) alone do nothing.
   function settingsHavePreviewEdits(settings){
     const nonzero=id=>Number.isFinite(+settings[id])&&+settings[id]!==0;
-    const strengths=["amount","chromaNoise","fade","bloom","halation","chromatic","vignette","lightLeaks"];
-    if(strengths.some(id=>+settings[id]>0))return true;
+    const strengths=["amount","chromaNoise","luminanceNoise","fade","bloom","halation","chromatic","lightLeaks"];
+    if(strengths.some(id=>+settings[id]>0)||nonzero("vignette"))return true;
     if(["exposure","temperature","highlights","shadows","contrast","saturation"].some(nonzero))return true;
     if(Object.keys(colorSettingDefaults).some(id=>!/^colorGrade.*Hue$/.test(id)&&nonzero(id)))return true;
     if(settings.dateStamp||(settings.grainEnabled&&+settings.grainStrength>0))return true;
@@ -2294,6 +2311,8 @@ if (window.self === window.top && navigator.standalone === true) {
     const selected = current >= 0;
     els.photoActions.hidden=!has;
     els.leftBtn.disabled = !selected;
+    els.infoBtn.disabled = !selected;
+    if(!selected){els.exifPanel.hidden=true;els.infoBtn.setAttribute("aria-pressed","false")}
     els.rightBtn.disabled = !selected;
     els.straightenBtn.disabled = !selected;
     els.cropBtn.disabled = !selected;
@@ -2781,6 +2800,87 @@ if (window.self === window.top && navigator.standalone === true) {
     return canvas;
   }
 
+  function denoiseLuminancePixels(pixels,width,height,strength){
+    if(strength<=0||width<3||height<3)return pixels;
+    const count=width*height;
+    const luma=new Uint8Array(count);
+    const fineBase=new Uint8Array(count);
+    const horizontal=new Uint16Array(count);
+    const kernel=[1,4,6,4,1];
+    for(let i=0;i<count;i++){
+      const offset=i*4;
+      luma[i]=Math.round(.2126*pixels[offset]+.7152*pixels[offset+1]+.0722*pixels[offset+2]);
+    }
+    // Two undecimated wavelet scales: each low-pass image is the reference
+    // for detail at that scale. Shrink only coefficients consistent with noise.
+    const horizontalPass=(source,step)=>{
+      for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+        let sum=0;
+        for(let k=-2;k<=2;k++)sum+=kernel[k+2]*source[y*width+Math.max(0,Math.min(width-1,x+k*step))];
+        horizontal[y*width+x]=sum;
+      }
+    };
+    const verticalValue=(x,y,step)=>{
+      let sum=0;
+      for(let k=-2;k<=2;k++)sum+=kernel[k+2]*horizontal[Math.max(0,Math.min(height-1,y+k*step))*width+x];
+      return sum/256;
+    };
+    horizontalPass(luma,1);
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++)fineBase[y*width+x]=Math.round(verticalValue(x,y,1));
+
+    // Estimate grain from fine-scale residuals in relatively flat areas.
+    // This keeps low-noise photos from being smoothed like high-ISO photos.
+    const histogram=new Uint32Array(64);
+    let samples=0;
+    for(let y=2;y<height-2;y+=3)for(let x=2;x<width-2;x+=3){
+      const i=y*width+x;
+      const structure=Math.max(Math.abs(fineBase[i-1]-fineBase[i+1]),Math.abs(fineBase[i-width]-fineBase[i+width]));
+      if(structure>12)continue;
+      histogram[Math.min(63,Math.abs(luma[i]-fineBase[i]))]++;
+      samples++;
+    }
+    let median=0,seen=0;
+    for(;median<63;median++){seen+=histogram[median];if(seen>=samples/2)break}
+    const sigma=Math.max(1.5,Math.min(22,(median+.5)/.6745));
+    const fineThreshold=sigma*(.55+2.2*strength);
+    const coarseThreshold=sigma*.6*strength;
+    const shrink=(detail,threshold)=>{
+      const square=detail*detail;
+      return square<=threshold*threshold?0:detail*(1-threshold*threshold/square);
+    };
+
+    horizontalPass(fineBase,2);
+    for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      const i=y*width+x,offset=i*4;
+      const coarse=verticalValue(x,y,2);
+      const structure=Math.max(
+        Math.abs(fineBase[y*width+Math.max(0,x-1)]-fineBase[y*width+Math.min(width-1,x+1)]),
+        Math.abs(fineBase[Math.max(0,y-1)*width+x]-fineBase[Math.min(height-1,y+1)*width+x])
+      );
+      const protection=1-Math.min(.8,Math.max(0,structure-8)/30);
+      const shadowBoost=1+.35*(1-luma[i]/255);
+      const detail1=luma[i]-fineBase[i],detail2=fineBase[i]-coarse;
+      const restored=coarse+
+        shrink(detail2,coarseThreshold*shadowBoost*protection)+
+        shrink(detail1,fineThreshold*shadowBoost*protection);
+      const shift=restored-luma[i];
+      pixels[offset]=Math.max(0,Math.min(255,Math.round(pixels[offset]+shift)));
+      pixels[offset+1]=Math.max(0,Math.min(255,Math.round(pixels[offset+1]+shift)));
+      pixels[offset+2]=Math.max(0,Math.min(255,Math.round(pixels[offset+2]+shift)));
+    }
+    return pixels;
+  }
+
+  function applyLuminanceNoiseReduction(canvas,radiusScale=1,settings=null){
+    const strength=settingNumber(settings,"luminanceNoise")/100;
+    if(strength<=0)return canvas;
+    const context=canvas.getContext("2d",{willReadFrequently:true});
+    const image=context.getImageData(0,0,canvas.width,canvas.height);
+    denoiseLuminancePixels(image.data,canvas.width,canvas.height,strength);
+    context.putImageData(image,0,0);
+    return canvas;
+  }
+
   const srgbToLinear=(()=>{
     const table=new Float32Array(256);
     for(let value=0;value<256;value++){
@@ -3073,7 +3173,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function applyFade(canvas,settings=null){
     const strength=settingNumber(settings,"fade")/100;
     const vignetteStrength=settingNumber(settings,"vignette")/100;
-    if(strength<=0&&vignetteStrength<=0) return canvas;
+    if(strength<=0&&vignetteStrength===0) return canvas;
 
     const ctx=canvas.getContext("2d",{willReadFrequently:true});
     const image=ctx.getImageData(0,0,canvas.width,canvas.height);
@@ -3084,7 +3184,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
     const halfWidth=canvas.width/2;
     const halfHeight=canvas.height/2;
-    const vignetteX=vignetteStrength>0 ? new Float32Array(canvas.width) : null;
+    const vignetteX=vignetteStrength!==0 ? new Float32Array(canvas.width) : null;
     if(vignetteX){
       for(let x=0;x<canvas.width;x++){
         const normalizedX=(x+.5-halfWidth)/halfWidth;
@@ -3110,7 +3210,7 @@ if (window.self === window.top && navigator.standalone === true) {
           b=(.5+(b-.5)*contrast)*(1-blackLift)+blackLift-.006*strength;
         }
 
-        if(vignetteStrength>0){
+        if(vignetteStrength!==0){
           const distance=Math.sqrt(vignetteX[x]+normalizedY*normalizedY);
           // Keep the center and side midpoints mostly clear; concentrate the
           // falloff near the corners while retaining the same corner strength.
@@ -3119,6 +3219,8 @@ if (window.self === window.top && navigator.standalone === true) {
           edge=edge*edge*(3-2*edge);
           // Exposure-style falloff preserves hue better than painting black
           // over the frame. At maximum, the far corners lose about 1.8 stops.
+          // Negative values lift dark lens corners; positive values add a
+          // vignette. Clipped source pixels cannot be reconstructed.
           const exposure=Math.pow(2,-1.8*vignetteStrength*edge);
           r*=exposure;g*=exposure;b*=exposure;
         }
@@ -3818,6 +3920,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
       const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
       applyChromaNoiseReduction(editedBase,previewScale,settings);
+      applyLuminanceNoiseReduction(editedBase,previewScale,settings);
       applyBasicAdjustments(editedBase,settings);
       applyColorAdjustments(editedBase,settings);
       applyColorLut(editedBase,settings);
@@ -4109,11 +4212,12 @@ if (window.self === window.top && navigator.standalone === true) {
     els.radiusVal.textContent=`${(+els.radius.value/10).toFixed(1)} px`;
     els.thresholdVal.textContent=els.threshold.value;
     els.chromaNoiseVal.textContent=`${els.chromaNoise.value}%`;
+    els.luminanceNoiseVal.textContent=`${els.luminanceNoise.value}%`;
     els.fadeVal.textContent=`${els.fade.value}%`;
     els.bloomVal.textContent=`${els.bloom.value}%`;
     els.halationVal.textContent=`${els.halation.value}%`;
     els.chromaticVal.textContent=`${els.chromatic.value}%`;
-    els.vignetteVal.textContent=`${els.vignette.value}%`;
+    els.vignetteVal.textContent=signedPercent(+els.vignette.value);
     els.lightLeaksVal.textContent=`${els.lightLeaks.value}%`;
     els.lutStrengthVal.textContent=`${els.lutStrength.value}%`;
     els.grainStrengthVal.textContent=`${els.grainStrength.value}%`;
@@ -4619,6 +4723,7 @@ if (window.self === window.top && navigator.standalone === true) {
       cropOpen=false;cropDraft=null;
     }
     current=i;
+    if(!els.exifPanel.hidden)showPhotoInfo();
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
     els.filename.textContent=it?.file.name || "No photo selected";
@@ -5460,6 +5565,119 @@ if (window.self === window.top && navigator.standalone === true) {
     return segment;
   }
 
+  function readPhotoExif(segment){
+    if(!segment)return [];
+    const view=new DataView(segment.buffer,segment.byteOffset,segment.byteLength);
+    const base=((segment[0]===0x49&&segment[1]===0x49)||(segment[0]===0x4d&&segment[1]===0x4d))?0:10;
+    if(view.byteLength<base+8)return [];
+    const order=view.getUint16(base,false);
+    if(order!==0x4949&&order!==0x4d4d)return [];
+    const little=order===0x4949;
+    const u16=o=>view.getUint16(o,little),u32=o=>view.getUint32(o,little);
+    if(u16(base+2)!==42)return [];
+    const sizes={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+    const directory=offset=>{
+      const result={};if(!offset)return result;
+      const start=base+offset;
+      if(start<base||start+2>view.byteLength)return result;
+      const count=Math.min(u16(start),1024);
+      for(let i=0;i<count;i++){
+        const entry=start+2+i*12;
+        if(entry+12>view.byteLength)break;
+        const tag=u16(entry),type=u16(entry+2),length=u32(entry+4),size=(sizes[type]||0)*length;
+        if(!size||size>65536)continue;
+        const valueAt=size<=4?entry+8:base+u32(entry+8);
+        if(valueAt<base||valueAt+size>view.byteLength)continue;
+        result[tag]={type,length,valueAt};
+      }
+      return result;
+    };
+    const value=entry=>{
+      if(!entry)return null;
+      const {type,valueAt,length}=entry;
+      if(type===2){let result="";for(let i=0;i<length&&view.getUint8(valueAt+i);i++)result+=String.fromCharCode(view.getUint8(valueAt+i));return result.trim()}
+      if(type===3)return u16(valueAt);
+      if(type===4)return u32(valueAt);
+      if(type===5||type===10){
+        const numerator=type===10?view.getInt32(valueAt,little):u32(valueAt);
+        const denominator=type===10?view.getInt32(valueAt+4,little):u32(valueAt+4);
+        return denominator?numerator/denominator:null;
+      }
+      return null;
+    };
+    const baseIfd=directory(u32(base+4));
+    const exifIfd=directory(value(baseIfd[0x8769])||0);
+    const gpsIfd=directory(value(baseIfd[0x8825])||0);
+    const output=[];
+    const add=(label,content)=>{if(content!==null&&content!==undefined&&content!=="")output.push([label,String(content)])};
+    const round=(n,d=1)=>Number(n.toFixed(d));
+    add("Camera",[value(baseIfd[0x010f]),value(baseIfd[0x0110])].filter(Boolean).join(" "));
+    add("Lens",value(exifIfd[0xa434]));
+    add("Captured",value(exifIfd[0x9003])||value(exifIfd[0x9004])||value(baseIfd[0x0132]));
+    const exposure=value(exifIfd[0x829a]);
+    if(exposure)add("Shutter speed",exposure<1?`1/${Math.round(1/exposure)} s`:`${round(exposure,3)} s`);
+    const aperture=value(exifIfd[0x829d]);if(aperture)add("Aperture",`f/${round(aperture)}`);
+    add("ISO",value(exifIfd[0x8827]));
+    const focal=value(exifIfd[0x920a]);if(focal)add("Focal length",`${round(focal)} mm`);
+    const flash=value(exifIfd[0x9209]);if(flash!==null)add("Flash",flash&1?"Fired":"Did not fire");
+    add("Software",value(baseIfd[0x0131]));
+    if(Object.keys(gpsIfd).length)add("Location","GPS metadata present");
+    return output;
+  }
+
+  async function showPhotoInfo(){
+    const item=items[current];
+    if(!item)return;
+    els.exifContent.textContent="Reading photo information…";
+    let source=item.file;
+    const serverOriginal=window.__FILMLAB_SERVER_MODE__&&window.__FILMLAB_INFO_ORIGINAL__;
+    let metadata=null;
+    try{
+      if(serverOriginal?.metadataUrl){
+        const response=await fetch(serverOriginal.metadataUrl);
+        if(!response.ok)throw new Error("Photo metadata unavailable");
+        metadata=await response.json();
+      }else if(serverOriginal?.url){
+        const response=await fetch(serverOriginal.url);
+        if(!response.ok)throw new Error("Original photo unavailable");
+        const blob=await response.blob();
+        source=new File([blob],serverOriginal.name,{type:serverOriginal.mime||blob.type});
+      }
+    }catch(error){console.warn("Original photo metadata could not be loaded",error)}
+    if(!metadata&&serverOriginal?.url&&source===item.file){
+      try{
+        const response=await fetch(serverOriginal.url);
+        if(response.ok){const blob=await response.blob();source=new File([blob],serverOriginal.name,{type:serverOriginal.mime||blob.type})}
+      }catch(error){console.warn("Original photo metadata fallback failed",error)}
+    }
+    let segment=null;
+    if(!metadata){
+      segment=await getSourceExifSegment(source);
+      if(!segment&&/\.(?:tif|tiff|dng|nef|cr2|arw)$/i.test(source.name)){
+        segment=new Uint8Array(await source.slice(0,Math.min(source.size,4*1024*1024)).arrayBuffer());
+      }
+    }
+    if(els.exifPanel.hidden||items[current]!==item)return;
+    let entries=metadata?.entries||[];
+    if(!metadata)try{entries=readPhotoExif(segment)}catch(error){console.warn("EXIF display failed",error)}
+    const list=document.createElement("dl");
+    const add=(label,content)=>{const dt=document.createElement("dt"),dd=document.createElement("dd");dt.textContent=label;dd.textContent=content;list.append(dt,dd)};
+    add("File",item.file.name);
+    add("Size",`${((metadata?.size||source.size)/1024/1024).toFixed(2)} MB`);
+    for(const [label,content] of entries)add(label,content);
+    if(!entries.length)add("EXIF","No readable EXIF metadata in this photo");
+    els.exifContent.replaceChildren(list);
+  }
+
+  els.infoBtn.addEventListener("click",()=>{
+    const visible=els.exifPanel.hidden;
+    els.exifPanel.hidden=!visible;
+    els.infoBtn.setAttribute("aria-pressed",String(visible));
+    els.infoBtn.title=visible?"Hide photo information":"Show photo information";
+    els.infoBtn.setAttribute("aria-label",els.infoBtn.title);
+    if(visible)showPhotoInfo();
+  });
+
   function normalizeExportExif(sourceSegment,width,height){
     const exif=sourceSegment.slice();
     try{
@@ -5558,6 +5776,7 @@ if (window.self === window.top && navigator.standalone === true) {
     img.close?.();
     const out=processCanvas(src,1,settings);
     applyChromaNoiseReduction(out,1,settings);
+    applyLuminanceNoiseReduction(out,1,settings);
     applyBasicAdjustments(out,settings);
     applyColorAdjustments(out,settings);
     applyColorLut(out,settings);

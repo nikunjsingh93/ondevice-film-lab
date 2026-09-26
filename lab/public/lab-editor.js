@@ -185,6 +185,7 @@
     try {
       const result = await requestJson(`/api/photos/${encodeURIComponent(id)}`);
       photo = result.photo;
+      window.__FILMLAB_INFO_ORIGINAL__ = { url: photo.originalUrl, metadataUrl: `/api/photos/${encodeURIComponent(id)}/metadata`, name: photo.name, mime: photo.mime };
       const response = await fetch(photo.editUrl || photo.originalUrl);
       if (!response.ok) throw new Error("The photo could not be loaded from Server Lab");
       const blob = await response.blob();
@@ -485,6 +486,7 @@
     await syncServerLuts();
     const result = await requestJson(`/api/photos/${encodeURIComponent(photoId)}`);
     photo = result.photo;
+    window.__FILMLAB_INFO_ORIGINAL__ = { url: photo.originalUrl, metadataUrl: `/api/photos/${encodeURIComponent(photoId)}/metadata`, name: photo.name, mime: photo.mime };
     renderServerFilmstrip([photo], 1);
     const response = await fetch(photo.editUrl || photo.originalUrl);
     if (!response.ok) throw new Error("The original photo could not be loaded from Server Lab");
