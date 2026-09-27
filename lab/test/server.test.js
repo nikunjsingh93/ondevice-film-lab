@@ -308,12 +308,17 @@ test("editor loads new photos with neutral settings and preserves saved edits", 
   const maskState = { settings: { fade: "25" }, masks: [{ id: "mask", settings: { exposure: "40" }, strokes: [{ radius: .1, points: [{ x: .2, y: .3 }] }] }] };
   for (const state of [null, {}, { settings: { ...batchSettings, fade: "45" }, rotation: 90 }, maskState]) {
     const items = [];
+    const els = { thumbs: { replaceChildren() {} }, count: { textContent: "" } };
     const bridge = vm.runInNewContext(`({${source}})`, {
-      items, batchSettings, initialPhotoSettings, cloneSettings: settings => ({ ...settings }),
-      async addFiles() { items.push({ settings: { ...batchSettings } }); },
+      items, els, batchSettings, initialPhotoSettings, cloneSettings: settings => ({ ...settings }),
+      photoSources: new WeakMap(), URL: { createObjectURL: () => "blob:test" },
+      async preparePhotoSource() { return null; }, async getCaptureDate() { return new Date(2026, 0, 1); },
+      createLibraryId: () => "test-photo", appendLibraryItem(item) { items.push(item); },
+      async addFiles() { throw new Error("Navigation must not run photo import"); },
       loadPhotoSettings() {}, refreshThumb() {}, select() {}
     });
     await bridge.loadPhoto({}, state);
+    assert.equal(els.count.textContent, "Photos (1)");
     assert.deepEqual(JSON.parse(JSON.stringify(items[0].settings)), state?.settings ? { ...initialPhotoSettings, ...state.settings } : batchSettings);
     if (state?.rotation) assert.equal(items[0].rotation, state.rotation);
     assert.deepEqual(JSON.parse(JSON.stringify(items[0].masks||[])),state?.masks||[]);

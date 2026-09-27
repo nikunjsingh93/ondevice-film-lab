@@ -1070,9 +1070,15 @@ function createEditorHtml(userId = "server") {
       if(typeof els!=="undefined"&&els?.thumbs)els.thumbs.replaceChildren();
       if(typeof clearEditHistory==="function")clearEditHistory();
       if(decoded)photoSources.set(file,{blob:file});
-      await addFiles([file]);
-      const index=0,item=items[0];
-      if(!item)throw new Error("The photo could not be opened");
+      const source=await preparePhotoSource(file);
+      const captureDate=await getCaptureDate(file);
+      const item={libraryId:createLibraryId(),libraryOrder:Date.now(),file,
+        rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
+        thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||file),
+        captureDate,importedDate:new Date()};
+      appendLibraryItem(item);
+      const index=0;
+      els.count.textContent="Photos ("+items.length+")";
       if(state&&item){
         item.rotation=Number(state.rotation)||0;
         item.straighten=Number(state.straighten)||0;

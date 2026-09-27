@@ -116,4 +116,7 @@ test('Server Lab injects its editor bridge from a Windows CRLF checkout', () => 
   assert.match(page, /return makePreview\(i\)/);
   assert.match(page, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(page, /item\.cameraProfileId=typeof state\.cameraProfileId/);
+  const loadPhoto=page.slice(page.indexOf('    async loadPhoto(file,state,decoded=false){'),page.indexOf('    getCopiedEdits(){'));
+  assert.match(loadPhoto, /appendLibraryItem\(item\)/);
+  assert.doesNotMatch(loadPhoto, /addFiles\(\[file\]\)/);
 });
