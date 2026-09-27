@@ -11,9 +11,17 @@
     for(let i=0;i<8;i++)value=value&1?0xedb88320^(value>>>1):value>>>1;
     crcTable[n]=value>>>0;
   }
-  function crc32(bytes){
+  const readChunkSize=1024*1024;
+  async function crc32(blob,signal,onChunk){
     let value=0xffffffff;
-    for(const byte of bytes)value=crcTable[(value^byte)&255]^(value>>>8);
+    for(let offset=0;offset<blob.size;offset+=readChunkSize){
+      if(signal?.aborted)throw new DOMException("Download cancelled","AbortError");
+      const bytes=new Uint8Array(await blob.slice(offset,offset+readChunkSize).arrayBuffer());
+      for(let i=0;i<bytes.length;i++)value=crcTable[(value^bytes[i])&255]^(value>>>8);
+      onChunk(bytes.length);
+      // Allow the progress display and Cancel button to run between chunks.
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
     return (value^0xffffffff)>>>0;
   }
   function uniqueName(name,used){
@@ -26,17 +34,22 @@
     used.add(candidate.toLowerCase());
     return candidate;
   }
-  async function build(entries,signal){
+  async function build(entries,signal,onProgress){
     if(entries.length>65535)throw new Error("Too many photos for one ZIP file");
     const encoder=new TextEncoder(),used=new Set(),parts=[],central=[];
-    let offset=0,centralSize=0;
-    for(const entry of entries){
+    const totalBytes=entries.reduce((sum,entry)=>sum+entry.blob.size,0);
+    let offset=0,centralSize=0,processedBytes=0;
+    for(let index=0;index<entries.length;index++){
+      const entry=entries[index];
       if(signal?.aborted)throw new DOMException("Download cancelled","AbortError");
       const name=encoder.encode(uniqueName(entry.name,used));
-      const bytes=new Uint8Array(await entry.blob.arrayBuffer());
-      const size=bytes.length;
+      const size=entry.blob.size;
       if(size>0xffffffff||offset+30+name.length+size>0xffffffff)throw new Error("Selected photos exceed the ZIP size limit");
-      const crc=crc32(bytes);
+      const crc=await crc32(entry.blob,signal,chunkBytes=>{
+        processedBytes+=chunkBytes;
+        onProgress?.({index:index+1,count:entries.length,processedBytes,totalBytes});
+      });
+      if(signal?.aborted)throw new DOMException("Download cancelled","AbortError");
       const local=new Uint8Array(30+name.length),localView=new DataView(local.buffer);
       localView.setUint32(0,0x04034b50,true);
       localView.setUint16(4,20,true);

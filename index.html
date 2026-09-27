@@ -2595,7 +2595,7 @@ if (window.self === window.top && navigator.standalone === true) {
     else if(width/height<targetAspect)sourceHeight=width/targetAspect;
     const normalized=document.createElement("canvas");
     normalized.width=targetWidth;normalized.height=targetHeight;
-    const normalizedContext=normalized.getContext("2d");
+    const normalizedContext=normalized.getContext("2d",{willReadFrequently:true});
     normalizedContext.imageSmoothingEnabled=true;
     normalizedContext.imageSmoothingQuality="high";
     normalizedContext.drawImage(raw,0,0,sourceWidth,sourceHeight,0,0,targetWidth,targetHeight);
@@ -2607,7 +2607,7 @@ if (window.self === window.top && navigator.standalone === true) {
     const [outWidth,outHeight]=rotatedSize(targetWidth,targetHeight,rotation);
     const oriented=document.createElement("canvas");
     oriented.width=outWidth;oriented.height=outHeight;
-    const ctx=oriented.getContext("2d");
+    const ctx=oriented.getContext("2d",{willReadFrequently:true});
     ctx.translate(outWidth/2,outHeight/2);
     if(flip)ctx.scale(-1,1);
     ctx.rotate(rotation*Math.PI/180);
@@ -2721,7 +2721,7 @@ if (window.self === window.top && navigator.standalone === true) {
     if(amount<=0) {
       const out=document.createElement("canvas");
       out.width=src.width; out.height=src.height;
-      out.getContext("2d").drawImage(src,0,0);
+      out.getContext("2d",{willReadFrequently:true}).drawImage(src,0,0);
       return out;
     }
     // Preview canvases are reduced for speed. Scale pixel-radius with them so
@@ -2756,7 +2756,7 @@ if (window.self === window.top && navigator.standalone === true) {
     }
     const out=document.createElement("canvas");
     out.width=src.width; out.height=src.height;
-    out.getContext("2d").putImageData(a,0,0);
+    out.getContext("2d",{willReadFrequently:true}).putImageData(a,0,0);
     return out;
   }
 
@@ -3522,7 +3522,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
   function cloneCanvas(c){
     const n=document.createElement("canvas");
-    n.width=c.width; n.height=c.height; n.getContext("2d").drawImage(c,0,0);
+    n.width=c.width; n.height=c.height; n.getContext("2d",{willReadFrequently:true}).drawImage(c,0,0);
     return n;
   }
 
@@ -3552,7 +3552,7 @@ if (window.self === window.top && navigator.standalone === true) {
     const bottom=Math.max(top+1,Math.min(canvas.height,Math.round((area.y+area.h)*canvas.height)));
     const cropped=document.createElement("canvas");
     cropped.width=right-left;cropped.height=bottom-top;
-    const context=cropped.getContext("2d",{alpha:false});
+    const context=cropped.getContext("2d",{alpha:false,willReadFrequently:true});
     context.drawImage(canvas,left,top,cropped.width,cropped.height,0,0,cropped.width,cropped.height);
     return cropped;
   }
@@ -3924,7 +3924,7 @@ if (window.self === window.top && navigator.standalone === true) {
     // tiny height correction smoothly over the complete photograph instead.
     const normalized=document.createElement("canvas");
     normalized.width=width;normalized.height=height;
-    const normalizedContext=normalized.getContext("2d",{alpha:false});
+    const normalizedContext=normalized.getContext("2d",{alpha:false,willReadFrequently:true});
     normalizedContext.imageSmoothingEnabled=true;
     normalizedContext.imageSmoothingQuality="high";
     normalizedContext.drawImage(canvas,0,0,width,height-padding,0,0,width,height);

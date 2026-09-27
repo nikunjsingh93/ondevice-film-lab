@@ -315,7 +315,10 @@
       }
       elements.progressTitle.textContent="Building ZIP…";
       setProgress(92,"Packing edited JPEGs");
-      const blob=await window.FilmLabEditedZip.build(entries,downloadController.signal);
+      const blob=await window.FilmLabEditedZip.build(entries,downloadController.signal,progress=>{
+        const percent=progress.totalBytes ? progress.processedBytes/progress.totalBytes : 1;
+        setProgress(92+7*percent,`Packing photo ${progress.index} of ${progress.count}`);
+      });
       if(downloadController.signal.aborted)throw new DOMException("Download cancelled","AbortError");
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");

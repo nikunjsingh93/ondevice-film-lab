@@ -30,6 +30,35 @@ test("gallery ZIP stores rendered JPEGs under capture-date names and separates d
   assert.equal(zip.readUInt16LE(zip.length-14),2);
 });
 
+test("gallery ZIP writes a valid checksum",async()=>{
+  const zip=Buffer.from(await (await build([{name:"check.txt",blob:new Blob(["123456789"])}])).arrayBuffer());
+  assert.equal(zip.readUInt32LE(14),0xcbf43926);
+});
+
+test("gallery ZIP reads large photos in chunks and reports packing progress",async()=>{
+  const bytes=new Uint8Array(3*1024*1024+17);
+  bytes.fill(42);
+  const blob=new Blob([bytes]);
+  const originalSlice=blob.slice.bind(blob);
+  let largestRead=0;
+  blob.slice=(start,end)=>{
+    largestRead=Math.max(largestRead,end-start);
+    return originalSlice(start,end);
+  };
+  const updates=[];
+  const zip=await build([{name:"large.jpg",blob}],undefined,progress=>updates.push(progress));
+  assert.ok(largestRead<=1024*1024);
+  assert.equal(updates.length,4);
+  assert.equal(updates.at(-1).processedBytes,blob.size);
+  assert.equal(zip.size,blob.size+30+"large.jpg".length+46+"large.jpg".length+22);
+});
+
+test("gallery ZIP can be cancelled while packing a large photo",async()=>{
+  const controller=new AbortController();
+  const blob=new Blob([new Uint8Array(3*1024*1024)]);
+  await assert.rejects(build([{name:"large.jpg",blob}],controller.signal,()=>controller.abort()),error=>error.name==="AbortError");
+});
+
 test("gallery ZIP renders through each saved editor state instead of requesting originals",()=>{
   const app=fs.readFileSync(path.join(__dirname,"../public/app.js"),"utf8");
   const editor=fs.readFileSync(path.join(__dirname,"../public/lab-editor.js"),"utf8");
