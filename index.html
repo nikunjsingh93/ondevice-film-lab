@@ -5629,7 +5629,9 @@ if (window.self === window.top && navigator.standalone === true) {
     return segment;
   }
 
-  const readPhotoExif=window.PhotoExif.readEntries;
+  // A missing metadata helper must never prevent the editor and export controls
+  // from starting, for example while a deployed app shell is being updated.
+  const readPhotoExif=window.PhotoExif?.readEntries||(()=>[]);
 
   async function showPhotoInfo(){
     const item=items[current];
