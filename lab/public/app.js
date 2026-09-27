@@ -259,39 +259,74 @@
     } catch (error) { notify(error.message); }
   }
 
+  function renderPhotoForZip(id,signal){
+    return new Promise((resolve,reject)=>{
+      const frame=document.createElement("iframe");
+      frame.title="Preparing edited photo";
+      frame.setAttribute("aria-hidden","true");
+      frame.tabIndex=-1;
+      Object.assign(frame.style,{position:"fixed",left:"-10000px",top:"0",width:"1280px",height:"800px",opacity:"0",pointerEvents:"none"});
+      let settled=false;
+      const timeout=setTimeout(()=>finish(new Error("Photo rendering timed out")),180_000);
+      const onAbort=()=>finish(new DOMException("Download cancelled","AbortError"));
+      function finish(error,value){
+        if(settled)return;
+        settled=true;
+        clearTimeout(timeout);
+        signal.removeEventListener("abort",onAbort);
+        frame.remove();
+        if(error)reject(error);else resolve(value);
+      }
+      signal.addEventListener("abort",onAbort,{once:true});
+      frame.addEventListener("load",async()=>{
+        if(settled)return;
+        try{
+          const frameWindow=frame.contentWindow;
+          const ready=frameWindow?.__FILMLAB_BATCH_READY__;
+          if(!ready)throw new Error("Photo editor could not start for ZIP export");
+          const result=await ready;
+          if(settled||result===false)return; // Profile sync reloads the frame once.
+          if(result?.error)throw new Error(result.error);
+          const bridge=frameWindow.__FILMLAB_SERVER_EDITOR__;
+          const blob=await bridge.renderCurrent();
+          if(settled)return;
+          const name=await bridge.currentOutputName();
+          finish(null,{name,blob});
+        }catch(error){finish(error)}
+      });
+      frame.src=`/editor?photo=${encodeURIComponent(id)}&labFrame=1&batchExport=1`;
+      document.body.appendChild(frame);
+      if(signal.aborted)onAbort();
+    });
+  }
+
   async function downloadSelectedZip() {
     if (!selected.size || downloadController) return;
     downloadController = new AbortController();
     elements.progressOverlay.hidden = false;
-    elements.progressTitle.textContent = "Preparing download…";
-    setProgress(15, `Collecting ${selected.size} ${selected.size === 1 ? "photo" : "photos"}`);
+    elements.progressTitle.textContent = "Rendering edited photos…";
+    setProgress(0,`Preparing ${selected.size} ${selected.size===1?"photo":"photos"}`);
     try {
-      const response = await fetch("/api/photos/download.zip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [...selected] }),
-        signal: downloadController.signal
-      });
-      if (response.status === 401) { location.replace("/login"); return; }
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Download failed (${response.status})`);
+      const ids=[...selected],entries=[];
+      for(let i=0;i<ids.length;i++){
+        if(downloadController.signal.aborted)throw new DOMException("Download cancelled","AbortError");
+        setProgress(90*i/ids.length,`Rendering photo ${i+1} of ${ids.length}`);
+        entries.push(await renderPhotoForZip(ids[i],downloadController.signal));
       }
-      setProgress(85, "Finishing ZIP file");
-      const blob = await response.blob();
-      const disposition = response.headers.get("Content-Disposition") || "";
-      const match = disposition.match(/filename="?([^";]+)"?/i);
-      const filename = match?.[1] || "OnDevice-Film-Lab-photos.zip";
+      elements.progressTitle.textContent="Building ZIP…";
+      setProgress(92,"Packing edited JPEGs");
+      const blob=await window.FilmLabEditedZip.build(entries,downloadController.signal);
+      if(downloadController.signal.aborted)throw new DOMException("Download cancelled","AbortError");
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = filename;
+      anchor.download = `OnDevice-Film-Lab-${entries.length}-photos.zip`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
       setProgress(100, "Download ready");
-      notify(`Downloaded ${selected.size} ${selected.size === 1 ? "photo" : "photos"}`);
+      notify(`Downloaded ${entries.length} edited ${entries.length === 1 ? "photo" : "photos"}`);
     } catch (error) {
       notify(error.name === "AbortError" ? "Download cancelled" : error.message);
     } finally {

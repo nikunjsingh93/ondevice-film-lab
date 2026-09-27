@@ -53,7 +53,7 @@ test("lists photos and injects the shared editor bridge", async () => {
   assert.match(editor, /window\.__FILMLAB_SERVER_MODE__=true/);
   assert.match(editor, /libraryRestorePromise=Promise\.resolve\(\)/);
   assert.match(editor, /setSinglePhotoMode/);
-  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.26/);
+  assert.match(editor, /\/lab-editor\.js\?v=1\.4\.27/);
   assert.match(editor, /showAppDialog/);
   assert.match(editor, /\.thumbRemoveBtn/);
   assert.match(editor, /filmLabThumbRefresh/);

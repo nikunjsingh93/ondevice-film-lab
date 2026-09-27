@@ -2,6 +2,7 @@
   "use strict";
   const bridge = window.__FILMLAB_SERVER_EDITOR__;
   let photoId = new URLSearchParams(location.search).get("photo");
+  const batchExportMode = new URLSearchParams(location.search).get("batchExport") === "1";
   if (!bridge || !photoId) {
     location.replace("/");
     return;
@@ -479,7 +480,7 @@
         openServerPhoto(nextId, false);
       }
     });
-    addServerChrome();
+    if (!batchExportMode) addServerChrome();
     bridge.setSinglePhotoMode();
     restoreEditClipboard();
     if (!await syncProfilesInitially()) return;
@@ -496,6 +497,7 @@
     document.body.classList.remove("serverPhotoLoading");
     bridge.setSinglePhotoMode();
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
+    if (batchExportMode) return true;
     loadServerFilmstrip().catch(error => notify(`Nearby photos could not be loaded: ${error.message}`, true));
 
     const saveButton = document.querySelector("#saveOneBtn");
@@ -529,7 +531,12 @@
     });
   }
 
-  initialize().catch(error => {
+  const startup = initialize();
+  if (batchExportMode) window.__FILMLAB_BATCH_READY__ = startup.then(
+    ready => ready === false ? false : { ready: true },
+    error => ({ error: error.message || String(error) })
+  );
+  startup.catch(error => {
     console.error(error);
     const viewer = document.querySelector("#viewer");
     const message = document.createElement("div");
