@@ -783,6 +783,111 @@ app.post("/api/photos/download.zip", (request, response, next) => {
   } catch (error) { next(error); }
 });
 
+// Edited pixels are rendered by the browser. Keep each rendered JPEG on the
+// server only long enough to stream one ZIP, without saving it as a photo export.
+const editedZipJobs = new Map();
+async function discardEditedZipJob(id) {
+  const job = editedZipJobs.get(id);
+  if (!job) return;
+  editedZipJobs.delete(id);
+  clearTimeout(job.expiry);
+  await fsp.rm(job.directory, { recursive: true, force: true });
+}
+function removeOrphanedEditedZipJobs() {
+  const incomingRoot=path.join(DATA_DIR,".incoming");
+  for(const account of fs.readdirSync(incomingRoot,{withFileTypes:true})){
+    if(!account.isDirectory()||!/^[a-f0-9-]{20,50}$/i.test(account.name))continue;
+    const accountRoot=path.join(incomingRoot,account.name);
+    for(const entry of fs.readdirSync(accountRoot,{withFileTypes:true})){
+      if(entry.isDirectory()&&entry.name.startsWith("edited-zip-")){
+        fs.rmSync(path.join(accountRoot,entry.name),{recursive:true,force:true});
+      }
+    }
+  }
+}
+function editedZipJob(request, response) {
+  const job = editedZipJobs.get(request.params.jobId);
+  if (!job || job.userId !== request.user.id) {
+    response.status(404).json({ error: "ZIP download expired. Please try again." });
+    return null;
+  }
+  return job;
+}
+app.post("/api/edited-zip", requireReadyAccount, asyncRoute(async (request, response) => {
+  const id = crypto.randomUUID();
+  const directory = await fsp.mkdtemp(path.join(userDirectories(request.user.id).incoming, "edited-zip-"));
+  const job = { userId: request.user.id, directory, files: [], bytes: 0 };
+  job.expiry = setTimeout(() => discardEditedZipJob(id).catch(error => console.error("ZIP cleanup failed", error)), 30 * 60 * 1000);
+  job.expiry.unref?.();
+  editedZipJobs.set(id, job);
+  response.json({ jobId: id });
+}));
+app.put("/api/edited-zip/:jobId/:index", requireReadyAccount,
+  express.raw({ type: "image/jpeg", limit: `${Math.ceil(MAX_UPLOAD_BYTES / 1024 / 1024)}mb` }),
+  asyncRoute(async (request, response) => {
+    const job = editedZipJob(request, response);
+    if (!job) return;
+    if (job.downloading) return response.status(409).json({ error: "ZIP download has already started" });
+    const index = Number(request.params.index);
+    if (!Number.isSafeInteger(index) || index !== job.files.length || index >= 500) {
+      return response.status(400).json({ error: "Edited photos must be uploaded in order" });
+    }
+    const jpeg = request.body;
+    if (!Buffer.isBuffer(jpeg) || jpeg.length < 4 || jpeg[0] !== 0xff || jpeg[1] !== 0xd8) {
+      return response.status(400).json({ error: "The rendered photo is not a JPEG" });
+    }
+    if (job.bytes + jpeg.length > 0xffffffff - 100000) {
+      return response.status(413).json({ error: "Selected photos exceed the ZIP size limit" });
+    }
+    let requestedName;
+    try { requestedName = decodeURIComponent(String(request.get("X-FilmLab-Filename") || "FilmLab.jpg")); }
+    catch { requestedName = "FilmLab.jpg"; }
+    const cleanName = path.basename(requestedName).replace(/[^a-z0-9._' ()-]/gi, "_").slice(0, 240) || "FilmLab.jpg";
+    const filename = path.join(job.directory, `${index}.jpg`);
+    await fsp.writeFile(filename, jpeg, { flag: "wx", mode: 0o600 });
+    job.files.push({ filename, name: cleanName });
+    job.bytes += jpeg.length;
+    job.expiry?.refresh?.();
+    response.json({ stored: job.files.length });
+  }));
+app.get("/api/edited-zip/:jobId/download", requireReadyAccount, (request, response, next) => {
+  const job = editedZipJob(request, response);
+  if (!job) return;
+  if (job.downloading) return response.status(409).json({ error: "ZIP download has already started" });
+  if (!job.files.length) return response.status(400).json({ error: "No edited photos were uploaded" });
+  job.downloading=true;
+  const archive = archiver("zip", { zlib: { level: 0 } });
+  const usedNames = new Map();
+  clearTimeout(job.expiry);
+  job.expiry=null;
+  response.type("application/zip");
+  response.setHeader("Content-Disposition", `attachment; filename="OnDevice-Film-Lab-${job.files.length}-photos.zip"`);
+  response.setHeader("Cache-Control", "no-store");
+  response.once("close", () => {
+    editedZipJobs.delete(request.params.jobId);
+    if(!response.writableFinished)archive.abort();
+    // File streams may still be closing after the HTTP connection has closed.
+    const cleanup=setTimeout(() => fsp.rm(job.directory,{recursive:true,force:true})
+      .catch(error => console.error("ZIP cleanup failed",error)),30_000);
+    cleanup.unref?.();
+  });
+  archive.on("warning", error => response.destroy(error));
+  archive.on("error", error => response.destroy(error));
+  archive.pipe(response);
+  for (const file of job.files) {
+    const count = usedNames.get(file.name.toLowerCase()) || 0;
+    usedNames.set(file.name.toLowerCase(), count + 1);
+    const parsed = path.parse(file.name);
+    archive.file(file.filename, { name: count ? `${parsed.name} (${count + 1})${parsed.ext}` : file.name });
+  }
+  archive.finalize().catch(error => response.destroy(error));
+});
+app.delete("/api/edited-zip/:jobId", requireReadyAccount, asyncRoute(async (request, response) => {
+  if (!editedZipJob(request, response)) return;
+  await discardEditedZipJob(request.params.jobId);
+  response.status(204).end();
+}));
+
 app.get("/api/photos/:id", (request, response) => {
   const row = statements.byId.get(request.user.id, request.params.id);
   if (!row) return response.status(404).json({ error: "Photo not found" });
@@ -1167,6 +1272,7 @@ async function syncRotatedThumbnails() {
 let server = null;
 function startServer(port = PORT, host = "0.0.0.0") {
   if (server) return server;
+  try{removeOrphanedEditedZipJobs()}catch(error){console.error("Old ZIP cleanup failed",error)}
   syncRotatedThumbnails().catch(() => {});
   server = app.listen(port, host, () => {
     console.log(`OnDevice Film Lab Server listening on http://${host}:${port}`);

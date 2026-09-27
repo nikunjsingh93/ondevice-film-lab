@@ -259,7 +259,7 @@
     } catch (error) { notify(error.message); }
   }
 
-  function renderPhotoForZip(id,signal){
+  function renderPhotoForZip(id,signal,consume){
     return new Promise((resolve,reject)=>{
       const frame=document.createElement("iframe");
       frame.title="Preparing edited photo";
@@ -282,16 +282,18 @@
         if(settled)return;
         try{
           const frameWindow=frame.contentWindow;
+          const loadedDocument=frameWindow.document;
           const ready=frameWindow?.__FILMLAB_BATCH_READY__;
           if(!ready)throw new Error("Photo editor could not start for ZIP export");
           const result=await ready;
-          if(settled||result===false)return; // Profile sync reloads the frame once.
+          if(settled||result===false||frameWindow.document!==loadedDocument)return; // Profile sync reloads the frame once.
           if(result?.error)throw new Error(result.error);
           const bridge=frameWindow.__FILMLAB_SERVER_EDITOR__;
           const blob=await bridge.renderCurrent();
           if(settled)return;
           const name=await bridge.currentOutputName();
-          finish(null,{name,blob});
+          const value=await consume({name,blob});
+          finish(null,value);
         }catch(error){finish(error)}
       });
       frame.src=`/editor?photo=${encodeURIComponent(id)}&labFrame=1&batchExport=1`;
@@ -306,33 +308,41 @@
     elements.progressOverlay.hidden = false;
     elements.progressTitle.textContent = "Rendering edited photos…";
     setProgress(0,`Preparing ${selected.size} ${selected.size===1?"photo":"photos"}`);
+    let jobId=null;
     try {
-      const ids=[...selected],entries=[];
+      const ids=[...selected];
+      jobId=(await jsonRequest("/api/edited-zip",{method:"POST",signal:downloadController.signal})).jobId;
       for(let i=0;i<ids.length;i++){
         if(downloadController.signal.aborted)throw new DOMException("Download cancelled","AbortError");
-        setProgress(90*i/ids.length,`Rendering photo ${i+1} of ${ids.length}`);
-        entries.push(await renderPhotoForZip(ids[i],downloadController.signal));
+        setProgress(95*i/ids.length,`Rendering photo ${i+1} of ${ids.length}`);
+        await renderPhotoForZip(ids[i],downloadController.signal,async({name,blob})=>{
+          setProgress(95*(i+.65)/ids.length,`Uploading edited photo ${i+1} of ${ids.length}`);
+          const response=await fetch(`/api/edited-zip/${encodeURIComponent(jobId)}/${i}`,{
+            method:"PUT",headers:{"Content-Type":"image/jpeg","X-FilmLab-Filename":encodeURIComponent(name)},
+            body:blob,signal:downloadController.signal
+          });
+          if(!response.ok){
+            const payload=await response.json().catch(()=>({}));
+            throw new Error(payload.error||`Edited photo upload failed (${response.status})`);
+          }
+        });
       }
-      elements.progressTitle.textContent="Building ZIP…";
-      setProgress(92,"Packing edited JPEGs");
-      const blob=await window.FilmLabEditedZip.build(entries,downloadController.signal,progress=>{
-        const percent=progress.totalBytes ? progress.processedBytes/progress.totalBytes : 1;
-        setProgress(92+7*percent,`Packing photo ${progress.index} of ${progress.count}`);
-      });
       if(downloadController.signal.aborted)throw new DOMException("Download cancelled","AbortError");
-      const url = URL.createObjectURL(blob);
+      elements.progressTitle.textContent="Starting ZIP download…";
+      setProgress(99,"Preparing server download");
       const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `OnDevice-Film-Lab-${entries.length}-photos.zip`;
+      anchor.href = `/api/edited-zip/${encodeURIComponent(jobId)}/download`;
+      anchor.download = `OnDevice-Film-Lab-${ids.length}-photos.zip`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
       setProgress(100, "Download ready");
-      notify(`Downloaded ${entries.length} edited ${entries.length === 1 ? "photo" : "photos"}`);
+      notify(`Downloading ${ids.length} edited ${ids.length === 1 ? "photo" : "photos"}`);
+      jobId=null; // The server removes the temporary JPEGs when the download closes.
     } catch (error) {
       notify(error.name === "AbortError" ? "Download cancelled" : error.message);
     } finally {
+      if(jobId)fetch(`/api/edited-zip/${encodeURIComponent(jobId)}`,{method:"DELETE"}).catch(()=>{});
       downloadController = null;
       elements.progressOverlay.hidden = true;
     }

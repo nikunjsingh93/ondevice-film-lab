@@ -228,6 +228,7 @@ test("openServerPhoto navigates in-place using history.pushState and loads photo
     requestJson: async () => ({ photo: { id: "photo-2", name: "IMG_0002.JPG", editUrl: null, originalUrl: "/api/photos/photo-2/original" } }),
     fetch: async () => ({ ok: true, blob: async () => ({ type: "image/jpeg" }) }),
     File: class MockFile { constructor(parts, name, opts) { this.name = name; } },
+    window: {},
     document: {
       title: "",
       body: {
@@ -323,6 +324,42 @@ test("editor loads new photos with neutral settings and preserves saved edits", 
     if (state?.rotation) assert.equal(items[0].rotation, state.rotation);
     assert.deepEqual(JSON.parse(JSON.stringify(items[0].masks||[])),state?.masks||[]);
   }
+});
+
+test("edited ZIP streams uploaded JPEGs with capture-date names and cleans up", async () => {
+  db.prepare("UPDATE users SET must_change_password=0 WHERE id=?").run(testApi.defaultAdmin.id);
+  const listener=app.listen(0,"127.0.0.1");
+  await new Promise(resolve=>listener.once("listening",resolve));
+  const base=`http://127.0.0.1:${listener.address().port}`;
+  try {
+    const login=await fetch(`${base}/api/auth/login`,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username:"admin",password:"admin"})
+    });
+    assert.equal(login.status,200);
+    const cookie=login.headers.get("set-cookie").split(";")[0];
+    const created=await fetch(`${base}/api/edited-zip`,{method:"POST",headers:{Cookie:cookie}});
+    assert.equal(created.status,200);
+    const {jobId}=await created.json();
+    const jpeg=Buffer.from([0xff,0xd8,1,2,3,0xff,0xd9]);
+    for(let index=0;index<2;index++){
+      const uploaded=await fetch(`${base}/api/edited-zip/${jobId}/${index}`,{
+        method:"PUT",headers:{Cookie:cookie,"Content-Type":"image/jpeg","X-FilmLab-Filename":"20260926_105400_FilmLab.jpg"},body:jpeg
+      });
+      assert.equal(uploaded.status,200);
+    }
+    const downloaded=await fetch(`${base}/api/edited-zip/${jobId}/download`,{headers:{Cookie:cookie}});
+    assert.equal(downloaded.status,200);
+    const zip=Buffer.from(await downloaded.arrayBuffer());
+    for(const name of ["20260926_105400_FilmLab.jpg","20260926_105400_FilmLab (2).jpg"]){
+      assert.ok(zip.includes(Buffer.from(name)),`ZIP should contain ${name}`);
+    }
+    assert.equal(zip.readUInt32LE(0),0x04034b50);
+    assert.ok(zip.includes(Buffer.from([0x50,0x4b,0x01,0x02])));
+    assert.equal(zip.readUInt16LE(zip.length-14),2);
+    const reused=await fetch(`${base}/api/edited-zip/${jobId}/download`,{headers:{Cookie:cookie}});
+    assert.equal(reused.status,404);
+  } finally { await new Promise(resolve=>listener.close(resolve)); }
 });
 
 test("stores shared profile state", async () => {
