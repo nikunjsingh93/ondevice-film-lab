@@ -265,9 +265,13 @@ if (window.self === window.top && navigator.standalone === true) {
   .straightenPanel input{flex:1 1 auto;min-width:90px;margin:0}
   .straightenValue{width:48px;color:var(--accent);font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
   .straightenReset{padding:6px 9px;font-size:11px}
-  .cropPanel{display:flex;align-items:center;gap:8px;flex:0 0 auto;min-height:42px;padding:6px 12px;border-top:1px solid var(--line);background:#171e29}
+  .cropPanel{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:0 0 auto;min-height:42px;padding:6px 12px;border-top:1px solid var(--line);background:#171e29}
   .cropPanel[hidden]{display:none}
   .cropPanel strong{font-size:12px}.cropHint{flex:1;color:var(--muted);font-size:10px;line-height:1.25}.cropPanel button{padding:6px 10px;font-size:11px}.cropPanel .cropApply{background:var(--accent);border-color:var(--accent);color:#101824;font-weight:800}
+  .cropRatios{display:flex;gap:4px;flex:1 1 280px;min-width:0;overflow-x:auto;padding:2px 0}
+  .cropRatios button{flex:0 0 auto;white-space:nowrap;padding:6px 8px}
+  .cropRatios button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#101824}
+  .cropActions{display:flex;gap:8px;margin-left:auto}.cropPanel .cropHint{flex-basis:100%;order:3}
   .viewer{
     position:relative;
     flex:1 1 auto;
@@ -762,6 +766,7 @@ if (window.self === window.top && navigator.standalone === true) {
     .toolbar .iconButton{width:44px;min-width:44px}
     .straightenPanel,.cropPanel{gap:8px;padding:6px 9px;min-height:44px}
     .cropPanel .cropHint{display:none}
+    .cropRatios{order:2;flex-basis:100%}.cropRatios button{min-height:36px}
     .straightenPanel label{font-size:11px}
     .straightenValue{width:44px}
     .filename{flex-basis:calc(100% - 42px)}
@@ -1266,9 +1271,24 @@ if (window.self === window.top && navigator.standalone === true) {
         <div id="cropPanel" class="cropPanel" hidden>
           <strong>Crop</strong>
           <span class="cropHint">Drag the frame or its handles to choose the area to keep.</span>
+          <div id="cropRatios" class="cropRatios" role="group" aria-label="Crop aspect ratio">
+            <button type="button" data-crop-ratio="free" aria-pressed="true">Free</button>
+            <button type="button" data-crop-ratio="original" aria-pressed="false">Original</button>
+            <button type="button" data-crop-ratio="1:1" aria-pressed="false">1:1</button>
+            <button type="button" data-crop-ratio="3:2" aria-pressed="false">3:2</button>
+            <button type="button" data-crop-ratio="2:3" aria-pressed="false">2:3</button>
+            <button type="button" data-crop-ratio="4:3" aria-pressed="false">4:3</button>
+            <button type="button" data-crop-ratio="3:4" aria-pressed="false">3:4</button>
+            <button type="button" data-crop-ratio="4:5" aria-pressed="false">4:5</button>
+            <button type="button" data-crop-ratio="5:4" aria-pressed="false">5:4</button>
+            <button type="button" data-crop-ratio="16:9" aria-pressed="false">16:9</button>
+            <button type="button" data-crop-ratio="9:16" aria-pressed="false">9:16</button>
+          </div>
+          <div class="cropActions">
           <button id="cropResetBtn" type="button">Reset</button>
           <button id="cropCancelBtn" type="button">Cancel</button>
           <button id="cropApplyBtn" class="cropApply" type="button">Apply</button>
+          </div>
         </div>
 
         <div class="mobileTools" aria-label="Editing tools">
@@ -1407,7 +1427,7 @@ if (window.self === window.top && navigator.standalone === true) {
     leftBtn: $("#leftBtn"), rightBtn: $("#rightBtn"), straightenBtn: $("#straightenBtn"), cropBtn: $("#cropBtn"),
     straightenPanel: $("#straightenPanel"), straightenSlider: $("#straightenSlider"),
     straightenValue: $("#straightenValue"), straightenReset: $("#straightenReset"),
-    cropPanel: $("#cropPanel"), cropResetBtn: $("#cropResetBtn"), cropCancelBtn: $("#cropCancelBtn"), cropApplyBtn: $("#cropApplyBtn"),
+    cropPanel: $("#cropPanel"), cropRatios: $("#cropRatios"), cropResetBtn: $("#cropResetBtn"), cropCancelBtn: $("#cropCancelBtn"), cropApplyBtn: $("#cropApplyBtn"),
     zoomOutBtn: $("#zoomOutBtn"), zoomResetBtn: $("#zoomResetBtn"), zoomInBtn: $("#zoomInBtn"),
     fullBtn: $("#fullBtn"), saveOneBtn: $("#saveOneBtn"), zipBtn: $("#zipBtn"), chromeToggleBtn: $("#chromeToggleBtn"),
     photoActions: $("#photoActions"), removePhotoBtn: $("#removePhotoBtn"), clearPhotosBtn: $("#clearPhotosBtn"),
@@ -1447,6 +1467,9 @@ if (window.self === window.top && navigator.standalone === true) {
   let straightenGridTimer = 0;
   let cropOpen = false;
   let cropDraft = null;
+  let cropRatio = 0;
+  let cropRatioKey = "free";
+  let cropSourceAspect = 1;
   let editScope = "all";
   let copiedPhotoSettings = null;
   let batchSettings = {};
@@ -2260,6 +2283,7 @@ if (window.self === window.top && navigator.standalone === true) {
   });
   function setBusy(v){
     busy = v;
+    updateCropUI();
     document.querySelectorAll(".sectionResetButton").forEach(button=>{button.disabled=v});
     updateMaskUI();
     if(v){closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu()}
@@ -2292,6 +2316,10 @@ if (window.self === window.top && navigator.standalone === true) {
     els.cropResetBtn.disabled=busy||!open||cropIsFull(cropDraft);
     els.cropCancelBtn.disabled=busy||!open;
     els.cropApplyBtn.disabled=busy||!open||cropsEqual(cropDraft,items[current]?.crop);
+    els.cropRatios.querySelectorAll("button").forEach(button=>{
+      button.disabled=busy||!open||!cropSourceAspect;
+      button.setAttribute("aria-pressed",String(button.dataset.cropRatio===cropRatioKey));
+    });
   }
   function updateThumbCustomBadge(index){
     const badge=els.thumbs.children[index]?.querySelector(".customBadge");
@@ -3837,6 +3865,32 @@ if (window.self === window.top && navigator.standalone === true) {
     stage.addEventListener("pointerdown",down);
   }
 
+  function fitCropRatio(area,sourceAspect,ratio){
+    const q=ratio/sourceAspect;
+    let w=Math.sqrt(area.w*area.h*q),h=w/q;
+    const scale=Math.min(1,1/w,1/h);
+    w*=scale;h*=scale;
+    return {x:Math.max(0,Math.min(1-w,area.x+area.w/2-w/2)),
+      y:Math.max(0,Math.min(1-h,area.y+area.h/2-h/2)),w,h};
+  }
+  function resizeCropRatio(start,direction,dx,dy,q,minWidth,minHeight){
+    const horizontal=direction.includes("w")||direction.includes("e");
+    const vertical=direction.includes("n")||direction.includes("s");
+    const west=direction.includes("w"),north=direction.includes("n");
+    const anchorX=horizontal?(west?start.x+start.w:start.x):start.x+start.w/2;
+    const anchorY=vertical?(north?start.y+start.h:start.y):start.y+start.h/2;
+    const widthFromX=start.w+(west?-dx:dx);
+    const widthFromY=(start.h+(north?-dy:dy))*q;
+    let w=!horizontal?widthFromY:!vertical?widthFromX:
+      Math.abs(dx)/start.w>=Math.abs(dy)/start.h?widthFromX:widthFromY;
+    const maxW=horizontal?(west?anchorX:1-anchorX):2*Math.min(anchorX,1-anchorX);
+    const maxH=vertical?(north?anchorY:1-anchorY):2*Math.min(anchorY,1-anchorY);
+    const maximum=Math.min(maxW,maxH*q);
+    w=Math.max(Math.min(maximum,Math.max(minWidth,minHeight*q)),Math.min(maximum,w));
+    const h=w/q;
+    return {x:horizontal?(west?anchorX-w:anchorX):anchorX-w/2,
+      y:vertical?(north?anchorY-h:anchorY):anchorY-h/2,w,h};
+  }
   function updateCropOverlay(overlay){
     if(!overlay)return;
     const area=normalizedCrop(cropDraft);
@@ -3846,6 +3900,9 @@ if (window.self === window.top && navigator.standalone === true) {
     overlay.style.height=`${area.h*100}%`;
   }
   function createCropOverlay(box){
+    const canvas=box.querySelector("canvas");
+    cropSourceAspect=canvas.width/canvas.height;
+    updateCropUI();
     const overlay=document.createElement("div");
     overlay.className="cropOverlay";
     for(const direction of ["nw","n","ne","e","se","s","sw","w"]){
@@ -3869,6 +3926,8 @@ if (window.self === window.top && navigator.standalone === true) {
         const dy=(pointer.clientY-startY)/Math.max(1,rect.height);
         if(direction==="move"){
           cropDraft={...start,x:Math.max(0,Math.min(1-start.w,start.x+dx)),y:Math.max(0,Math.min(1-start.h,start.y+dy))};
+        }else if(cropRatio){
+          cropDraft=resizeCropRatio(start,direction,dx,dy,cropRatio/cropSourceAspect,minWidth,minHeight);
         }else{
           let left=start.x,top=start.y,right=start.x+start.w,bottom=start.y+start.h;
           if(direction.includes("w"))left=Math.max(0,Math.min(right-minWidth,start.x+dx));
@@ -5387,13 +5446,24 @@ if (window.self === window.top && navigator.standalone === true) {
     if(cropOpen){
       straightenOpen=false;showStraightenGrid(false);
       cropDraft=normalizedCrop(items[current].crop);
+      cropRatio=0;cropRatioKey="free";cropSourceAspect=0;
       previewZoom=1;
     }else cropDraft=null;
     updateStraightenUI();updateCropUI();makePreview(current);
   };
+  els.cropRatios.addEventListener("click",event=>{
+    const button=event.target.closest("button[data-crop-ratio]");
+    if(!button||busy||!cropOpen||!cropSourceAspect)return;
+    cropRatioKey=button.dataset.cropRatio;
+    const [width,height]=cropRatioKey.split(":").map(Number);
+    cropRatio=cropRatioKey==="original"?cropSourceAspect:cropRatioKey==="free"?0:width/height;
+    if(cropRatio)cropDraft=fitCropRatio(normalizedCrop(cropDraft),cropSourceAspect,cropRatio);
+    updateCropOverlay(els.viewer.querySelector(".cropOverlay"));updateCropUI();
+  });
   els.cropResetBtn.onclick=()=>{
     if(current<0||!cropOpen)return;
     cropDraft={x:0,y:0,w:1,h:1};
+    cropRatio=0;cropRatioKey="free";
     updateCropOverlay(els.viewer.querySelector(".cropOverlay"));updateCropUI();
   };
   els.cropCancelBtn.onclick=()=>{
