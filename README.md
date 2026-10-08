@@ -101,6 +101,7 @@ Install OnDevice Film Lab from the live link above. Once it has loaded successfu
 - Retro segmented date stamp enabled by default, with selectable date formats and a soft orange film-like glow
 - Capture-date filenames such as `20260809_124041_FilmLab.jpg`
 - Individual JPEG downloads or cancellable **Download all .zip** batch export with progress
+- Optional export resizing by maximum megapixels, with resolution presets and a custom limit. Original size is the default; smaller images are never enlarged. The sidebar shows output dimensions and megapixels after crop and rotation. Applies to individual JPEGs and ZIP exports in both editions.
 - Responsive layout for phones, tablets, and desktop browsers
 - Lightroom-style mobile tool bar, settings sheets, and hamburger import menu
 - Fixed desktop editing workspace that keeps the preview and filmstrip visible

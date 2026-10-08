@@ -49,7 +49,7 @@ test("web app inline scripts compile and preview preference is not a photo edit"
   for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) new vm.Script(match[1]);
   const photoControls = html.slice(html.indexOf("const photoSettingControls="), html.indexOf("const globalSettingControls="));
   assert.doesNotMatch(photoControls, /holdOriginal/);
-  assert.match(html, /globalSettingControls=\[els\.quality,els\.dateRename,els\.holdOriginal\]/);
+  assert.match(html, /globalSettingControls=\[[^\]]*els\.holdOriginal\]/);
 });
 
 test("desktop settings dialog opens with the saved preview preference and reuses its change handler", () => {

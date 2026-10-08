@@ -160,6 +160,7 @@ if (window.self === window.top && navigator.standalone === true) {
   .stampColorPicker{width:32px;height:32px;border:1px solid var(--line);border-radius:7px;background:#222c3b;padding:2px;cursor:pointer}
   input[type=range]{width:100%;accent-color:var(--accent);touch-action:pan-y}
   select{width:100%;background:#222c3b;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
+  .exportCustomMP{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:9px}
   .check{display:flex;align-items:center;gap:10px;min-height:36px;color:var(--muted);cursor:pointer}
   .check input{width:22px;height:22px;min-width:22px;margin:0;accent-color:var(--accent);cursor:pointer}
   .control label.renameCheck{justify-content:flex-start;font-weight:700;color:var(--text)}
@@ -1137,6 +1138,24 @@ if (window.self === window.top && navigator.standalone === true) {
             <label><span>JPEG quality</span><span id="qualityVal" class="value">95%</span></label>
             <input id="quality" type="range" min="75" max="100" value="95">
           </div>
+          <div class="control">
+            <label for="exportSize"><span>Export size</span></label>
+            <select id="exportSize" aria-describedby="exportSizeInfo">
+              <option value="original">Original size</option>
+              <option value="mp24">24 MP</option>
+              <option value="mp12">12 MP</option>
+              <option value="mp8">8 MP</option>
+              <option value="mp4">4 MP</option>
+              <option value="mp2">2 MP</option>
+              <option value="custom">Custom megapixels…</option>
+            </select>
+          </div>
+          <div id="exportCustomControl" class="control" hidden>
+            <label for="exportCustomMP"><span>Maximum resolution (MP)</span></label>
+            <input id="exportCustomMP" class="exportCustomMP" type="number" min="0.1" max="100" step="0.1" value="12" inputmode="decimal">
+          </div>
+          <div id="exportSizeInfo" class="notice" aria-live="polite"></div>
+          <div id="exportSizeNotice" class="notice danger" aria-live="polite" hidden></div>
           <div class="control" style="margin-top:16px">
             <label class="check renameCheck"><input id="dateRename" type="checkbox" checked> Rename using capture date</label>
           </div>
@@ -1297,7 +1316,7 @@ if (window.self === window.top && navigator.standalone === true) {
           <button type="button" data-panel="colors" data-title="Colors">Colors</button>
           <button type="button" data-panel="masking" data-title="Masking">Masks</button>
           <button type="button" data-panel="stamp" data-title="Date stamp">Stamp</button>
-          <button type="button" data-panel="output" data-title="Quality">Quality</button>
+          <button type="button" data-panel="output" data-title="Export">Export</button>
         </div>
 
         <div class="filmstripWrap">
@@ -1414,7 +1433,8 @@ if (window.self === window.top && navigator.standalone === true) {
     lutStrengthControl: $("#lutStrengthControl"), lutStrength: $("#lutStrength"), lutStrengthVal: $("#lutStrengthVal"),
     grainEnabled: $("#grainEnabled"), grainOptions: $("#grainOptions"),
     grainStrength: $("#grainStrength"), grainSize: $("#grainSize"), grainRoughness: $("#grainRoughness"),
-    quality: $("#quality"), holdOriginal: $("#holdOriginal"),
+    quality: $("#quality"), exportSize: $("#exportSize"), exportCustomMP: $("#exportCustomMP"),
+    exportCustomControl: $("#exportCustomControl"), exportSizeInfo: $("#exportSizeInfo"), exportSizeNotice: $("#exportSizeNotice"), holdOriginal: $("#holdOriginal"),
     exposureVal: $("#exposureVal"), temperatureVal: $("#temperatureVal"), highlightsVal: $("#highlightsVal"), shadowsVal: $("#shadowsVal"),
     contrastVal: $("#contrastVal"), saturationVal: $("#saturationVal"), sharpnessVal: $("#sharpnessVal"),
     amountVal: $("#amountVal"), radiusVal: $("#radiusVal"), thresholdVal: $("#thresholdVal"), chromaNoiseVal: $("#chromaNoiseVal"), luminanceNoiseVal: $("#luminanceNoiseVal"),
@@ -2028,12 +2048,12 @@ if (window.self === window.top && navigator.standalone === true) {
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
   ];
-  const globalSettingControls=[els.quality,els.dateRename,els.holdOriginal];
+  const globalSettingControls=[els.quality,els.exportSize,els.exportCustomMP,els.dateRename,els.holdOriginal];
   const initialPhotoSettings=capturePhotoSettings();
   const neutralPhotoSettings=Object.fromEntries(photoSettingControls.map(control=>[
     control.id,control.type==="range"?"0":control.type==="checkbox"?false:controlValue(control)
   ]));
-  const sectionResetDefaults={...neutralPhotoSettings,quality:els.quality.value,dateRename:els.dateRename.checked};
+  const sectionResetDefaults={...neutralPhotoSettings,quality:els.quality.value,exportSize:"original",exportCustomMP:"12",dateRename:els.dateRename.checked};
 
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
@@ -2284,6 +2304,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function setBusy(v){
     busy = v;
     updateCropUI();
+    updateExportSizeUI();
     document.querySelectorAll(".sectionResetButton").forEach(button=>{button.disabled=v});
     updateMaskUI();
     if(v){closeDesktopLibraryMenu();closeEditScopeMenu();closeProfileMenu()}
@@ -2346,6 +2367,7 @@ if (window.self === window.top && navigator.standalone === true) {
       : "Slider changes affect only the selected photo. A Custom badge will appear in the filmstrip.";
   }
   function updateButtons(){
+    updateExportSizeUI();
     const has = items.length > 0;
     const selected = current >= 0;
     els.photoActions.hidden=!has;
@@ -2647,6 +2669,12 @@ if (window.self === window.top && navigator.standalone === true) {
     file=await photoDecodeSource(file);
     const encoded=await encodedImageSize(file);
     const sourceLong=encoded?Math.max(encoded.width,encoded.height):0;
+    const previewResult=image=>{
+      const iw=image.naturalWidth||image.width,ih=image.naturalHeight||image.height;
+      let width=encoded?.width||iw,height=encoded?.height||ih;
+      if((width>height)!==(iw>ih)&&width!==height)[width,height]=[height,width];
+      return {image,sourceLong:Math.max(width,height),sourceWidth:width,sourceHeight:height};
+    };
     if(encoded&&sourceLong>maxDim){
       const scale=maxDim/sourceLong;
       const resizeWidth=Math.max(1,Math.round(encoded.width*scale));
@@ -2656,7 +2684,7 @@ if (window.self === window.top && navigator.standalone === true) {
       // forced into the JPEG's stored landscape dimensions.
       if(isIOS){
         const image=await decodeWithImageElement(file);
-        return {image,sourceLong:Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height)};
+        return previewResult(image);
       }
       if("ImageDecoder" in window){
         let decoder=null;
@@ -2669,7 +2697,7 @@ if (window.self === window.top && navigator.standalone === true) {
             const result=await decoder.decode({frameIndex:0});
             try{
               const image=await copyVideoFrameToCanvas(result.image,resizeWidth,resizeHeight);
-              return {image,sourceLong};
+              return previewResult(image);
             }finally{
               result.image.close();
             }
@@ -2684,21 +2712,21 @@ if (window.self === window.top && navigator.standalone === true) {
       const resize={resizeWidth,resizeHeight,resizeQuality:"high"};
       try{
         const image=await createImageBitmap(file,{...resize,imageOrientation:"from-image"});
-        return {image,sourceLong};
+        return previewResult(image);
       }catch(firstError){
         try{
           const image=await createImageBitmap(file,resize);
-          return {image,sourceLong};
+          return previewResult(image);
         }catch(secondError){
           console.warn("Reduced-size bitmap decode failed; using image-element fallback",firstError,secondError);
           const image=await decodeWithImageElement(file);
-          return {image,sourceLong:sourceLong||Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height)};
+          return previewResult(image);
         }
       }
       }
     }
     const image=await decode(file);
-    return {image,sourceLong:sourceLong||Math.max(image.naturalWidth||image.width,image.naturalHeight||image.height)};
+    return previewResult(image);
   }
 
   function rotatedSize(w,h,deg){
@@ -4009,11 +4037,13 @@ if (window.self === window.top && navigator.standalone === true) {
       // Decode large mobile photos directly near preview size. This avoids
       // allocating a full-resolution bitmap before it can be downscaled.
       const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
-      const {image:img,sourceLong}=await decodePreview(it.file,previewMax);
+      const {image:img,sourceLong,sourceWidth,sourceHeight}=await decodePreview(it.file,previewMax);
       const maskAspect=(img.naturalWidth||img.width)/(img.naturalHeight||img.height);
       if(token!==previewToken) { img.close?.(); return; }
+      it.exportSourceSize={width:sourceWidth,height:sourceHeight};
+      updateExportSizeUI();
       // Keep mobile preview buffers lighter so several default film effects
-      // can render reliably on memory-constrained phones. Export remains full resolution.
+      // can render reliably on memory-constrained phones. Export uses its own size setting.
       const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax,it.straighten||0));
       const editingCrop=cropOpen&&index===current;
       const original=editingCrop ? rotated : cropCanvas(rotated,it.crop);
@@ -4119,7 +4149,7 @@ if (window.self === window.top && navigator.standalone === true) {
         const value=saved[control.id];
         if(control.type==="checkbox"){
           if(typeof value==="boolean")control.checked=value;
-        }else if(control.type==="range"){
+        }else if(control.type==="range"||control.type==="number"){
           const number=Number(value);
           if(Number.isFinite(number)){
             const minimum=Number(control.min),maximum=Number(control.max);
@@ -4363,6 +4393,7 @@ if (window.self === window.top && navigator.standalone === true) {
   }
   function refreshSettingUI(){
     updateSliderLabels();
+    updateExportSizeUI();
     updateGrainUI();
     updateStampUI();
     updateLutUI();
@@ -4490,6 +4521,13 @@ if (window.self === window.top && navigator.standalone === true) {
   window.addEventListener("pointercancel",()=>activeHistoryControls.clear());
   els.quality.addEventListener("input",()=>{updateSliderLabels();saveSettings()});
   els.quality.addEventListener("change",saveSettings);
+  els.exportSize.addEventListener("change",()=>{updateExportSizeUI();saveSettings()});
+  els.exportCustomMP.addEventListener("input",()=>{updateExportSizeUI();saveSettings()});
+  els.exportCustomMP.addEventListener("change",()=>{
+    const value=Number(els.exportCustomMP.value);
+    els.exportCustomMP.value=String(Number.isFinite(value)&&value>0?Math.max(.1,Math.min(100,Math.round(value*10)/10)):12);
+    updateExportSizeUI();saveSettings();
+  });
   els.dateRename.addEventListener("change",saveSettings);
   els.lutAddBtn.addEventListener("click",()=>els.lutFileInput.click());
   els.lutFileInput.addEventListener("change",async()=>{
@@ -5657,6 +5695,74 @@ if (window.self === window.top && navigator.standalone === true) {
     return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("Encoding failed")),mime,quality));
   }
 
+  function exportDimensions(width,height,maxMegapixels=0){
+    const limit=Number(maxMegapixels);
+    const scale=Number.isFinite(limit)&&limit>0?Math.min(1,Math.sqrt(limit*1e6/(width*height))):1;
+    return {width:Math.max(1,Math.floor(width*scale)),height:Math.max(1,Math.floor(height*scale))};
+  }
+  function exportMegapixels(){
+    if(els.exportSize.value==="original")return 0;
+    if(els.exportSize.value==="custom"){
+      const value=Number(els.exportCustomMP.value);
+      return Number.isFinite(value)&&value>0?Math.max(.1,Math.min(100,Math.round(value*10)/10)):12;
+    }
+    return Number(els.exportSize.value.replace(/^mp/,""))||0;
+  }
+  function updateExportSizeUI(){
+    els.exportCustomControl.hidden=els.exportSize.value!=="custom";
+    els.exportSize.disabled=busy;
+    els.exportCustomMP.disabled=busy;
+    els.exportSizeNotice.hidden=true;
+    els.exportSizeNotice.textContent="";
+    for(const option of els.exportSize.options){
+      if(option.value.startsWith("mp"))option.textContent=`${Number(option.value.slice(2))} MP`;
+    }
+    const item=items[current],size=item?.exportSourceSize;
+    if(!size){els.exportSizeInfo.textContent="";return}
+    const [width,height]=rotatedSize(size.width,size.height,item.rotation||0);
+    const area=normalizedCrop(item.crop);
+    const left=Math.max(0,Math.min(width-1,Math.round(area.x*width)));
+    const top=Math.max(0,Math.min(height-1,Math.round(area.y*height)));
+    const croppedWidth=Math.max(left+1,Math.min(width,Math.round((area.x+area.w)*width)))-left;
+    const croppedHeight=Math.max(top+1,Math.min(height,Math.round((area.y+area.h)*height)))-top;
+    const pixels=output=>`${output.width.toLocaleString()} × ${output.height.toLocaleString()} px`;
+    for(const option of els.exportSize.options){
+      if(!option.value.startsWith("mp"))continue;
+      const megapixels=Number(option.value.slice(2));
+      option.textContent=`${megapixels} MP (${pixels(exportDimensions(croppedWidth,croppedHeight,megapixels))})`;
+    }
+    const limit=exportMegapixels();
+    const output=exportDimensions(croppedWidth,croppedHeight,limit);
+    els.exportSizeInfo.textContent=`Output: ${(output.width*output.height/1e6).toFixed(1)} MP (${pixels(output)})`;
+    if(limit>0&&croppedWidth*croppedHeight<limit*1e6){
+      els.exportSizeNotice.hidden=false;
+      els.exportSizeNotice.textContent="This photo is already smaller than the selected size. It will be saved without resizing.";
+    }
+  }
+  function resizeExportCanvas(canvas,maxMegapixels){
+    const target=exportDimensions(canvas.width,canvas.height,maxMegapixels);
+    if(target.width===canvas.width&&target.height===canvas.height)return canvas;
+    // Reduce in stages so a large reduction retains detail without aliasing.
+    let source=canvas;
+    while(source.width>target.width*2||source.height>target.height*2){
+      const step=document.createElement("canvas");
+      step.width=Math.max(target.width,Math.round(source.width/2));
+      step.height=Math.max(target.height,Math.round(source.height/2));
+      const context=step.getContext("2d",{alpha:false});
+      context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
+      context.drawImage(source,0,0,step.width,step.height);
+      if(source!==canvas){source.width=0;source.height=0}
+      source=step;
+    }
+    const resized=document.createElement("canvas");
+    resized.width=target.width;resized.height=target.height;
+    const context=resized.getContext("2d",{alpha:false});
+    context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
+    context.drawImage(source,0,0,target.width,target.height);
+    if(source!==canvas){source.width=0;source.height=0}
+    return resized;
+  }
+
   async function getSourceExifSegment(file){
     if(Object.prototype.hasOwnProperty.call(file,"_exifSegment")) return file._exifSegment;
     let segment=null;
@@ -5875,9 +5981,10 @@ if (window.self === window.top && navigator.standalone === true) {
     throwIfProcessingCancelled();
     const mime="image/jpeg";
     const quality=+els.quality.value/100;
-    const encoded=await canvasToBlob(out,mime,quality);
+    const resized=resizeExportCanvas(out,exportMegapixels());
+    const encoded=await canvasToBlob(resized,mime,quality);
     throwIfProcessingCancelled();
-    const result=await preserveExifMetadata(encoded,it.file,out.width,out.height);
+    const result=await preserveExifMetadata(encoded,it.file,resized.width,resized.height);
     throwIfProcessingCancelled();
     return result;
   }
@@ -5891,7 +5998,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
   els.saveOneBtn.onclick=async()=>{
     if(current<0||busy)return;
-    setBusy(true);setStatus("Processing full-resolution photo…");
+    setBusy(true);setStatus("Processing photo…");
     try{
       const it=items[current], blob=await processItem(it);
       await downloadBlob(blob,await outputName(it.file));
