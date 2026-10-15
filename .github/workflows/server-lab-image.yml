@@ -11,6 +11,7 @@ on:
       - "theme.js"
       - "photo-formats.js"
       - "photo-codecs.js"
+      - "tone-curve.js"
       - "codecs/**"
       - "branding/**"
       - "icons/**"

@@ -1242,6 +1242,7 @@ app.use("/icons", express.static(path.join(APP_ROOT, "icons"), { maxAge: "7d" })
 
 app.get("/photo-formats.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-formats.js")));
 app.get("/photo-codecs.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-codecs.js")));
+app.get("/tone-curve.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "tone-curve.js")));
 app.get("/photo-exif.js", (_request, response) => response.sendFile(path.join(APP_ROOT, "photo-exif.js")));
 app.use("/codecs", express.static(path.join(APP_ROOT, "codecs"), { maxAge: 0 }));
 app.use(express.static(PUBLIC_DIR, { extensions: ["html"], maxAge: 0 }));

@@ -65,7 +65,7 @@ test('individual and ZIP renders resize after all edits and write the final EXIF
     canvasToBlob:async(canvas,mime,quality)=>{assert.equal(canvas,small);assert.equal(mime,'image/jpeg');assert.equal(quality,.95);order.push('encode');return 'jpeg'},
     preserveExifMetadata:async(blob,file,w,h)=>{assert.equal(w,4000);assert.equal(h,3000);order.push('exif');return blob}
   };
-  for(const name of ['applyChromaNoiseReduction','applyLuminanceNoiseReduction','applyBasicAdjustments','applyColorAdjustments','applyColorLut','applySharpness','applyChromaticAberration','applyFade','applyLightLeaks','applyHalation','applyBloom','applyGrain'])context[name]=()=>{};
+  for(const name of ['applyChromaNoiseReduction','applyLuminanceNoiseReduction','applyBasicAdjustments','applyToneCurve','applyColorAdjustments','applyColorLut','applySharpness','applyChromaticAberration','applyFade','applyLightLeaks','applyHalation','applyBloom','applyGrain'])context[name]=()=>{};
   const process=vm.runInNewContext(slice('  async function processItem(', '  async function downloadBlob(')+'\nprocessItem',context);
   for(const cancellable of [false,true]){
     order.length=0;assert.equal(await process({file:{}},cancellable),'jpeg');

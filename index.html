@@ -894,6 +894,7 @@ if (window.self === window.top && navigator.standalone === true) {
     .layout>.sidebar{padding:6px;top:4px;max-height:calc(100vh - 8px)}
     .layout>.main{top:4px;height:calc(100vh - 8px)}
   }
+.curveGraph{display:block;width:100%;aspect-ratio:1;background:#171717;border:1px solid #555;touch-action:none;overflow:visible;cursor:crosshair}.curveGraph:focus-visible{outline:2px solid var(--accent,#aaa);outline-offset:3px}.curveNodes circle{cursor:grab;stroke:#171717;stroke-width:1.5}.curveChannels{display:flex;gap:6px;margin:12px 0}.curveChannels button{flex:1;padding:5px;background:#222;color:#ccc;border:1px solid #444;border-radius:5px}.curveChannels button[aria-pressed="true"]{background:#444;color:#fff;border-color:#aaa}.curveRegions{display:flex;justify-content:space-between;font-size:10px;color:#999;margin:7px 0}.curveReadout{font-size:11px;color:#aaa;text-align:center;margin:8px 0}.curvePreset{width:100%;background:#222;color:#ddd;border:1px solid #444;border-radius:5px;padding:6px}.curveHelp{font-size:11px;color:#999;line-height:1.5}
 </style>
 <link rel="stylesheet" href="./theme.css">
 <script src="./theme.js"></script>
@@ -1032,6 +1033,20 @@ if (window.self === window.top && navigator.standalone === true) {
           <div class="control">
             <label><span>Sharpness</span><span id="sharpnessVal" class="value">0%</span></label>
             <input id="sharpness" type="range" min="0" max="100" value="0" aria-label="Sharpness">
+          </div>
+          <div id="toneCurveGroup" class="editBlock settingsSubgroup">
+            <div class="settingsHeader"><span class="settingsTitle">Tone curve</span><button class="sectionResetButton" type="button" aria-label="Reset Tone curve" title="Reset Tone curve"></button><button class="groupCollapseToggle" type="button" aria-expanded="true" aria-label="Hide Tone curve" title="Hide Tone curve"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9 5.5 5.5L17.5 9"/></svg></button></div>
+            <input id="toneCurve" type="hidden" value="0">
+            <div class="curveChannels" role="group" aria-label="Curve channel"><button type="button" data-channel="rgb">RGB</button><button type="button" data-channel="red">R</button><button type="button" data-channel="green">G</button><button type="button" data-channel="blue">B</button></div>
+            <svg class="curveGraph" viewBox="0 0 256 256" tabindex="0" role="group" aria-label="Tone curve. Click to add a point, drag or use arrow keys to adjust. Delete removes the selected interior point.">
+              <path class="curveHistogram" fill="#ffffff16"/>
+              <path d="M64 0V256 M128 0V256 M192 0V256 M0 64H256 M0 128H256 M0 192H256" stroke="#ffffff18" fill="none"/>
+              <path d="M0 256L256 0" stroke="#ffffff40" stroke-dasharray="4 4"/>
+              <path class="curvePath" fill="none" stroke-width="2"/><g class="curveNodes"/></svg>
+            <div class="curveRegions"><span>Shadows</span><span>Midtones</span><span>Highlights</span></div>
+            <div class="curveReadout" aria-live="polite"></div>
+            <select class="curvePreset" aria-label="Tone curve preset"><option value="">Curve presets…</option><option value="0">Linear</option><option value="0.045">Medium contrast</option><option value="0.09">Strong contrast</option></select>
+            <p class="curveHelp">Click to add points. Drag to adjust. Double-click a point to remove it.</p>
           </div>
         </div>
 
@@ -1410,6 +1425,7 @@ if (window.self === window.top && navigator.standalone === true) {
 <script src="./photo-formats.js"></script>
 <script src="./photo-codecs.js"></script>
 <script src="./photo-exif.js"></script>
+<script src="./tone-curve.js"></script>
 <script>
 (() => {
   "use strict";
@@ -1425,7 +1441,7 @@ if (window.self === window.top && navigator.standalone === true) {
     filmstripAddBtn: $("#filmstripAddBtn"), libraryRemoveBtn: $("#libraryRemoveBtn"), libraryClearBtn: $("#libraryClearBtn"),
     libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
     exposure: $("#exposure"), temperature: $("#temperature"), highlights: $("#highlights"), shadows: $("#shadows"),
-    contrast: $("#contrast"), saturation: $("#saturation"), sharpness: $("#sharpness"),
+    contrast: $("#contrast"), saturation: $("#saturation"), sharpness: $("#sharpness"), toneCurve: $("#toneCurve"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"), luminanceNoise: $("#luminanceNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
@@ -1950,7 +1966,7 @@ if (window.self === window.top && navigator.standalone === true) {
       const settings={...neutralPhotoSettings,...mask.settings};
       if(settingsMatch(settings,neutralPhotoSettings))continue;
       const layer=processCanvas(canvas,scale,settings);
-      applyChromaNoiseReduction(layer,scale,settings);applyLuminanceNoiseReduction(layer,scale,settings);applyBasicAdjustments(layer,settings);applyColorAdjustments(layer,settings);
+      applyChromaNoiseReduction(layer,scale,settings);applyLuminanceNoiseReduction(layer,scale,settings);applyBasicAdjustments(layer,settings);applyToneCurve(layer,settings);applyColorAdjustments(layer,settings);
       applyColorLut(layer,settings);applySharpness(layer,scale,settings);applyChromaticAberration(layer,settings);applyFade(layer,settings);
       applyLightLeaks(layer,item.file,settings);applyHalation(layer,settings);applyBloom(layer,settings);applyGrain(layer,item.file,scale,settings);
       await applyDateStamp(layer,item.file,settings);
@@ -2041,9 +2057,11 @@ if (window.self === window.top && navigator.standalone === true) {
     overlay.addEventListener('pointerup',end);overlay.addEventListener('pointercancel',end);overlay.addEventListener('lostpointercapture',end);
   }
 
+  let toneCurveEditor=null;
+  function refreshToneCurve(){toneCurveEditor?.refresh()}
   const photoSettingControls=[
     ...colorSettingControls,
-    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,els.sharpness,
+    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,els.sharpness,els.toneCurve,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.luminanceNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
@@ -2058,7 +2076,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
   }
-  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0",sharpness:"0"};
+  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0",sharpness:"0",toneCurve:"0"};
   function cloneSettings(settings){return {...addedSettingDefaults,...settings}}
   function capturePhotoSettings(){
     const settings={};
@@ -2096,6 +2114,7 @@ if (window.self === window.top && navigator.standalone === true) {
   // Test active effects, not differences from a saved profile. Auxiliary
   // controls (grain size, LUT strength with no LUT, grading hue) alone do nothing.
   function settingsHavePreviewEdits(settings){
+    if(typeof FilmLabToneCurve!=="undefined"&&FilmLabToneCurve.isActive(settings?.toneCurve))return true;
     const nonzero=id=>Number.isFinite(+settings[id])&&+settings[id]!==0;
     const strengths=["amount","chromaNoise","luminanceNoise","sharpness","fade","bloom","halation","chromatic","lightLeaks"];
     if(strengths.some(id=>+settings[id]>0)||nonzero("vignette"))return true;
@@ -3002,6 +3021,7 @@ if (window.self === window.top && navigator.standalone === true) {
     return amount*amount*(3-2*amount);
   }
 
+  function applyToneCurve(canvas,settings=null){return FilmLabToneCurve.apply(canvas,settingValue(settings,"toneCurve"))}
   function applyBasicAdjustments(canvas,settings=null){
     const exposureStops=settingNumber(settings,"exposure")/50;
     const temperature=settingNumber(settings,"temperature")/100;
@@ -4054,6 +4074,8 @@ if (window.self === window.top && navigator.standalone === true) {
       applyChromaNoiseReduction(editedBase,previewScale,settings);
       applyLuminanceNoiseReduction(editedBase,previewScale,settings);
       applyBasicAdjustments(editedBase,settings);
+      toneCurveEditor?.setHistogram(editedBase);
+      applyToneCurve(editedBase,settings);
       applyColorAdjustments(editedBase,settings);
       applyColorLut(editedBase,settings);
       applySharpness(editedBase,previewScale,settings);
@@ -4392,6 +4414,7 @@ if (window.self === window.top && navigator.standalone === true) {
     els.lutStrengthControl.style.opacity=available?"1":".5";
   }
   function refreshSettingUI(){
+    refreshToneCurve();
     updateSliderLabels();
     updateExportSizeUI();
     updateGrainUI();
@@ -4517,6 +4540,7 @@ if (window.self === window.top && navigator.standalone === true) {
       control.addEventListener("change",()=>activeHistoryControls.delete(control));
     }else control.addEventListener("change",()=>{rememberEditState();commitPhotoControl(control)});
   }
+  toneCurveEditor=FilmLabToneCurve.createEditor($("#toneCurveGroup"),els.toneCurve,{begin:rememberEditState,change:()=>commitPhotoControl(els.toneCurve),disabled:()=>busy});
   window.addEventListener("pointerup",()=>activeHistoryControls.clear());
   window.addEventListener("pointercancel",()=>activeHistoryControls.clear());
   els.quality.addEventListener("input",()=>{updateSliderLabels();saveSettings()});
@@ -5965,6 +5989,7 @@ if (window.self === window.top && navigator.standalone === true) {
     applyChromaNoiseReduction(out,1,settings);
     applyLuminanceNoiseReduction(out,1,settings);
     applyBasicAdjustments(out,settings);
+    applyToneCurve(out,settings);
     applyColorAdjustments(out,settings);
     applyColorLut(out,settings);
     applySharpness(out,1,settings);
