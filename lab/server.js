@@ -176,6 +176,8 @@ const photoColumns = db.prepare("PRAGMA table_info(photos)").all().map(column =>
 if (!photoColumns.includes("working_path")) db.exec("ALTER TABLE photos ADD COLUMN working_path TEXT");
 if (!photoColumns.includes("working_byte_size")) db.exec("ALTER TABLE photos ADD COLUMN working_byte_size INTEGER NOT NULL DEFAULT 0");
 
+if (!photoColumns.includes("thumbnail_revision")) db.exec("ALTER TABLE photos ADD COLUMN thumbnail_revision TEXT NOT NULL DEFAULT '0'");
+
 const statements = {
   insertPhoto: db.prepare(`
     INSERT INTO photos (
@@ -189,7 +191,7 @@ const statements = {
   byHash: db.prepare("SELECT * FROM photos WHERE user_id = ? AND content_hash = ?"),
   byId: db.prepare("SELECT * FROM photos WHERE user_id = ? AND id = ?"),
   updateEdits: db.prepare("UPDATE photos SET edits_json = ? WHERE user_id = ? AND id = ?"),
-  updateThumbnailSize: db.prepare("UPDATE photos SET thumbnail_byte_size = ? WHERE user_id = ? AND id = ?"),
+  updateThumbnailSize: db.prepare("UPDATE photos SET thumbnail_byte_size = ?, thumbnail_revision = lower(hex(randomblob(8))) WHERE user_id = ? AND id = ?"),
   updateExport: db.prepare("UPDATE photos SET export_path = ?, export_name = ?, export_byte_size = ? WHERE user_id = ? AND id = ?"),
   deletePhoto: db.prepare("DELETE FROM photos WHERE user_id = ? AND id = ?"),
   countPhotos: db.prepare("SELECT COUNT(*) AS count, COALESCE(SUM(byte_size), 0) AS bytes FROM photos WHERE user_id = ?"),
@@ -288,7 +290,7 @@ function photoResponse(row) {
     isEdited: hasSavedEdits(row),
     isRaw: PhotoFormats.isRaw(row.original_name),
     editUrl: row.working_path ? `/api/photos/${row.id}/working` : null,
-    thumbnailUrl: `/api/photos/${row.id}/thumbnail?v=${editRev}`,
+    thumbnailUrl: `/api/photos/${row.id}/thumbnail?v=${editRev}-${row.thumbnail_revision || "0"}`,
     previewUrl: `/api/photos/${row.id}/preview`,
     originalUrl: `/api/photos/${row.id}/original`,
     exportUrl: row.export_path ? `/api/photos/${row.id}/export` : null
@@ -1008,7 +1010,10 @@ app.post("/api/photos/:id/edits-beacon", (request, response) => {
   if (Buffer.byteLength(encoded) > 8_000_000) return response.status(413).end();
   const oldEdits = safeJson(row.edits_json, {});
   statements.updateEdits.run(encoded, request.user.id, row.id);
-  if (Number(edits?.rotation || 0) !== Number(oldEdits?.rotation || 0)) {
+  if (typeof request.body?.thumbnail === "string" && request.body.thumbnail.startsWith("data:image/")) {
+    const buffer=Buffer.from(request.body.thumbnail.slice(request.body.thumbnail.indexOf(",")+1),"base64");
+    if(buffer.length>0&&buffer.length<5_000_000)updatePhotoThumbnail(row,edits,buffer).catch(()=>{});
+  } else if (Number(edits?.rotation || 0) !== Number(oldEdits?.rotation || 0)) {
     updatePhotoThumbnail(row, edits).catch(() => {});
   }
   response.status(204).end();
@@ -1160,7 +1165,6 @@ function createEditorHtml(userId = "server") {
     .replace('<div class="sub">Soften hard digital sharpening, apply custom LUTs, and add film fade, bloom, halation, chromatic aberration and grain. Your photos never leave your device.</div>', '<div class="sub">Editing from your private Ubuntu photo library. Changes are saved back to Server Lab.</div>')
     .replace('<div class="appVersion desktopAppVersion">Version 1.10.10</div>', '<div class="appVersion desktopAppVersion" hidden></div>');
   html = html.replace("    makePreview(i);\n  }", "    return makePreview(i);\n  }");
-  html = html.replace('node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);', 'const thumbData=canvas.toDataURL("image/jpeg",.82);node.querySelector("img").src=thumbData;window.dispatchEvent(new CustomEvent("filmLabThumbRefresh",{detail:{dataUrl:thumbData,rot:transformLabels.join(" · "),rotation}}));');
   html = html.replace("<script>\n(() => {", "<script>\nwindow.__FILMLAB_SERVER_MODE__=true;\n(() => {");
   const bridgeApi = `
   window.__FILMLAB_SERVER_EDITOR__={

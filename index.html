@@ -959,7 +959,7 @@ if (window.self === window.top && navigator.standalone === true) {
 
       <div id="flashbackControls" class="section settingsGroup" hidden>
         <input id="flashbackMode" type="hidden" value="0">
-        <div class="control"><label for="flashbackLook">Flashback look</label><select id="flashbackLook"><option value="natural">Natural</option><option value="disposable" selected>Disposable</option><option value="point_shoot">Point &amp; Shoot</option><option value="rangefinder">Rangefinder</option><option value="monochrome">Monochrome</option><option value="flashback_v1">Flashback V1</option><option value="reddispo">Gold</option><option value="superia">Expired Superia</option></select></div>
+        <div class="control"><label for="flashbackLook">Flashback look</label><select id="flashbackLook"><option value="natural">Natural</option><option value="disposable" selected>Disposable</option><option value="point_shoot">Point &amp; Shoot</option><option value="rangefinder">Rangefinder</option><option value="monochrome">Monochrome</option><option value="flashback_v1">Flashback V1</option><option value="reddispo">Gold</option><option value="superia">Expired Superia</option><option value="classic">Classic · camera</option><option value="mono">Monochrome · local</option><option value="beta">Beta · camera</option><option value="cine">Cine · local interpretation</option><option value="gold">Gold · camera</option><option value="retro">Retro Haze · camera</option><option value="dispo">Dispo · camera</option><option value="dmg">DMG · local interpretation</option></select></div>
         <label class="check"><input id="flashbackEdgeSoftness" type="checkbox" role="switch"> Film edge softness</label>
         <div class="notice">Uses the original Flashback One35 V2 DNG. Edge softness adds the film look’s soft corners and colour fringing.</div>
         <a class="notice" href="./flashback/NOTICE.md" target="_blank" rel="noopener">Flashback engine credits · GPL-3.0</a>
@@ -1585,7 +1585,8 @@ if (window.self === window.top && navigator.standalone === true) {
       crop:cropIsFull(item.crop)?null:normalizedCrop(item.crop),
       masks:JSON.parse(JSON.stringify(item.masks||[])),
       cameraProfileId:item.cameraProfileId||null,
-      settings:cloneSettings(item.settings||batchSettings)
+      settings:cloneSettings(item.settings||batchSettings),
+      editedThumbnail:item.editedThumbnail||null
     };
   }
   function fileFromStoredPhoto(stored){
@@ -1677,12 +1678,13 @@ if (window.self === window.top && navigator.standalone === true) {
   }
   function scheduleLibraryState(item){
     if(!item?.libraryId)return;
+    if(typeof queueEditedThumbnail==="function")queueEditedThumbnail(item);
     pendingLibraryStates.add(item.libraryId);
     clearTimeout(libraryStateTimer);
     libraryStateTimer=setTimeout(flushLibraryStates,350);
   }
   function scheduleAllLibraryStates(){
-    for(const item of items)if(item.libraryId)pendingLibraryStates.add(item.libraryId);
+    for(const item of items)if(item.libraryId){if(typeof queueEditedThumbnail==="function")queueEditedThumbnail(item);pendingLibraryStates.add(item.libraryId)}
     clearTimeout(libraryStateTimer);
     libraryStateTimer=setTimeout(flushLibraryStates,350);
   }
@@ -4055,6 +4057,27 @@ if (window.self === window.top && navigator.standalone === true) {
     return normalized;
   }
 
+  async function renderPreviewAdjustments(filmBase,it,previewScale,settings,maskAspect,editingCrop=false,showHistogram=false){
+      const editedBase=processCanvas(cloneCanvas(filmBase),previewScale,settings);
+      applyChromaNoiseReduction(editedBase,previewScale,settings);
+      applyLuminanceNoiseReduction(editedBase,previewScale,settings);
+      applyBasicAdjustments(editedBase,settings);
+      if(showHistogram)toneCurveEditor?.setHistogram(editedBase);
+      applyToneCurve(editedBase,settings);
+      applyColorAdjustments(editedBase,settings);
+      applyColorLut(editedBase,settings);
+      applySharpness(editedBase,previewScale,settings);
+      applyChromaticAberration(editedBase,settings);
+      applyFade(editedBase,settings);
+      applyLightLeaks(editedBase,it.file,settings);
+      applyHalation(editedBase,settings);
+      applyBloom(editedBase,settings);
+      applyGrain(editedBase,it.file,previewScale,settings);
+      await applyDateStamp(editedBase,it.file,settings);
+      await applyPhotoMasks(editedBase,it,previewScale,maskAspect,editingCrop);
+      return editedBase;
+  }
+
   async function makePreview(index){
     if(index<0||!items[index]) return;
     cancelOriginalHold();
@@ -4091,29 +4114,14 @@ if (window.self === window.top && navigator.standalone === true) {
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
-      const editedBase=processCanvas(cloneCanvas(filmBase),previewScale,settings);
-      applyChromaNoiseReduction(editedBase,previewScale,settings);
-      applyLuminanceNoiseReduction(editedBase,previewScale,settings);
-      applyBasicAdjustments(editedBase,settings);
-      toneCurveEditor?.setHistogram(editedBase);
-      applyToneCurve(editedBase,settings);
-      applyColorAdjustments(editedBase,settings);
-      applyColorLut(editedBase,settings);
-      applySharpness(editedBase,previewScale,settings);
-      applyChromaticAberration(editedBase,settings);
-      applyFade(editedBase,settings);
-      applyLightLeaks(editedBase,it.file,settings);
-      applyHalation(editedBase,settings);
-      applyBloom(editedBase,settings);
-      applyGrain(editedBase,it.file,previewScale,settings);
-      await applyDateStamp(editedBase,it.file,settings);
-      await applyPhotoMasks(editedBase,it,previewScale,maskAspect,editingCrop);
+      const editedBase=await renderPreviewAdjustments(filmBase,it,previewScale,settings,maskAspect,editingCrop,true);
 
       const originalShown=cloneCanvas(original);
       await applyDateStamp(originalShown,it.file,settings);
 
       if(token!==previewToken) return;
 
+      if(!editingCrop)publishEditedThumbnail(it,editedBase);
       els.viewer.innerHTML="";
       const stage=document.createElement("div"); stage.className="compareStage";
       const surface=document.createElement("div"); surface.className="zoomSurface";
@@ -4945,25 +4953,39 @@ if (window.self === window.top && navigator.standalone === true) {
     makePreview(i);
   }
 
+  function thumbnailKey(item){return JSON.stringify({settings:cloneSettings(item.settings||batchSettings),rotation:item.rotation||0,straighten:item.straighten||0,crop:item.crop||null,masks:item.masks||[]})}
+  function publishEditedThumbnail(item,canvas,key=thumbnailKey(item)){
+    if(!items.includes(item)||thumbnailKey(item)!==key)return;
+    const thumb=document.createElement("canvas"),scale=Math.min(1,420/Math.max(canvas.width,canvas.height));
+    thumb.width=Math.max(1,Math.round(canvas.width*scale));thumb.height=Math.max(1,Math.round(canvas.height*scale));thumb.getContext("2d").drawImage(canvas,0,0,thumb.width,thumb.height);
+    const dataUrl=thumb.toDataURL("image/jpeg",.82);item.editedThumbnail={key,dataUrl};
+    const index=items.indexOf(item),node=els.thumbs.children[index],labels=[];
+    if(item.rotation)labels.push(item.rotation+"°");if(Math.abs(item.straighten||0)>.05)labels.push(item.straighten.toFixed(1)+"°");if(!cropIsFull(item.crop))labels.push("Crop");
+    if(node){node.querySelector("img").src=dataUrl;node.querySelector(".rot").textContent=labels.join(" · ")}
+    for(const card of els.galleryGrid.querySelectorAll(".galleryItem"))if(card.dataset.libraryId===item.libraryId)card.querySelector("img").src=dataUrl;
+    scheduleLibraryState(item);
+    if(window.__FILMLAB_SERVER_MODE__&&items[current]===item)window.dispatchEvent(new CustomEvent("filmLabThumbRefresh",{detail:{dataUrl,rot:labels.join(" · "),rotation:item.rotation}}));
+  }
+  const pendingEditedThumbnails=new Set();let thumbnailTimer=0,thumbnailQueueRunning=false;
+  function queueEditedThumbnail(item){
+    if(!item||item.editedThumbnail?.key===thumbnailKey(item))return;
+    pendingEditedThumbnails.add(item);clearTimeout(thumbnailTimer);thumbnailTimer=setTimeout(drainEditedThumbnails,500);
+  }
+  async function drainEditedThumbnails(){
+    if(thumbnailQueueRunning)return;thumbnailQueueRunning=true;
+    try{while(pendingEditedThumbnails.size){const item=pendingEditedThumbnails.values().next().value;pendingEditedThumbnails.delete(item);if(!items.includes(item)||item.editedThumbnail?.key===thumbnailKey(item))continue;
+      const key=thumbnailKey(item),settings=cloneSettings(item.settings||batchSettings);
+      try{const source=typeof FilmLabFlashback!=="undefined"&&FilmLabFlashback.enabled(settings)?await FilmLabFlashback.render(item.file,settings):await decodePreview(item.file,900);
+        const image=source.image,aspect=(image.naturalWidth||image.width)/(image.naturalHeight||image.height),base=cropCanvas(drawRotated(image,item.rotation,900,item.straighten||0),item.crop);image.close?.();
+        const edited=await renderPreviewAdjustments(base,item,Math.min(1,Math.max(base.width,base.height)/source.sourceLong),settings,aspect);
+        publishEditedThumbnail(item,edited,key);
+      }catch(error){console.warn("Edited thumbnail could not be rendered",error)}
+    }}finally{thumbnailQueueRunning=false}
+  }
   async function refreshThumb(i){
-    const node=els.thumbs.children[i];
-    const item=items[i];
-    if(!node||!item) return;
-    const rotation=item.rotation,straighten=item.straighten||0,crop=normalizedCrop(item.crop);
-    const transformLabels=[];
-    if(rotation)transformLabels.push(`${rotation}°`);
-    if(Math.abs(straighten)>.05)transformLabels.push(`${straighten>0?"+":""}${straighten.toFixed(1)}°`);
-    if(!cropIsFull(crop))transformLabels.push("Crop");
-    node.querySelector(".rot").textContent=transformLabels.join(" · ");
-    try{
-      const image=await decode(item.file);
-      const canvas=cropCanvas(drawRotated(image,rotation,420,straighten),crop);
-      image.close?.();
-      if(item.rotation!==rotation||(item.straighten||0)!==straighten||JSON.stringify(normalizedCrop(item.crop))!==JSON.stringify(crop)||!node.isConnected) return;
-      node.querySelector("img").src=canvas.toDataURL("image/jpeg",.82);
-    }catch(e){
-      console.error(e);
-    }
+    const item=items[i];if(!item)return;
+    if(item.editedThumbnail?.key===thumbnailKey(item)){const node=els.thumbs.children[i];if(node)node.querySelector("img").src=item.editedThumbnail.dataUrl;return}
+    queueEditedThumbnail(item);
   }
 
   function createLibraryId(){
@@ -4972,7 +4994,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function appendLibraryItem(item){
     items.push(item);
     const row=document.createElement("div");row.className="thumb";
-    const image=document.createElement("img");image.src=item.thumbUrl;
+    const image=document.createElement("img");image.src=item.editedThumbnail?.key===thumbnailKey(item)?item.editedThumbnail.dataUrl:item.thumbUrl;
     const name=document.createElement("div");name.className="name";name.textContent=item.file.name;
     const meta=document.createElement("div");meta.className="meta";
     const captureDate=item.captureDate;
@@ -5051,6 +5073,8 @@ if (window.self === window.top && navigator.standalone === true) {
           crop:state.crop||null,
           masks:JSON.parse(JSON.stringify(state.masks||[])),
           settings:restoredSettings,
+          cameraProfileId:state.cameraProfileId||null,
+          editedThumbnail:state.editedThumbnail||null,
           thumbUrl:URL.createObjectURL(stored.thumbBlob||stored.workingBlob||file),
           captureDate:Number.isNaN(captureDate.getTime())?new Date(file.lastModified||Date.now()):captureDate,
           importedDate:Number.isNaN(importedDate.getTime())?new Date(file.lastModified||Date.now()):importedDate

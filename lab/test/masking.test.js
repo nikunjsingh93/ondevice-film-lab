@@ -53,7 +53,8 @@ test('neutral and disabled masks bypass compositing; preview and export both app
   });
   const canvas={};
   assert.equal(await apply(canvas,{masks:[{enabled:false,strokes:[{}]},{strokes:[{}],settings:{exposure:'0'}}]},1,1),canvas);
-  assert.match(slice('  async function makePreview(', '  function debounce('),/await applyPhotoMasks\(editedBase,it,previewScale,maskAspect,editingCrop\)/);
+  assert.match(slice('  async function makePreview(', '  function debounce('),/await renderPreviewAdjustments\(filmBase,it,previewScale,settings,maskAspect,editingCrop,true\)/);
+  assert.match(slice('  async function renderPreviewAdjustments(', '  async function makePreview('),/await applyPhotoMasks\(editedBase,it,previewScale,maskAspect,editingCrop\)/);
   assert.match(slice('  async function processItem(', '  async function downloadBlob('),/await applyPhotoMasks\(out,it,1,maskAspect\)/);
 });
 

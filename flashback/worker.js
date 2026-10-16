@@ -3,6 +3,7 @@ import { RawDecoder, sniffMeta } from "./core/raw-decoder.js";
 import { factoryStateFor, VIBE_PRESETS } from "./core/config.js";
 import { generateLut } from "./core/procedural-luts.js";
 import { parseCube, renderCpu, rgbaFromRgb } from "./cpu.js";
+import {EXTRA_LOOKS,configForLook,atlasLut,finishLocalLook} from "./looks.js";
 export function validateDng(buffer) {
   const metadata = sniffMeta(buffer);
   if (!/flashback|one35/i.test(metadata.make || ""))
@@ -50,7 +51,10 @@ async function lutFor(config) {
   if (!url) return null;
   if (!lutCache.has(url)) {
     let value;
-    if (url.startsWith("proc:")) value = generateLut(url.slice(5));
+    if (/\.png$/i.test(url)) {
+      const response=await fetch(url);if(!response.ok)throw Error("Could not load camera colour table");
+      const image=await createImageBitmap(await response.blob()),canvas=new OffscreenCanvas(image.width,image.height),ctx=canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(image,0,0);value=atlasLut(ctx.getImageData(0,0,image.width,image.height).data,image.width,image.height);image.close();
+    } else if (url.startsWith("proc:")) value = generateLut(url.slice(5));
     else {
       const response = await fetch(url);
       if (!response.ok)
@@ -134,10 +138,10 @@ export async function develop(request) {
     });
     decodedKey = key;
   }
-  const look = Object.hasOwn(VIBE_PRESETS, request.look)
+  const look = (Object.hasOwn(VIBE_PRESETS, request.look)||Object.hasOwn(EXTRA_LOOKS,request.look))
       ? request.look
       : "disposable",
-    config = factoryStateFor(look);
+    config = configForLook(look);
   // The reciprocal spectral sampling is what softens the corners/edges.
   // Full-frame film softness remains part of each factory look.
   if (!request.edgeSoftness) config.enable_chromatic_aberration = false;
@@ -158,7 +162,7 @@ export async function develop(request) {
             const { uploadLut } = await import("./core/lut.js");
             gpuLuts.set(
               config.lut_path,
-              uploadLut(lut, config.lut_path, "native"),
+              uploadLut(lut, config.lut_path, config.lut_input_space||"native"),
             );
           }
           processor.setLut(gpuLuts.get(config.lut_path));
@@ -205,6 +209,7 @@ export async function develop(request) {
       original = rgbaFromRgb(renderCpu(decoded, neutral, null, null));
     }
   }
+  finishLocalLook(image,look);
   const result = {
     image: { data: image.data, width: image.width, height: image.height },
     original: original

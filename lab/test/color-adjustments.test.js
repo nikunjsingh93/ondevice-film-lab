@@ -113,7 +113,7 @@ test("old settings and profiles gain neutral color defaults, never another photo
 
 test("color sliders participate in shared settings, preview and export; grain is in Film look", () => {
   assert.match(html, /const photoSettingControls=\[\s*\.\.\.colorSettingControls,/);
-  assert.match(html, /applyBasicAdjustments\(editedBase,settings\);\s*toneCurveEditor\?\.setHistogram\(editedBase\);\s*applyToneCurve\(editedBase,settings\);\s*applyColorAdjustments\(editedBase,settings\);\s*applyColorLut\(editedBase,settings\)/);
+  assert.match(html, /applyBasicAdjustments\(editedBase,settings\);\s*if\(showHistogram\)toneCurveEditor\?\.setHistogram\(editedBase\);\s*applyToneCurve\(editedBase,settings\);\s*applyColorAdjustments\(editedBase,settings\);\s*applyColorLut\(editedBase,settings\)/);
   assert.match(html, /applyBasicAdjustments\(out,settings\);\s*applyToneCurve\(out,settings\);\s*applyColorAdjustments\(out,settings\);\s*applyColorLut\(out,settings\)/);
   const basic = html.slice(html.indexOf('<div id="basicGroup"'), html.indexOf('<div id="colorsGroup"'));
   assert.doesNotMatch(basic, /id="saturation"/);

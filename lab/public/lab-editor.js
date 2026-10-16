@@ -52,6 +52,7 @@
   }
 
   let latestThumbDataUrl = null;
+  let lastThumbnailDataUrl = null;
 
   function cleanState(state) {
     if (!state) return null;
@@ -60,10 +61,11 @@
 
   async function saveState(force = false) {
     if (!photoId || deletedPhotoIds.has(photoId)) return;
+    const savingPhotoId=photoId;
     const state = cleanState(bridge.captureState());
     if (!state) return;
     const encoded = JSON.stringify(state);
-    if (!force && encoded === lastPhotoState) return;
+    if (!force && encoded === lastPhotoState && latestThumbDataUrl === lastThumbnailDataUrl) return;
     const payload = { edits: state };
     if (latestThumbDataUrl) payload.thumbnail = latestThumbDataUrl;
     await requestJson(`/api/photos/${encodeURIComponent(photoId)}/edits`, {
@@ -71,11 +73,12 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    lastPhotoState = encoded;
+    if(photoId===savingPhotoId){lastPhotoState = encoded;lastThumbnailDataUrl = payload.thumbnail || null;}
   }
 
   window.addEventListener("filmLabThumbRefresh", event => {
     latestThumbDataUrl = event.detail?.dataUrl || null;
+    queueStateSave();
     if (!serverFilmstripThumbs) return;
     const activeCard = serverFilmstripThumbs.querySelector(`.thumb[data-photo-id="${photoId}"]`);
     if (activeCard) {
@@ -166,7 +169,7 @@
       try { await saveState(true); } catch (error) { notify(error.message, true); }
     }
     photoId = id;
-    latestThumbDataUrl = null;
+    latestThumbDataUrl = null;lastThumbnailDataUrl = null;
     if (pushHistory && typeof history !== "undefined" && history.pushState) {
       history.pushState(null, "", `/editor?photo=${encodeURIComponent(id)}`);
     }
@@ -270,7 +273,7 @@
       card.setAttribute("role", "button");
       card.setAttribute("aria-label", entry.id === photoId ? `${entry.name}, currently open` : `Open ${entry.name}`);
       const image = document.createElement("img");
-      image.src = entry.thumbnailUrl;
+      image.src = entry.id === photoId && latestThumbDataUrl ? latestThumbDataUrl : entry.thumbnailUrl;
       image.alt = "";
       // Keep nearby cards decoded while the filmstrip is visible so swiping
       // left or right does not wait for a second network/render pass.
@@ -529,7 +532,7 @@
       if (!photoId || deletedPhotoIds.has(photoId)) return;
       const state = cleanState(bridge.captureState());
       const encoded = state ? JSON.stringify(state) : "";
-      if (state && encoded !== lastPhotoState) navigator.sendBeacon?.(`/api/photos/${encodeURIComponent(photoId)}/edits-beacon`, new Blob([JSON.stringify({ edits: state })], { type: "application/json" }));
+      if (state && (encoded !== lastPhotoState || latestThumbDataUrl !== lastThumbnailDataUrl)) navigator.sendBeacon?.(`/api/photos/${encodeURIComponent(photoId)}/edits-beacon`, new Blob([JSON.stringify({ edits: state, ...(latestThumbDataUrl?{thumbnail:latestThumbDataUrl}:{}) })], { type: "application/json" }));
     });
   }
 

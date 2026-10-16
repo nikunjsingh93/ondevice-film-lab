@@ -132,6 +132,11 @@ test("thumbnail URL includes cache-busting editRev and updatePhotoThumbnail upda
   const thumbPath = path.resolve(testApi.DATA_DIR, row.thumbnail_path);
   assert.ok(fs.existsSync(thumbPath));
   assert.ok(row.thumbnail_byte_size > 0);
+  const beforeThumbnailOnlyEdit=testApi.photoResponse(row).thumbnailUrl;
+  const pixels=fs.readFileSync(thumbPath);
+  await testApi.updatePhotoThumbnail(row,edits,pixels);
+  row=testApi.statements.byId.get(testApi.defaultAdmin.id,photoId);
+  assert.notEqual(testApi.photoResponse(row).thumbnailUrl,beforeThumbnailOnlyEdit,"thumbnail writes must bust caches even when edits do not change");
 });
 
 test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState includes thumbnail", async () => {
@@ -174,6 +179,7 @@ test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState inclu
     requestJson: async (url, opts) => {
       capturedPayload = JSON.parse(opts.body);
     },
+    queueStateSave: () => {},
     deletedPhotoIds: new Set(),
     clearTimeout: () => {},
     setTimeout: () => 0
@@ -193,6 +199,10 @@ test("filmLabThumbRefresh updates active filmstrip thumbnail and saveState inclu
   assert.ok(capturedPayload);
   assert.equal(capturedPayload.edits.rotation, 90);
   assert.equal(capturedPayload.thumbnail, "data:image/jpeg;base64,mockthumb");
+  capturedPayload=null;
+  listener({detail:{dataUrl:"data:image/jpeg;base64,newrender"}});
+  await context.saveState();
+  assert.equal(capturedPayload.thumbnail,"data:image/jpeg;base64,newrender","late render must save even when settings already autosaved");
 });
 
 test("openServerPhoto navigates in-place using history.pushState and loads photo without full page reload", async () => {

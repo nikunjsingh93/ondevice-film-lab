@@ -144,7 +144,10 @@ const oetf = (v) =>
     : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
 export function displayTransform(linear, lut, config = {}) {
   let rgb;
-  if (lut) {
+  if (lut && config.lut_input_space==="srgb") {
+    const natural=displayTransform(linear,null,{});rgb=new Float32Array(linear.length);
+    for(let i=0;i<linear.length;i+=3)sampleLut(lut,natural[i],natural[i+1],natural[i+2],rgb,i);
+  } else if (lut) {
     rgb = new Float32Array(linear.length);
     for (let i = 0; i < linear.length; i += 3)
       sampleLut(
@@ -475,14 +478,14 @@ function liveEffects(data, w, h, c, scale, grain) {
 export function renderCpu(decoded, config, lut, grain) {
   const { width: w, height: h } = decoded,
     scale = w / 2072,
-    ev = lut ? (config.base_lift_ev ?? 2) : 0;
+    ev = lut && config.lut_input_space!=="srgb" ? (config.base_lift_ev ?? 2) : 0;
   let data = matrix(decoded.pixels, decoded.ccm);
   const gain = 2 ** ev;
   for (let i = 0; i < data.length; i++) data[i] *= gain;
   data = preEffects(data, w, h, config, scale, ev);
   data = displayTransform(data, lut, config);
   data = liveEffects(data, w, h, config, scale, grain);
-  const k = lut ? (config.base_push_ev ?? 0) / 2 : 0;
+  const k = lut && config.lut_input_space!=="srgb" ? (config.base_push_ev ?? 0) / 2 : 0;
   if (Math.abs(k) > 1e-4)
     for (let i = 0; i < data.length; i++) {
       const d = clamp(data[i]);
