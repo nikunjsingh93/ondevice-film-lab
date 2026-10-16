@@ -104,7 +104,7 @@ test("profile migration is repeatable; Lab starts on its default while web retai
     api.restoreCameraProfiles();
     api.restoreCameraProfiles();
     assert.equal(api.context.activeCameraProfileId, server ? "newcam-default" : "cam1-default");
-    assert.equal(api.context.cameraProfiles.length, 2);
+    assert.equal(api.context.cameraProfiles.length, 3);
     assert.equal(api.isBuiltInProfile("newcam-default"), true);
     assert.equal(api.isBuiltInProfile("cam1-default"), true);
     if (!server) assert.equal(api.context.batchSettings.exposure, "42");
@@ -220,4 +220,18 @@ test("neutral profile bypasses every effect in the shared preview/export pipelin
       : [canvas, settings];
     assert.equal(await effects[name](...args), canvas, name);
   }
+});
+
+test('Flashback V2 settings remain per-photo in web and Lab and old photos stay on their original pipeline',()=>{
+ for(const server of [false,true]){
+  const api=editor({server});api.restoreCameraProfiles();const neutral=plain(api.neutralPhotoSettings),first={libraryId:'first',file:{name:'one35.dng'},settings:{...neutral}},second={libraryId:'second',file:{name:'lumix.rw2'},settings:{...neutral}};
+  api.context.items=[first,second];api.context.current=0;api.context.editScope='photo';
+  vm.runInContext(slice('  function applyCameraProfile(','  function updateSliderLabels('),api.context);
+  vm.runInContext('applyCameraProfile(cameraProfileById("flashback-v2-default"))',api.context);
+  assert.equal(first.settings.flashbackMode,'1');assert.equal(first.settings.flashbackLook,'disposable');assert.equal(first.settings.flashbackEdgeSoftness,false);assert.equal(first.cameraProfileId,'flashback-v2-default');assert.equal(second.settings.flashbackMode,'0');
+  api.els.flashbackLook.value='rangefinder';vm.runInContext('commitPhotoControl(els.flashbackLook)',api.context);api.els.flashbackEdgeSoftness.checked=true;vm.runInContext('commitPhotoControl(els.flashbackEdgeSoftness)',api.context);
+  assert.equal(first.settings.flashbackLook,'rangefinder');assert.equal(first.settings.flashbackEdgeSoftness,true);assert.equal(second.settings.flashbackLook,'disposable');assert.equal(second.settings.flashbackEdgeSoftness,false);assert.ok(api.context.persisted.includes('first'));
+  api.context.current=1;api.loadPhotoSettings(second.settings);assert.equal(api.els.flashbackMode.value,'0');api.context.current=0;api.loadPhotoSettings(first.settings);assert.equal(api.els.flashbackMode.value,'1');assert.equal(api.els.flashbackLook.value,'rangefinder');assert.equal(api.els.flashbackEdgeSoftness.checked,true);
+  vm.runInContext('applyCameraProfile(cameraProfileById("newcam-default"))',api.context);assert.equal(first.settings.flashbackMode,'0');
+ }
 });

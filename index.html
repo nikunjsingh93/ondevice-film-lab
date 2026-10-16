@@ -737,6 +737,7 @@ if (window.self === window.top && navigator.standalone === true) {
     .sidebar.mobileOpen .tip{display:none}
     .sidebar.mobileOpen[data-mobile-panel="menu"] .sidebarIntro,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .photoPicker,
+    .sidebar.mobileOpen[data-mobile-panel="menu"] #flashbackControls,
     .sidebar.mobileOpen[data-mobile-panel="menu"] #profileBar,
     .sidebar.mobileOpen[data-mobile-panel="menu"] .tip,
     .sidebar.mobileOpen[data-mobile-panel="menu"] #editScopeBar,
@@ -894,7 +895,7 @@ if (window.self === window.top && navigator.standalone === true) {
     .layout>.sidebar{padding:6px;top:4px;max-height:calc(100vh - 8px)}
     .layout>.main{top:4px;height:calc(100vh - 8px)}
   }
-.curveGraph{display:block;width:100%;aspect-ratio:1;background:#171717;border:1px solid #555;touch-action:none;overflow:visible;cursor:crosshair}.curveGraph:focus-visible{outline:2px solid var(--accent,#aaa);outline-offset:3px}.curveNodes circle{cursor:grab;stroke:#171717;stroke-width:1.5}.curveChannels{display:flex;gap:6px;margin:12px 0}.curveChannels button{flex:1;padding:5px;background:#222;color:#ccc;border:1px solid #444;border-radius:5px}.curveChannels button[aria-pressed="true"]{background:#444;color:#fff;border-color:#aaa}.curveRegions{display:flex;justify-content:space-between;font-size:10px;color:#999;margin:7px 0}.curveReadout{font-size:11px;color:#aaa;text-align:center;margin:8px 0}.curvePreset{width:100%;background:#222;color:#ddd;border:1px solid #444;border-radius:5px;padding:6px}.curveHelp{font-size:11px;color:#999;line-height:1.5}
+#flashbackControls[hidden]{display:none!important}.curveGraph{display:block;width:100%;aspect-ratio:1;background:#171717;border:1px solid #555;touch-action:none;overflow:visible;cursor:crosshair}.curveGraph:focus-visible{outline:2px solid var(--accent,#aaa);outline-offset:3px}.curveNodes circle{cursor:grab;stroke:#171717;stroke-width:1.5}.curveChannels{display:flex;gap:6px;margin:12px 0}.curveChannels button{flex:1;padding:5px;background:#222;color:#ccc;border:1px solid #444;border-radius:5px}.curveChannels button[aria-pressed="true"]{background:#444;color:#fff;border-color:#aaa}.curveRegions{display:flex;justify-content:space-between;font-size:10px;color:#999;margin:7px 0}.curveReadout{font-size:11px;color:#aaa;text-align:center;margin:8px 0}.curvePreset{width:100%;background:#222;color:#ddd;border:1px solid #444;border-radius:5px;padding:6px}.curveHelp{font-size:11px;color:#999;line-height:1.5}
 </style>
 <link rel="stylesheet" href="./theme.css">
 <script src="./theme.js"></script>
@@ -953,6 +954,15 @@ if (window.self === window.top && navigator.standalone === true) {
           <button id="profileRenameBtn" type="button">Rename profile</button>
           <button id="profileDeleteBtn" class="profileDeleteBtn" type="button">Delete profile</button>
         </div>
+      </div>
+
+
+      <div id="flashbackControls" class="section settingsGroup" hidden>
+        <input id="flashbackMode" type="hidden" value="0">
+        <div class="control"><label for="flashbackLook">Flashback look</label><select id="flashbackLook"><option value="natural">Natural</option><option value="disposable" selected>Disposable</option><option value="point_shoot">Point &amp; Shoot</option><option value="rangefinder">Rangefinder</option><option value="monochrome">Monochrome</option><option value="flashback_v1">Flashback V1</option><option value="reddispo">Gold</option><option value="superia">Expired Superia</option></select></div>
+        <label class="check"><input id="flashbackEdgeSoftness" type="checkbox" role="switch"> Film edge softness</label>
+        <div class="notice">Uses the original Flashback One35 V2 DNG. Edge softness adds the film look’s soft corners and colour fringing.</div>
+        <a class="notice" href="./flashback/NOTICE.md" target="_blank" rel="noopener">Flashback engine credits · GPL-3.0</a>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -1426,6 +1436,7 @@ if (window.self === window.top && navigator.standalone === true) {
 <script src="./photo-codecs.js"></script>
 <script src="./photo-exif.js"></script>
 <script src="./tone-curve.js"></script>
+<script src="./flashback.js"></script>
 <script>
 (() => {
   "use strict";
@@ -1441,7 +1452,7 @@ if (window.self === window.top && navigator.standalone === true) {
     filmstripAddBtn: $("#filmstripAddBtn"), libraryRemoveBtn: $("#libraryRemoveBtn"), libraryClearBtn: $("#libraryClearBtn"),
     libraryChoosePhotosBtn: $("#libraryChoosePhotosBtn"), libraryChooseFolderBtn: $("#libraryChooseFolderBtn"),
     exposure: $("#exposure"), temperature: $("#temperature"), highlights: $("#highlights"), shadows: $("#shadows"),
-    contrast: $("#contrast"), saturation: $("#saturation"), sharpness: $("#sharpness"), toneCurve: $("#toneCurve"),
+    contrast: $("#contrast"), saturation: $("#saturation"), sharpness: $("#sharpness"), toneCurve: $("#toneCurve"), flashbackMode: $("#flashbackMode"), flashbackLook: $("#flashbackLook"), flashbackEdgeSoftness: $("#flashbackEdgeSoftness"),
     amount: $("#amount"), radius: $("#radius"), threshold: $("#threshold"), chromaNoise: $("#chromaNoise"), luminanceNoise: $("#luminanceNoise"),
     fade: $("#fade"), bloom: $("#bloom"), halation: $("#halation"), chromatic: $("#chromatic"),
     vignette: $("#vignette"), lightLeaks: $("#lightLeaks"),
@@ -2059,9 +2070,14 @@ if (window.self === window.top && navigator.standalone === true) {
 
   let toneCurveEditor=null;
   function refreshToneCurve(){toneCurveEditor?.refresh()}
+  function refreshFlashbackUI(){
+    const panel=$("#flashbackControls");if(!panel)return;
+    panel.hidden=els.flashbackMode.value!=="1";
+    els.flashbackLook.disabled=busy||!!activeMask();els.flashbackEdgeSoftness.disabled=busy||!!activeMask();
+  }
   const photoSettingControls=[
     ...colorSettingControls,
-    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,els.sharpness,els.toneCurve,
+    els.exposure,els.temperature,els.highlights,els.shadows,els.contrast,els.saturation,els.sharpness,els.toneCurve,els.flashbackMode,els.flashbackLook,els.flashbackEdgeSoftness,
     els.amount,els.radius,els.threshold,els.chromaNoise,els.luminanceNoise,els.fade,els.bloom,els.halation,els.chromatic,
     els.vignette,els.lightLeaks,els.lutSelect,els.lutStrength,els.grainStrength,els.grainSize,els.grainRoughness,
     els.stampSize,els.grainEnabled,els.dateStamp,els.stampPosition,els.stampFormat,els.stampColor
@@ -2076,7 +2092,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function controlValue(control){
     return control.type==="checkbox" ? control.checked : control.value;
   }
-  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0",sharpness:"0",toneCurve:"0"};
+  const addedSettingDefaults={...colorSettingDefaults,luminanceNoise:"0",sharpness:"0",toneCurve:"0",flashbackMode:"0",flashbackLook:"disposable",flashbackEdgeSoftness:false};
   function cloneSettings(settings){return {...addedSettingDefaults,...settings}}
   function capturePhotoSettings(){
     const settings={};
@@ -2100,7 +2116,7 @@ if (window.self === window.top && navigator.standalone === true) {
   }
   function settingValue(settings,id){
     if(settings&&Object.prototype.hasOwnProperty.call(settings,id))return settings[id];
-    if(settings&&Object.prototype.hasOwnProperty.call(addedSettingDefaults,id))return "0";
+    if(settings&&Object.prototype.hasOwnProperty.call(addedSettingDefaults,id))return addedSettingDefaults[id];
     const control=els[id];
     return control ? controlValue(control) : undefined;
   }
@@ -2114,6 +2130,7 @@ if (window.self === window.top && navigator.standalone === true) {
   // Test active effects, not differences from a saved profile. Auxiliary
   // controls (grain size, LUT strength with no LUT, grading hue) alone do nothing.
   function settingsHavePreviewEdits(settings){
+    if(settings?.flashbackMode==="1")return true;
     if(typeof FilmLabToneCurve!=="undefined"&&FilmLabToneCurve.isActive(settings?.toneCurve))return true;
     const nonzero=id=>Number.isFinite(+settings[id])&&+settings[id]!==0;
     const strengths=["amount","chromaNoise","luminanceNoise","sharpness","fade","bloom","halation","chromatic","lightLeaks"];
@@ -4057,7 +4074,9 @@ if (window.self === window.top && navigator.standalone === true) {
       // Decode large mobile photos directly near preview size. This avoids
       // allocating a full-resolution bitmap before it can be downscaled.
       const previewMax=window.matchMedia("(max-width:900px)").matches ? 1200 : 1800;
-      const {image:img,sourceLong,sourceWidth,sourceHeight}=await decodePreview(it.file,previewMax);
+      const flashbackSource=typeof FilmLabFlashback!=="undefined"&&FilmLabFlashback.enabled(settings)
+        ?await FilmLabFlashback.render(it.file,settings,{includeOriginal:true}):null;
+      const {image:img,sourceLong,sourceWidth,sourceHeight}=flashbackSource||await decodePreview(it.file,previewMax);
       const maskAspect=(img.naturalWidth||img.width)/(img.naturalHeight||img.height);
       if(token!==previewToken) { img.close?.(); return; }
       it.exportSourceSize={width:sourceWidth,height:sourceHeight};
@@ -4066,11 +4085,13 @@ if (window.self === window.top && navigator.standalone === true) {
       // can render reliably on memory-constrained phones. Export uses its own size setting.
       const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,previewMax,it.straighten||0));
       const editingCrop=cropOpen&&index===current;
-      const original=editingCrop ? rotated : cropCanvas(rotated,it.crop);
+      const neutralRotated=flashbackSource?.original?normalizeDecodedBottomPadding(drawRotated(flashbackSource.original,it.rotation,previewMax,it.straighten||0)):rotated;
+      const original=editingCrop ? neutralRotated : cropCanvas(neutralRotated,it.crop);
+      const filmBase=editingCrop?rotated:cropCanvas(rotated,it.crop);
       const previewScale=Math.min(1,Math.max(original.width,original.height)/sourceLong);
       img.close?.();
 
-      const editedBase=processCanvas(cloneCanvas(original),previewScale,settings);
+      const editedBase=processCanvas(cloneCanvas(filmBase),previewScale,settings);
       applyChromaNoiseReduction(editedBase,previewScale,settings);
       applyLuminanceNoiseReduction(editedBase,previewScale,settings);
       applyBasicAdjustments(editedBase,settings);
@@ -4209,8 +4230,9 @@ if (window.self === window.top && navigator.standalone === true) {
   const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";
   const CAM1_PROFILE_ID="cam1-default";
   const NEWCAM_PROFILE_ID="newcam-default";
+  const FLASHBACK_PROFILE_ID="flashback-v2-default";
   const DEFAULT_CAMERA_PROFILE_ID=window.__FILMLAB_SERVER_MODE__?NEWCAM_PROFILE_ID:CAM1_PROFILE_ID;
-  function isBuiltInProfile(id){return id===CAM1_PROFILE_ID||id===NEWCAM_PROFILE_ID}
+  function isBuiltInProfile(id){return id===CAM1_PROFILE_ID||id===NEWCAM_PROFILE_ID||id===FLASHBACK_PROFILE_ID}
 
   function normalizeProfileSettings(settings,fallback=batchSettings){
     if(settings)settings=cloneSettings(settings);
@@ -4271,6 +4293,9 @@ if (window.self === window.top && navigator.standalone === true) {
     const newcam=restored.find(profile=>profile.id===NEWCAM_PROFILE_ID);
     if(newcam)newcam.name="newcam";
     else restored.push({id:NEWCAM_PROFILE_ID,name:"newcam",settings:cloneSettings(neutralPhotoSettings)});
+    const flashback=restored.find(profile=>profile.id===FLASHBACK_PROFILE_ID);
+    if(flashback){flashback.name="Flashback V2";flashback.settings.flashbackMode="1"}
+    else restored.push({id:FLASHBACK_PROFILE_ID,name:"Flashback V2",settings:{...cloneSettings(neutralPhotoSettings),flashbackMode:"1",flashbackLook:"disposable",flashbackEdgeSoftness:false}});
     cameraProfiles=restored;
     // Migrate Lab's previous default once; preserve later explicit profile choices.
     activeCameraProfileId=window.__FILMLAB_SERVER_MODE__?DEFAULT_CAMERA_PROFILE_ID:
@@ -4284,6 +4309,7 @@ if (window.self === window.top && navigator.standalone === true) {
     saveCameraProfiles();
   }
   function updateProfileUI(){
+    if(typeof refreshFlashbackUI==="function")refreshFlashbackUI();
     if(!els.profileSelect)return;
     const profile=currentCameraProfile();
     const dirty=!!profile&&!settingsMatch(capturePhotoSettings(),profile.settings);
@@ -4323,17 +4349,18 @@ if (window.self === window.top && navigator.standalone === true) {
     if(!profile||activeMask())return;
     rememberEditState();
     const settings=normalizeProfileSettings(profile.settings);
+    if(profile.id===FLASHBACK_PROFILE_ID)settings.flashbackMode="1";
     profile.settings=cloneSettings(settings);
     if((window.__FILMLAB_SERVER_MODE__||editScope==="photo")&&current>=0&&items[current]){
       items[current].settings=cloneSettings(settings);
-      if(window.__FILMLAB_SERVER_MODE__)items[current].cameraProfileId=profile.id;
+      items[current].cameraProfileId=profile.id;
       loadPhotoSettings(items[current].settings);
       updateThumbCustomBadge(current);
       scheduleLibraryState(items[current]);
       if(window.__FILMLAB_SERVER_MODE__)document.dispatchEvent(new Event("filmLabPhotoStateChange"));
     }else{
       batchSettings=cloneSettings(settings);
-      for(const item of items)item.settings=cloneSettings(settings);
+      for(const item of items){item.settings=cloneSettings(settings);item.cameraProfileId=profile.id}
       loadPhotoSettings(batchSettings);
       updateAllCustomBadges();
       scheduleAllLibraryStates();
@@ -4414,6 +4441,7 @@ if (window.self === window.top && navigator.standalone === true) {
     els.lutStrengthControl.style.opacity=available?"1":".5";
   }
   function refreshSettingUI(){
+    refreshFlashbackUI();
     refreshToneCurve();
     updateSliderLabels();
     updateExportSizeUI();
@@ -4908,7 +4936,7 @@ if (window.self === window.top && navigator.standalone === true) {
     [...els.thumbs.children].forEach((n,j)=>n.classList.toggle("active",j===i));
     const it=items[i];
     els.filename.textContent=it?.file.name || "No photo selected";
-    if(window.__FILMLAB_SERVER_MODE__){
+    if(window.__FILMLAB_SERVER_MODE__||editScope==="photo"){
       activeCameraProfileId=cameraProfileById(it?.cameraProfileId)?.id||DEFAULT_CAMERA_PROFILE_ID;
       els.profileSelect.value=activeCameraProfileId;
     }
@@ -5094,6 +5122,7 @@ if (window.self === window.top && navigator.standalone === true) {
           const importedDate=new Date();
           const it={libraryId:createLibraryId(),libraryOrder:Date.now()+added.length/1000,
             file:f,rotation:0,straighten:0,crop:null,settings:cloneSettings(batchSettings),
+            cameraProfileId:batchSettings.flashbackMode==="1"?FLASHBACK_PROFILE_ID:null,
             thumbUrl:URL.createObjectURL(source?.thumbBlob||source?.blob||f),captureDate,importedDate};
           appendLibraryItem(it);added.push(it);known.add(key);
           setProgress(index+1,files.length);
@@ -5979,7 +6008,9 @@ if (window.self === window.top && navigator.standalone === true) {
   async function processItem(it,cancellable=false){
     await processingCheckpoint(cancellable);
     const settings=it.settings||batchSettings;
-    const img=await decodeForProcessing(it.file);
+    const flashbackSource=typeof FilmLabFlashback!=="undefined"&&FilmLabFlashback.enabled(settings)
+      ?await FilmLabFlashback.render(it.file,settings,{full:true}):null;
+    const img=flashbackSource?.image||await decodeForProcessing(it.file);
     const maskAspect=(img.naturalWidth||img.width)/(img.naturalHeight||img.height);
     throwIfProcessingCancelled();
     const rotated=normalizeDecodedBottomPadding(drawRotated(img,it.rotation,0,it.straighten||0));

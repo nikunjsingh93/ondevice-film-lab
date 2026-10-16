@@ -194,6 +194,7 @@
         type: photo.editUrl ? "image/png" : photo.mime || blob.type || "image/jpeg",
         lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now()
       });
+      file._filmLabOriginalUrl=photo.originalUrl;
       await bridge.loadPhoto(file, photo.edits, Boolean(photo.editUrl));
       bridge.setSinglePhotoMode();
       lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));
@@ -493,7 +494,8 @@
     if (!response.ok) throw new Error("The original photo could not be loaded from Server Lab");
     const blob = await response.blob();
     const file = new File([blob], photo.name, { type: photo.editUrl ? "image/png" : photo.mime || blob.type || "image/jpeg", lastModified: Date.parse(photo.capturedAt || photo.importedAt) || Date.now() });
-    await bridge.loadPhoto(file, photo.edits, Boolean(photo.editUrl));
+    file._filmLabOriginalUrl=photo.originalUrl;
+      await bridge.loadPhoto(file, photo.edits, Boolean(photo.editUrl));
     document.body.classList.remove("serverPhotoLoading");
     bridge.setSinglePhotoMode();
     lastPhotoState = JSON.stringify(cleanState(bridge.captureState()));

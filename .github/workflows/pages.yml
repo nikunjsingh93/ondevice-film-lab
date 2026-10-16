@@ -13,6 +13,8 @@ on:
       - "photo-codecs.js"
       - "photo-exif.js"
       - "tone-curve.js"
+      - "flashback.js"
+      - "flashback/**"
       - "codecs/**"
       - "branding/**"
       - "icons/**"
@@ -45,8 +47,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/filmlab-pages"
-          cp index.html manifest.webmanifest sw.js photo-formats.js photo-codecs.js photo-exif.js tone-curve.js theme.css theme.js "$RUNNER_TEMP/filmlab-pages/"
-          cp -R branding icons codecs "$RUNNER_TEMP/filmlab-pages/"
+          cp index.html manifest.webmanifest sw.js photo-formats.js photo-codecs.js photo-exif.js tone-curve.js flashback.js theme.css theme.js "$RUNNER_TEMP/filmlab-pages/"
+          cp -R branding icons codecs flashback "$RUNNER_TEMP/filmlab-pages/"
           test -s "$RUNNER_TEMP/filmlab-pages/index.html"
           test -s "$RUNNER_TEMP/filmlab-pages/icons/icon-192.png"
 

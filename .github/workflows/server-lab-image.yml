@@ -12,6 +12,8 @@ on:
       - "photo-formats.js"
       - "photo-codecs.js"
       - "tone-curve.js"
+      - "flashback.js"
+      - "flashback/**"
       - "codecs/**"
       - "branding/**"
       - "icons/**"

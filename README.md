@@ -367,6 +367,16 @@ In the Server Lab gallery, choose **Select**, then click **Today**, **Yesterday*
 
 Stop Server Lab briefly or use SQLite's online backup facilities before copying a live database. At minimum, regularly back up both `/media/wvx/TOSH 4TB/OnDeviceFilmLab` and `/var/lib/ondevice-film-lab` to a second physical disk or another machine. The external drive by itself is storage, not a backup.
 
+## Flashback One35 V2
+
+Choose **Flashback V2** in Camera profile to enable the dedicated One35 V2 RAW developer. The **Flashback look** dropdown appears below it with Natural, Disposable, Point & Shoot, Rangefinder, Monochrome, Flashback V1, Gold, and Expired Superia. **Film edge softness** is off by default; enable it for the original looks’ soft edges and colour fringing.
+
+Use original, uncompressed 10-bit One35 V2 DNGs. Processing reads the Bayer sensor data, applies black-level correction, camera white balance and raw highlight recovery, transforms into ACEScg, and applies film LUTs in ACEScct before display conversion. Natural uses the ProPhoto profile tone curve. Server Lab retrieves the preserved original DNG for this mode.
+
+Preview uses a half-size sensor decode; JPEG and ZIP exports develop the full 4144 × 3088 sensor, then apply your crop, other edits and chosen export size. Settings save per photo; the web app’s **All photos** scope applies the profile/look to the batch. Other profiles use the existing processing path.
+
+WebGPU runs the imported processing pipeline when available. Browsers without WebGPU, including lab servers opened over home-network HTTP, use an isolated CPU worker with the same sensor development, colour transforms, LUT interpolation and effect order. Its wide-blur pyramid and separable chroma filter can produce small spatial differences. The engine and all film assets are included in the offline cache. See [engine provenance and license](flashback/NOTICE.md).
+
 ## License
 
-Released under the [MIT License](LICENSE). Bundled third-party codecs retain their own [licenses](codecs/SOURCES.md).
+Released under the [MIT License](LICENSE). Bundled third-party codecs retain their own [licenses](codecs/SOURCES.md). The separately loaded [Flashback processing engine](flashback/NOTICE.md), its imported source and assets are GPL-3.0; its complete source and [license](flashback/COPYING) are included in `flashback/`.
