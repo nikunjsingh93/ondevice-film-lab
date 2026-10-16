@@ -14,7 +14,8 @@ test("GitHub Pages copies every local script loaded by the offline editor", () =
   const copyLine = workflow.split(/\r?\n/).find(line => /^\s*cp index\.html /.test(line));
   assert.ok(copyLine, "Pages asset copy command is missing");
   const copied = new Set(copyLine.trim().split(/\s+/).slice(1, -1));
-  for (const [, script] of html.matchAll(/<script src="\.\/([^"]+)"/g)) {
+  for (const [, source] of html.matchAll(/<script src="\.\/([^"]+)"/g)) {
+    const script=source.split("?")[0];
     assert.ok(copied.has(script), `${script} is loaded by the editor but missing from Pages`);
     assert.ok(fs.existsSync(path.join(root, script)), `${script} is missing locally`);
   }

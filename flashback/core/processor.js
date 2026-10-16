@@ -21,13 +21,13 @@ import {
   isAvailable, loadShaderModule, createComputePipeline,
   createF32Buffer, createEmptyBuffer, createUniformBuffer, createU32Uniform,
   runCompute, readbackF32, dispatchSize, maxStorageBindingSize,
-} from './gpu.js';
+} from './gpu.js?v=20261016-preview-1';
 
 import {
   RAW_TO_ACESCG, RENDER_LIFT_EV, REVERSE_AE_T_REF, REVERSE_AE_STRENGTH,
-} from './config.js';
-import { RawDecoder } from './raw-decoder.js';
-import { Effects } from './effects.js';
+} from './config.js?v=20261016-preview-1';
+import { RawDecoder } from './raw-decoder.js?v=20261016-preview-1';
+import { Effects } from './effects.js?v=20261016-preview-1';
 
 /** Grain tiles (Refinement B — tile, not noise). All four are packed into a
  *  2×2 atlas so grain uses every original tile and repeats far less visibly. */
@@ -89,7 +89,7 @@ export class FlashbackProcessor {
 
     /** Effect/vibe config (set by editor). */
     this.config = null;
-    /** @type {import('./lut.js').GpuLut|null} */
+    /** @type {import('./lut.js?v=20261016-preview-1').GpuLut|null} */
     this.gpuLut = null;
 
     // GPU state

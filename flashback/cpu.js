@@ -11,7 +11,7 @@ import {
   CNR_THR_OTHER,
   GRAIN_TILE_SCALE,
   GRAIN_HIGHLIGHT_BIAS,
-} from "./core/config.js";
+} from "./core/config.js?v=20261016-preview-1";
 export const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 export const encode = (v) =>
   v <= 0.0078125

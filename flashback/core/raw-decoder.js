@@ -2,8 +2,8 @@
  * Retains the upstream Bayer demosaic, raw-domain highlight recovery,
  * camera AsShotNeutral white balance, and calibrated FM1 -> ACEScg path.
  * Other cameras continue through Film Lab's existing RAW decoder. */
-import {ASN_D50,FM1_WB_TO_ACESCG,FLASHBACK_EXPOSURE_COMP_EV} from './config.js';
-import {decodeOne35HalfSize,decodeOne35Full} from './one35-dng.js';
+import {ASN_D50,FM1_WB_TO_ACESCG,FLASHBACK_EXPOSURE_COMP_EV} from './config.js?v=20261016-preview-1';
+import {decodeOne35HalfSize,decodeOne35Full} from './one35-dng.js?v=20261016-preview-1';
 const FLASHBACK_EDGE_CROP=0;
 function recoverHighlights(pixels, asn, threshold = 0.95) {
   const n = pixels.length / 3;

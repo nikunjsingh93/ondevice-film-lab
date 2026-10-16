@@ -80,7 +80,7 @@ export async function loadCube(url) {
 // vibe change, reused across every preview render. The lut.wgsl shader reads it
 // as a flat `array<f32>` indexed ((r*N+g)*N+b)*3 + channel.
 
-import { createF32Buffer } from './gpu.js';
+import { createF32Buffer } from './gpu.js?v=20261016-preview-1';
 
 /**
  * A GPU-resident LUT. Holds the storage buffer + size; can be destroyed to free VRAM.

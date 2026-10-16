@@ -67,6 +67,8 @@ if (window.self === window.top && navigator.standalone === true) {
   .brandTitle{display:flex;align-items:center;gap:10px;margin-bottom:8px}
   .brandLogo{width:42px;height:42px;border-radius:10px;flex:0 0 auto;display:block}
   .webSettingsButton{display:none}
+  body.offlineEdition .brandTitle h1{flex:1;min-width:0}
+  body.offlineEdition .brandTitle .webSettingsButton{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;min-width:36px;height:36px;padding:7px;border-radius:10px}
   .webSettingsDialog{width:min(440px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:22px;border:1px solid #465875;border-radius:18px;background:#182130;color:var(--text);box-shadow:0 24px 80px #0009}
   .webSettingsDialog::backdrop{background:#060911b8;backdrop-filter:blur(8px)}
   .webSettingsHeader{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
@@ -962,7 +964,6 @@ if (window.self === window.top && navigator.standalone === true) {
         <div class="control"><label for="flashbackLook">Flashback look</label><select id="flashbackLook"><option value="natural">Natural</option><option value="disposable" selected>Disposable</option><option value="point_shoot">Point &amp; Shoot</option><option value="rangefinder">Rangefinder</option><option value="monochrome">Monochrome</option><option value="flashback_v1">Flashback V1</option><option value="reddispo">Gold</option><option value="superia">Expired Superia</option><option value="classic">Classic · camera</option><option value="mono">Monochrome · local</option><option value="beta">Beta · camera</option><option value="cine">Cine · local interpretation</option><option value="gold">Gold · camera</option><option value="retro">Retro Haze · camera</option><option value="dispo">Dispo · camera</option><option value="dmg">DMG · local interpretation</option></select></div>
         <label class="check"><input id="flashbackEdgeSoftness" type="checkbox" role="switch"> Film edge softness</label>
         <div class="notice">Uses the original Flashback One35 V2 DNG. Edge softness adds the film look’s soft corners and colour fringing.</div>
-        <a class="notice" href="./flashback/NOTICE.md" target="_blank" rel="noopener">Flashback engine credits · GPL-3.0</a>
       </div>
 
       <div id="editScopeBar" class="editScopeBar">
@@ -1370,6 +1371,11 @@ if (window.self === window.top && navigator.standalone === true) {
     <label class="themePreference">Theme<select data-theme-select aria-label="Theme"><option value="black">Black (Default)</option><option value="blue">Blue</option></select></label>
     <label class="check"><input id="webSettingsHoldOriginal" type="checkbox" role="switch"> Long press to see original</label>
     <div class="notice">Show the full edited preview. Hold the photo with a mouse or finger to compare, then release. Turn off to use the split divider. Saved automatically on this device.</div>
+    <section class="section" aria-labelledby="legalTitle">
+      <h3 id="legalTitle">Licences &amp; credits</h3>
+      <p class="notice">Flashback engine by lofilogic and contributors. GPL-3.0; provided without warranty. Redistribution is permitted under its licence.</p>
+      <p><a href="./flashback/NOTICE.md" target="_blank" rel="noopener">Credits</a> · <a href="./flashback/COPYING" target="_blank" rel="noopener">GPL-3.0 licence</a> · <a href="https://github.com/nikunjsingh93/ondevice-film-lab/tree/main/flashback" target="_blank" rel="noopener">Source code</a></p>
+    </section>
   </dialog>
 
   <div id="processingOverlay" class="processingOverlay" role="dialog" aria-modal="true" aria-labelledby="processingTitle" aria-describedby="processingDetail" aria-hidden="true">
@@ -1436,7 +1442,7 @@ if (window.self === window.top && navigator.standalone === true) {
 <script src="./photo-codecs.js"></script>
 <script src="./photo-exif.js"></script>
 <script src="./tone-curve.js"></script>
-<script src="./flashback.js"></script>
+<script src="./flashback.js?v=20261016-preview-1"></script>
 <script>
 (() => {
   "use strict";

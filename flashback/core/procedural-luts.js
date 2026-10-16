@@ -11,7 +11,7 @@
  * sRGB → sRGB gamma → a grade (white balance, contrast, saturation).
  */
 
-import { ACESCG_TO_LINSRGB, RENDER_LIFT_EV } from './config.js';
+import { ACESCG_TO_LINSRGB, RENDER_LIFT_EV } from './config.js?v=20261016-preview-1';
 
 // ACEScct decode (matches acescct.wgsl).
 const CUT_DECODE = 0.155251141552511;

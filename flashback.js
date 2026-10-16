@@ -1,7 +1,9 @@
 /* Film Lab adapter for the separately loaded Flashback development worker. */
 (function (root) {
+  const ENGINE_VERSION="20261016-preview-1";
   const workerUrl = new URL("flashback/worker.js", document.currentScript.src),
     keys = new WeakMap();
+  workerUrl.searchParams.set("v",ENGINE_VERSION);
   let nextKey = 0,
     worker = null,
     nextId = 0;
@@ -87,6 +89,8 @@
         [buffer],
       );
     });
+    if(result.engineVersion!==ENGINE_VERSION)throw Error("The Flashback processing engine needs an update. Reload the app and try again.");
+    if(result.look!==settings.flashbackLook)throw Error("The selected Flashback look could not be applied. Please try again.");
     return {
       image: canvasFrom(result.image),
       original: result.original ? canvasFrom(result.original) : null,
@@ -97,6 +101,8 @@
     };
   }
   async function render(file, settings, options = {}) {
+    // Keep one immutable recipe across file reads and queued worker requests.
+    settings={...settings,flashbackLook:settings.flashbackLook||"disposable"};
     if (!keys.has(file)) keys.set(file, ++nextKey);
     if (options.full) return renderUncached(file, settings, options);
     const key =

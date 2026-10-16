@@ -1,9 +1,10 @@
 /* GPL-3.0. Isolated Flashback One35 V2 development engine. */
-import { RawDecoder, sniffMeta } from "./core/raw-decoder.js";
-import { factoryStateFor, VIBE_PRESETS } from "./core/config.js";
-import { generateLut } from "./core/procedural-luts.js";
-import { parseCube, renderCpu, rgbaFromRgb } from "./cpu.js";
-import {EXTRA_LOOKS,configForLook,atlasLut,finishLocalLook} from "./looks.js";
+import { RawDecoder, sniffMeta } from "./core/raw-decoder.js?v=20261016-preview-1";
+import { factoryStateFor, VIBE_PRESETS } from "./core/config.js?v=20261016-preview-1";
+import { generateLut } from "./core/procedural-luts.js?v=20261016-preview-1";
+import { parseCube, renderCpu, rgbaFromRgb } from "./cpu.js?v=20261016-preview-1";
+import {EXTRA_LOOKS,configForLook,atlasLut,finishLocalLook} from "./looks.js?v=20261016-preview-1";
+export const ENGINE_VERSION="20261016-preview-1";
 export function validateDng(buffer) {
   const metadata = sniffMeta(buffer);
   if (!/flashback|one35/i.test(metadata.make || ""))
@@ -106,9 +107,9 @@ async function gpu() {
   if (!gpuAttempted) {
     gpuAttempted = true;
     try {
-      const driver = await import("./core/gpu.js");
+      const driver = await import("./core/gpu.js?v=20261016-preview-1");
       if (await driver.init()) {
-        const { FlashbackProcessor } = await import("./core/processor.js");
+        const { FlashbackProcessor } = await import("./core/processor.js?v=20261016-preview-1");
         processor = new FlashbackProcessor();
         gpuReady = await processor.init();
       }
@@ -121,6 +122,8 @@ async function gpu() {
   return gpuReady;
 }
 export async function develop(request) {
+  const look=request.look||"disposable";
+  if(!Object.hasOwn(VIBE_PRESETS,look)&&!Object.hasOwn(EXTRA_LOOKS,look))throw Error("Unsupported Flashback look: "+look);
   const key = request.key + ":" + !!request.full;
   if (key !== decodedKey) {
     validateDng(request.buffer);
@@ -138,10 +141,7 @@ export async function develop(request) {
     });
     decodedKey = key;
   }
-  const look = (Object.hasOwn(VIBE_PRESETS, request.look)||Object.hasOwn(EXTRA_LOOKS,request.look))
-      ? request.look
-      : "disposable",
-    config = configForLook(look);
+  const config=configForLook(look);
   // The reciprocal spectral sampling is what softens the corners/edges.
   // Full-frame film softness remains part of each factory look.
   if (!request.edgeSoftness) config.enable_chromatic_aberration = false;
@@ -149,7 +149,7 @@ export async function develop(request) {
   let image, original;
   if (!request.forceCpu && (await gpu())) {
     try {
-      const driver = await import("./core/gpu.js"),
+      const driver = await import("./core/gpu.js?v=20261016-preview-1"),
         device = driver.getDevice();
       if (!device || decoded.pixels.byteLength > driver.maxStorageBindingSize())
         throw Error("Flashback image exceeds GPU buffer limits");
@@ -159,7 +159,7 @@ export async function develop(request) {
         processor.setConfig(config);
         if (lut) {
           if (!gpuLuts.has(config.lut_path)) {
-            const { uploadLut } = await import("./core/lut.js");
+            const { uploadLut } = await import("./core/lut.js?v=20261016-preview-1");
             gpuLuts.set(
               config.lut_path,
               uploadLut(lut, config.lut_path, config.lut_input_space||"native"),
@@ -211,6 +211,7 @@ export async function develop(request) {
   }
   finishLocalLook(image,look);
   const result = {
+    look,engineVersion:ENGINE_VERSION,
     image: { data: image.data, width: image.width, height: image.height },
     original: original
       ? { data: original.data, width: original.width, height: original.height }

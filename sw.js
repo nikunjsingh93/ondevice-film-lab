@@ -1,4 +1,4 @@
-const CACHE_NAME = "ondevice-film-lab-v1.10.26";
+const CACHE_NAME = "ondevice-film-lab-v1.10.28";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,18 @@ const APP_SHELL = [
   "./photo-exif.js",
   "./tone-curve.js",
   "./flashback.js",
+  "./flashback.js?v=20261016-preview-1",
+  "./flashback/core/config.js?v=20261016-preview-1",
+  "./flashback/core/effects.js?v=20261016-preview-1",
+  "./flashback/core/gpu.js?v=20261016-preview-1",
+  "./flashback/core/lut.js?v=20261016-preview-1",
+  "./flashback/core/one35-dng.js?v=20261016-preview-1",
+  "./flashback/core/procedural-luts.js?v=20261016-preview-1",
+  "./flashback/core/processor.js?v=20261016-preview-1",
+  "./flashback/core/raw-decoder.js?v=20261016-preview-1",
+  "./flashback/cpu.js?v=20261016-preview-1",
+  "./flashback/looks.js?v=20261016-preview-1",
+  "./flashback/worker.js?v=20261016-preview-1",
   "./flashback/looks.js",
   "./flashback/assets/camera/betav6princeedwardstationlut.png",
   "./flashback/assets/camera/classicv12balancelut.png",

@@ -1,7 +1,7 @@
 /* GPL-3.0. Additional look definitions and atlas layout adapted from
  * nikunjsingh93/One35-Local, revision 0c34223246b7775f4c756cc83cd45a0e43149b9c.
  * Camera atlases retain their manufacturer's rights; see NOTICE.md. */
-import {factoryStateFor,VIBE_PRESETS} from './core/config.js';
+import {factoryStateFor,VIBE_PRESETS} from './core/config.js?v=20261016-preview-1';
 export const EXTRA_LOOKS={
  classic:{label:'Classic · camera',atlas:'classicv12balancelut.png'},
  mono:{label:'Monochrome · local'},

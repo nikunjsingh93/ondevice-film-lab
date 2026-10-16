@@ -21,13 +21,13 @@
 import {
   isAvailable, loadShaderModule, createComputePipeline,
   createF32Buffer, createEmptyBuffer, createUniformBuffer, createU32Uniform, runCompute, dispatchSize,
-} from './gpu.js';
+} from './gpu.js?v=20261016-preview-1';
 
 import {
   GRAIN_TILE_SCALE, GRAIN_HIGHLIGHT_BIAS, GRAIN_BLUR_SIGMA,
   CNR_SIGMA_SPACE, CNR_SIGMA_COLOR, CNR_RADIUS, CNR_THR_GREEN, CNR_THR_OTHER,
   HALATION_SCALES, HALATION_WARMTH_PCT,
-} from './config.js';
+} from './config.js?v=20261016-preview-1';
 
 const caUrl=new URL('../shaders/chromatic_aberration.wgsl',import.meta.url).href;
 const vignetteUrl=new URL('../shaders/vignette.wgsl',import.meta.url).href;
