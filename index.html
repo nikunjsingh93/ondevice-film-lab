@@ -1100,6 +1100,7 @@ if (window.self === window.top && navigator.standalone === true) {
               <select id="lutSelect" aria-label="Color LUT">
                 <option value="none" selected>No LUT</option>
               </select>
+              <button id="lutRemoveBtn" class="lutAddBtn" type="button" aria-label="Remove selected LUT" title="Remove selected LUT" disabled>×</button>
               <button id="lutAddBtn" class="lutAddBtn" type="button">Add LUT</button>
             </div>
             <input id="lutFileInput" type="file" accept=".cube,text/plain">
@@ -1833,6 +1834,16 @@ if (window.self === window.top && navigator.standalone === true) {
     const complete=transactionComplete(transaction);
     transaction.objectStore("luts").put(lut);
     await complete;
+  }
+  async function removeCustomLut(id){
+    const db=await openLibraryDB();
+    const transaction=db.transaction("luts","readwrite");
+    const complete=transactionComplete(transaction);
+    transaction.objectStore("luts").delete(id);
+    await complete;
+    customLuts.delete(id);
+    els.lutSelect.querySelector(`option[value="${CSS.escape(id)}"]`)?.remove();
+    updateLutUI();
   }
   function addLutOption(lut){
     els.lutSelect.querySelector(`option[value="${CSS.escape(lut.id)}"]`)?.remove();
@@ -4451,6 +4462,7 @@ if (window.self === window.top && navigator.standalone === true) {
       els.lutInfo.textContent=`${parts.join(" + ")} · Stored on this device`;
     }
     els.lutAddBtn.disabled=busy;
+    $("#lutRemoveBtn").disabled=busy||!available;
     els.lutStrength.disabled=busy||!available;
     els.lutStrengthControl.style.opacity=available?"1":".5";
   }
@@ -4595,6 +4607,21 @@ if (window.self === window.top && navigator.standalone === true) {
     updateExportSizeUI();saveSettings();
   });
   els.dateRename.addEventListener("change",saveSettings);
+  $("#lutRemoveBtn").addEventListener("click",async()=>{
+    const lut=customLuts.get(els.lutSelect.value);
+    if(!lut||busy)return;
+    if(!await showAppDialog({title:"Remove LUT?",message:`Remove “${lut.name}” from your library? Photos and profiles using it will render without this LUT. You can import the same file again later.`,confirmText:"Remove LUT",cancelText:"Cancel"}))return;
+    setBusy(true);
+    try{
+      if(window.filmLabRemoveLut)await window.filmLabRemoveLut(lut.id);
+      await removeCustomLut(lut.id);
+      els.lutSelect.value="none";
+      updateLutUI();rerender();scheduleAllLibraryStates();
+      setStatus(`${lut.name} removed`);
+    }catch(error){
+      await showAppDialog({title:"Could not remove LUT",message:error.message||"Please try again.",confirmText:"OK"});
+    }finally{setBusy(false)}
+  });
   els.lutAddBtn.addEventListener("click",()=>els.lutFileInput.click());
   els.lutFileInput.addEventListener("change",async()=>{
     const file=els.lutFileInput.files?.[0];
@@ -4959,7 +4986,7 @@ if (window.self === window.top && navigator.standalone === true) {
     makePreview(i);
   }
 
-  function thumbnailKey(item){return JSON.stringify({settings:cloneSettings(item.settings||batchSettings),rotation:item.rotation||0,straighten:item.straighten||0,crop:item.crop||null,masks:item.masks||[]})}
+  function thumbnailKey(item){return JSON.stringify({lutAvailable:customLuts.has((item.settings||batchSettings).lutSelect),settings:cloneSettings(item.settings||batchSettings),rotation:item.rotation||0,straighten:item.straighten||0,crop:item.crop||null,masks:item.masks||[]})}
   function publishEditedThumbnail(item,canvas,key=thumbnailKey(item)){
     if(!items.includes(item)||thumbnailKey(item)!==key)return;
     const thumb=document.createElement("canvas"),scale=Math.min(1,420/Math.max(canvas.width,canvas.height));

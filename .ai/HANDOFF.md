@@ -2,47 +2,39 @@
 
 ## Last updated
 
-- Date: 2026-10-22 (America/New_York)
+- Date: 2026-11-02 (America/New_York)
 - Agent: Codex
-- Baseline HEAD: `3409aee` — Version Flashback engine assets and move credits into Settings.
-- Working tree was clean before this task.
+- Starting/current HEAD: `6dba506` (shared memory files; previously pushed).
+- Working tree was clean before this feature. User authorized committing and pushing all feature changes. See Git history for the resulting commit and remote state.
 
-## Completed this session
+## Completed
 
-Created persistent cross-agent memory at the user's request, based on the pasted instructions, available conversation history and actual repository inspection:
+Added imported LUT removal for both OnDevice Film Lab editions. Select a LUT and use the adjacent accessible × button; confirm removal or cancel. No LUT disables the button. Saved recipes can retain the missing content ID, render without the LUT, and regain it if the same file is reimported.
 
-- `AGENTS.md`: shared startup, development and checkpoint rules.
-- `CLAUDE.md`: points Claude Code to shared instructions and memory.
-- `.ai/PROJECT.md`: durable architecture, features, decisions, pitfalls, commands and deployment/storage notes.
-- `.ai/HANDOFF.md`: current state and next steps.
-
-No application code changed. These four files are intended to be tracked; no ignore rules were added. The user subsequently authorized committing and pushing these four documentation files. No application deployment changes were requested.
-
-## Recent implementation baseline
-
-Verified local Git history:
-
-- `3409aee`: versioned Flashback module graph/cache fix; moved credits into Settings.
-- `2776946`: edited thumbnails and additional One35 looks.
-- `5efa694`: dedicated Flashback V2 RAW processing and looks.
-- `6606b31`: named S curve preset.
-- `6e12c13`: interactive curve editor for both editions.
-- `0f86f2f`: megapixel export resizing for both editions.
-
-Previous chat reported successful Pages and Docker publication of `3409aee`; external deployment status was not rechecked this session. The preceding LUT recommendation was advisory only and created no code task.
-
-## Work in progress / known issues
-
-No unfinished implementation is established by the current request. This session did not reproduce or audit runtime bugs. Do not interpret historic reports as newly confirmed open issues.
+- `index.html`: shared remove UI, IndexedDB deletion, preview refresh and thumbnail cache invalidation based on LUT availability.
+- `lab/public/lab-editor.js`: map browser content IDs to server UUIDs; delete server LUTs, await pending imports, and reconcile stale browser copies on startup.
+- `lab/server.js`: account-scoped DELETE endpoint removes LUT file and DB record; bridge exposes local deletion. Editor script URL bumped to 1.4.28.
+- `sw.js`: cache bumped to v1.10.29.
+- `lab/test/lut-removal.test.js`: persistence helper, authenticated API deletion, ownership isolation and cross-device reconciliation tests.
+- `lab/test/edited-thumbnails.test.js`: thumbnail invalidation coverage and updated context.
+- `lab/test/server.test.js`: updated editor asset version expectation.
+- `.ai/PROJECT.md`: recorded LUT management and user preference that future feature requests mean OnDevice Film Lab, not the separate Flashback app.
 
 ## Verification
 
-- Read the pasted user request, README, package scripts, Compose/Docker configuration, workflow and relevant source references.
-- Ran `git status --short` (clean initially) and `git log -6 --oneline` (baseline above).
-- Documentation-only change: no application tests or builds run for this task. Earlier chat reports of passing tests are historical, not fresh results.
+- `npm --prefix lab run check`: passed.
+- Parsed all 3 nonempty inline scripts from index.html using Node vm.Script: passed.
+- `npm --prefix lab test`: 103 tests passed, 0 failed (outside sandbox to allow local HTTP/file operations).
+- Initial sandbox test run failed on local HTTP permissions and file renames. Unsandboxed run resolved these restrictions.
+- Initial thumbnail regression failed because its isolated VM lacked the new customLuts dependency; updated its context and added cache invalidation coverage, then suite passed.
+- Browser smoke check attempted but did not start: historical temporary Playwright module was unavailable outside the sandbox. No visual browser verification claimed.
 
-## Next steps
+## Next steps / limitations
 
-1. On the next session, read shared instructions and knowledge, then run `git status --short` and inspect HEAD to identify intervening work.
-2. Wait for the user's next feature or bug request; no implementation is pending.
-3. This documentation setup is being committed and pushed with user authorization. Verify the resulting commit and remote state in Git; do not assume application deployment from a documentation-only push.
+1. Feature implementation is complete locally; no known remaining code blocker. Browser visual checks remain unverified.
+2. User requested commit/push and attached the shared-memory setup instructions. Verified AGENTS.md, CLAUDE.md and both memory files already meet that setup; preserved them. Relevant main changes trigger Pages and Docker workflows, then Lab needs image pull/redeploy. Verify workflow results before claiming deployment.
+3. Active sessions on another device reconcile server deletions when their editor reloads; no live push synchronization was added.
+
+## Prior baseline
+
+`3409aee` fixed Flashback module caching and moved credits to Settings; `2776946` added edited thumbnails and additional looks. Those features remain intact. The earlier documentation-only task created AGENTS.md, CLAUDE.md and both memory files; commit `6dba506` was pushed with user authorization.

@@ -9,6 +9,10 @@ OnDevice Film Lab processes photos with film-inspired effects and exports JPEGs.
 
 The separate `flashback-raw-editor-web` project discussed in earlier chats is a different repository. Do not confuse its UI or deployment with this app.
 
+User preference (2026-11-02): future development/feature requests refer to OnDevice Film Lab, not the separate Flashback app; the user returned that camera. Keep existing functionality unless asked to remove it.
+
+Custom LUT management: select a LUT and use the adjacent × button to remove it after confirmation. Offline deletion removes the IndexedDB entry; Lab also removes the account-owned server file/record, reconciles stale browser copies on startup, and waits for pending uploads before deleting. Saved photo recipes can retain a missing LUT reference; rendering falls back to no LUT, and reimporting the identical file restores the stable content ID. Thumbnail keys include LUT availability to invalidate stale edited previews.
+
 ## Stack and layout
 
 - `index.html`: main shared editor, including inline JavaScript, rendering, controls, browser persistence, and exports. No frontend build step or root npm package.

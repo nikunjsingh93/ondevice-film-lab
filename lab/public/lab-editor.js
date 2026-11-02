@@ -129,17 +129,31 @@
     lastProfileState = current;
   }
 
+  const serverLutIds = new Map();
+  let pendingLutUpload = Promise.resolve();
   async function syncServerLuts() {
     const result = await requestJson("/api/luts");
-    const localIds = new Set(bridge.listLutIds());
+    const remoteLocalIds = new Set();
     for (const lut of result.luts || []) {
-      if (localIds.has(lut.id)) continue;
       const response = await fetch(lut.url);
       if (!response.ok) throw new Error(`Could not download LUT “${lut.name}”`);
-      await bridge.importLutText(await response.text(), lut.fileName);
-      localIds.add(lut.id);
+      const localId = await bridge.importLutText(await response.text(), lut.fileName);
+      serverLutIds.set(localId, lut.id);
+      remoteLocalIds.add(localId);
+    }
+    // Server is authoritative: discard browser copies removed on another device.
+    for (const id of bridge.listLutIds()) {
+      if (!remoteLocalIds.has(id)) await bridge.removeLut(id);
     }
   }
+
+  window.filmLabRemoveLut = async localId => {
+    await pendingLutUpload;
+    const serverId = serverLutIds.get(localId);
+    if (!serverId) return;
+    await requestJson(`/api/luts/${encodeURIComponent(serverId)}`, { method: "DELETE" });
+    serverLutIds.delete(localId);
+  };
 
   async function uploadServerLut(file) {
     if (!(file instanceof File) || !/\.cube$/i.test(file.name)) return;
@@ -148,6 +162,8 @@
     const response = await fetch("/api/luts", { method: "POST", body: form });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "The LUT could not be saved to Server Lab");
+    const localId = await bridge.importLutText(await file.text(), file.name);
+    serverLutIds.set(localId, result.lut.id);
     notify(result.duplicate ? "LUT is already in Server Lab" : "LUT saved for all Server Lab devices");
   }
 
@@ -518,7 +534,7 @@
     document.addEventListener("change", queueStateSave, true);
     document.querySelector("#lutFileInput")?.addEventListener("change", event => {
       const file = event.target.files?.[0];
-      if (file) uploadServerLut(file).catch(error => notify(error.message, true));
+      if (file) pendingLutUpload = pendingLutUpload.then(() => uploadServerLut(file)).catch(error => notify(error.message, true));
     }, true);
     document.addEventListener("click", event => {
       if (event.target.closest("#copyEditsBtn")) saveEditClipboard();

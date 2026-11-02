@@ -1059,6 +1059,14 @@ app.put("/api/state/:key", (request, response) => {
 
 app.get("/api/luts", (request, response) => response.json({ luts: statements.listLuts.all(request.user.id).map(lutResponse) }));
 
+app.delete("/api/luts/:id", asyncRoute(async (request, response) => {
+  const row = statements.lutById.get(request.user.id, request.params.id);
+  if (!row) return response.status(404).json({ error: "LUT not found" });
+  await removeIfPresent(resolveDataPath(row.stored_path));
+  db.prepare("DELETE FROM luts WHERE user_id = ? AND id = ?").run(request.user.id, row.id);
+  response.json({ ok: true });
+}));
+
 app.get("/api/luts/:id", (request, response, next) => {
   try {
     const row = statements.lutById.get(request.user.id, request.params.id);
@@ -1217,6 +1225,7 @@ function createEditorHtml(userId = "server") {
     },
     async currentOutputName(){return current>=0&&items[current]?outputName(items[current].file):"FilmLab.jpg"},
     listLutIds(){return [...customLuts.keys()]},
+    removeLut(id){return removeCustomLut(id)},
     async importLutText(text,fileName){
       const lut=parseCubeLut(text,fileName);
       customLuts.set(lut.id,lut);
@@ -1236,7 +1245,7 @@ function createEditorHtml(userId = "server") {
   html = html.replace('const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1";', `const CAMERA_PROFILE_STORAGE_KEY="ondevice-film-lab-camera-profiles-v1-${accountKey}";`);
   html = html.replace("    const persisted=await persistImportedItems(added);", "    const persisted=true;");
   html = html.replace('if ("serviceWorker" in navigator && location.protocol !== "file:") {', 'if (false && "serviceWorker" in navigator && location.protocol !== "file:") {');
-  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.27"></script>\n</body>`);
+  html = html.replace("</body>", `<script>window.__FILMLAB_ACCOUNT_ID__=${JSON.stringify(accountKey)}</script><script src="/lab-editor.js?v=1.4.28"></script>\n</body>`);
   return html;
 }
 
