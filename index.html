@@ -1802,13 +1802,12 @@ if (window.self === window.top && navigator.standalone === true) {
       for(let row=0;row<source.length;row++)table.set(source[row],row*3);
       return table;
     };
-    const baseName=fileName.replace(/\.cube$/i,"").trim()||"Custom LUT";
     const oneMin=oneDRange?[oneDRange[0],oneDRange[0],oneDRange[0]]:[...domainMin];
     const oneMax=oneDRange?[oneDRange[1],oneDRange[1],oneDRange[1]]:[...domainMax];
     const threeMin=threeDRange?[threeDRange[0],threeDRange[0],threeDRange[0]]:[...domainMin];
     const threeMax=threeDRange?[threeDRange[1],threeDRange[1],threeDRange[1]]:[...domainMax];
     return {
-      id:cubeLutId(text),name:(title||baseName).slice(0,80),fileName,
+      id:cubeLutId(text),name:fileName,fileName,
       oneDSize,threeDSize,
       oneDData:flatten(rows.slice(0,oneDCount)),
       threeDData:flatten(rows.slice(oneDCount)),
@@ -1826,7 +1825,7 @@ if (window.self === window.top && navigator.standalone === true) {
     if(oneDData.length!==oneDSize*3||threeDData.length!==(threeDSize?threeDSize**3*3:0))return null;
     const validDomain=value=>Array.isArray(value)&&value.length===3&&value.every(Number.isFinite);
     if(!validDomain(record.oneDomainMin)||!validDomain(record.oneDomainMax)||!validDomain(record.threeDomainMin)||!validDomain(record.threeDomainMax))return null;
-    return {...record,oneDSize,threeDSize,oneDData,threeDData};
+    return {...record,name:record.fileName||record.name,oneDSize,threeDSize,oneDData,threeDData};
   }
   async function persistCustomLut(lut){
     const db=await openLibraryDB();
@@ -1848,7 +1847,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function addLutOption(lut){
     els.lutSelect.querySelector(`option[value="${CSS.escape(lut.id)}"]`)?.remove();
     const option=document.createElement("option");
-    option.value=lut.id;option.textContent=lut.name;option.title=lut.fileName||lut.name;
+    option.value=lut.id;option.textContent=lut.fileName||lut.name;option.title=lut.fileName||lut.name;
     els.lutSelect.appendChild(option);
   }
   async function restoreCustomLuts(){

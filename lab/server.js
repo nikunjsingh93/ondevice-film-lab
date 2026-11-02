@@ -334,7 +334,7 @@ function inferExtension(file, detectedFormat = "") {
 function supportedUpload(file) { return PhotoFormats.supported(file); }
 
 function lutResponse(row) {
-  return { id: row.id, name: row.name, fileName: row.file_name, size: row.byte_size, createdAt: row.created_at, url: `/api/luts/${row.id}` };
+  return { id: row.id, name: row.file_name || row.name, fileName: row.file_name, size: row.byte_size, createdAt: row.created_at, url: `/api/luts/${row.id}` };
 }
 
 function cubeLutId(text) {
@@ -1094,7 +1094,6 @@ app.post("/api/luts", quotaUploadGuard, upload.single("lut"), asyncRoute(async (
     const quotaFailure = quotaError(request.user, file.size);
     if (quotaFailure) throw quotaFailure;
     const id = crypto.randomUUID();
-    const title = text.match(/^\s*TITLE\s+"([^"]+)"/im)?.[1]?.trim();
     const fileName = path.basename(file.originalname).slice(0, 180);
     const destination = path.join(userDirectories(request.user.id).luts, `${id}.cube`);
     await fsp.rename(file.path, destination);
@@ -1102,7 +1101,7 @@ app.post("/api/luts", quotaUploadGuard, upload.single("lut"), asyncRoute(async (
       id,
       user_id: request.user.id,
       content_hash: hash,
-      name: (title || fileName.replace(/\.cube$/i, "") || "Custom LUT").slice(0, 80),
+      name: fileName,
       file_name: fileName,
       stored_path: relativeDataPath(destination),
       byte_size: file.size,
