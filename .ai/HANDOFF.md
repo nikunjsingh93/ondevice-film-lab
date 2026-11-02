@@ -26,3 +26,9 @@ LUT list names now show the original filename including .cube, rather than embed
 ## Next steps
 
 No pending implementation. Push is authorized. Relevant main pushes run Pages and Docker workflows; verify their results before claiming deployment. Lab requires image pull/redeploy. Shared agent-memory files remain configured; future requests refer to OnDevice Film Lab.
+
+## Follow-up: hide LUT extension
+
+User requested hiding .cube in the list and asked about other LUT formats. Updated shared addLutOption label to strip only a trailing .cube (case insensitive), preserving the original filename tooltip/metadata. Both editions share this UI. LUT imports still accept only .cube, supporting 1D/3D LUTs. Service worker cache is now v1.10.31.
+
+Baseline HEAD: 3a0d8e6, working tree was clean before follow-up. User subsequently authorized committing and pushing this follow-up; see Git history for the resulting commit. Node VM verified everything golden.cube displays as everything golden with its full filename tooltip; inline scripts parsed successfully. No full test suite or visual browser check for this small label change. Next step: verify deployment workflows as needed; Lab requires pulling the image and redeploying after its build completes.

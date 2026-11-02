@@ -1847,7 +1847,7 @@ if (window.self === window.top && navigator.standalone === true) {
   function addLutOption(lut){
     els.lutSelect.querySelector(`option[value="${CSS.escape(lut.id)}"]`)?.remove();
     const option=document.createElement("option");
-    option.value=lut.id;option.textContent=lut.fileName||lut.name;option.title=lut.fileName||lut.name;
+    option.value=lut.id;option.textContent=(lut.fileName||lut.name).replace(/\.cube$/i,"");option.title=lut.fileName||lut.name;
     els.lutSelect.appendChild(option);
   }
   async function restoreCustomLuts(){

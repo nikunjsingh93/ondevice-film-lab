@@ -85,4 +85,4 @@ Compose binds `FILMLAB_DATA_PATH` to `/data` and `FILMLAB_STATE_PATH` to `/state
 
 Architecture, commands and baseline commits above were checked against repository files on 2026-10-22. Some bug context comes from this conversation, not an independent reproduction during documentation setup. No claim is made that all historic chat work or external deployment state is accessible to a new agent.
 
-LUT display names use the original .cube filename (including extension), never its embedded TITLE. Existing IndexedDB records normalize their display name on hydration; Lab API responses prefer stored file_name, so no database migration or reimport is needed. LUT IDs and photo references are unchanged.
+LUT list labels use the original filename with the trailing .cube extension hidden, never its embedded TITLE. The full filename remains in the tooltip and stored metadata. Only .cube LUT import is supported (1D and 3D). Existing IndexedDB records normalize their display name on hydration; Lab API responses prefer stored file_name, so no database migration or reimport is needed. LUT IDs and photo references are unchanged.
